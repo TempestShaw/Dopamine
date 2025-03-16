@@ -2,14 +2,22 @@
 import React, { useEffect, useState } from 'react'
 
 export default function ThemeToggler() {
-    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+    const [theme, setTheme] = useState('light'); // Default theme
+
+    useEffect(() => {
+        // Set initial theme from localStorage after component mounts
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        setTheme(savedTheme);
+    }, []);
+
     const toggleTheme = () => {
         setTheme(theme === 'light' ? 'dark' : 'light');
     };
 
     useEffect(() => {
-       document.documentElement.dataset.theme = theme;
-       }, [theme]);
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('theme', theme);
+    }, [theme]);
     
     return (
     <label className="swap swap-rotate">
