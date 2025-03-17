@@ -3,29 +3,75 @@ import { useState } from 'react';
 import Image from "next/image";
 import Header from "./components/header";
 import Sidebar from "./components/sidebar";
+import { Cell, Legend, Pie, PieChart, Tooltip } from 'recharts';
 const data = {
-  "daily": [
+  "daily": {
+      "cards": [
+        {
+          "title": "Focus hours",
+          "number": 10,
+          "unit": "hours",
+          "description": "focusing on the project"
+        },
+        {
+          "title": "focus hours",
+          "number": 10,
+          "unit": "hours",
+          "description": "focusing on the project"
+        },
+        {
+          "title": "focus hours",
+          "number": 10,
+          "unit": "hours",
+          "description": "focusing on the project"
+        },
+      ],
+      "aiMessage":[
+        {text:"ABCD"},
+        {text:"ABCD"},
+        {text:"ABCD"},
+      ]
+  },
+  "charts":[
     {
-      "title": "Focus hours",
-      "number": 10,
-      "unit": "hours",
-      "description": "focusing on the project"
+      "name": "Group A",
+      "value": 400
     },
     {
-      "title": "focus hours",
-      "number": 10,
-      "unit": "hours",
-      "description": "focusing on the project"
+      "name": "Group B",
+      "value": 300
     },
     {
-      "title": "focus hours",
-      "number": 10,
-      "unit": "hours",
-      "description": "focusing on the project"
+      "name": "Group C",
+      "value": 300
     },
-
+    {
+      "name": "Group D",
+      "value": 200
+    },
+    {
+      "name": "Group E",
+      "value": 278
+    },
+    {
+      "name": "Group F",
+      "value": 189
+    }
   ]
 }
+const colors = [
+  '#f0c8ca',
+  '#5fb05a', 
+  '#cadc61',
+  '#5880ba',
+  '#abc5dc',
+  '#ff9999',
+  '#99ff99',
+  '#9999ff',
+  '#ffff99',
+  '#ff99ff'
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState('tab1');
 
@@ -50,7 +96,7 @@ export default function Home() {
                 className={`tab ${activeTab === 'tab2' ? 'tab-active' : ''}`}
                 onClick={() => setActiveTab('tab2')}
               >
-                Tab 2
+                App Usage
               </a>
               <a
                 role="tab"
@@ -63,23 +109,41 @@ export default function Home() {
 
             {activeTab === 'tab1' && (
               <div>
-                <div className="justify-self-center m-4 text-2xl">Daily Data</div>
-                <div className="flex flex-col flex-wrap md:flex-row gap-4">
-                  {data.daily.map((items) => (
-                    <div className="flex flex-col gap-1.5 p-4 bg-base-200 grow md:basis-[calc(33.333%-1rem)] rounded-lg">
-                      <div className="">{items.title}</div>
-                      <div className='text-3xl'><span className='text-primary'>{items.number}</span> {items.unit}</div>
+                <div className="mt-4 flex flex-col flex-wrap md:flex-row gap-4">
+                  {data.daily.cards.map((items, index) => (
+                    <div className="flex flex-col gap-1.5 p-4 bg-base-200 grow md:basis-[calc(33.333%-1rem)] rounded-lg" key={index}>
+                      <div className="text-strong">{items.title}</div>
+                      <div className=''><span className='text-primary text-3xl'>{items.number}</span> {items.unit}</div>
                       <div className='text-sm'>{items.description}</div>
                     </div>
+                  ))}
+                </div>
+                <div className='flex flex-col mt-4 gap-1.5'>
+                  <div className='text-strong'>AI Insights</div>
+                  {data.daily.aiMessage.map((items, index) => (
+                    <div key={index} className='w-full bg-base-200 rounded-sm p-2'>{items.text}</div>
                   ))}
                 </div>
               </div>
             )}
 
             {activeTab === 'tab2' && (
-              <div>Tab 2 Content</div>
-            )}
+              <div> 
+                <PieChart width={730} height={500}>
+                  <Tooltip />
+                  <Legend verticalAlign="top" height={36}/>
+                  <Pie data={data.charts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={200} fill="#8884d8" label>
+                  
+                  {data.charts.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                  ))}
 
+                  </Pie>
+                </PieChart>
+              </div>
+              
+            )}
+           
             {activeTab === 'tab3' && (
               <div>Tab 3 Content</div>
             )}
