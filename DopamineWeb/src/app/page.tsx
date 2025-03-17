@@ -72,28 +72,28 @@ export default function Home() {
         <Sidebar />
         <div className="flex flex-col items-center bg-base-300 w-full">
           <div className="m-2 mt-0 p-4 bg-base-100 w-full">
-            <div className="p-2 text-3xl">Today's Dashboard</div>
+            <div className="p-2 text-3xl text-base-content">Today's Dashboard</div>
             <div role="tablist" className="tabs tabs-box">
               <a
                 role="tab"
-                className={`tab ${activeTab === 'tab1' ? 'tab-active' : ''}`}
+                className={`text-base-content tab ${activeTab === 'tab1' ? 'tab-active' : ''}`}
                 onClick={() => setActiveTab('tab1')}
               >
                 OKR
               </a>
               <a
                 role="tab"
-                className={`tab ${activeTab === 'tab2' ? 'tab-active' : ''}`}
+                className={`text-base-content tab ${activeTab === 'tab2' ? 'tab-active' : ''}`}
                 onClick={() => setActiveTab('tab2')}
               >
                 App Usage
               </a>
               <a
                 role="tab"
-                className={`tab ${activeTab === 'tab3' ? 'tab-active' : ''}`}
+                className={`text-base-content tab ${activeTab === 'tab3' ? 'tab-active' : ''}`}
                 onClick={() => setActiveTab('tab3')}
               >
-                Tab 3
+                Streaks
               </a>
             </div>
 
@@ -108,10 +108,10 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <div className='flex flex-col mt-4 gap-1.5'>
+                <div className='flex flex-col rounded-lg mt-4 p-4 gap-1.5 bg-base-200'>
                   <div className='text-strong'>AI Insights</div>
                   {data.daily.aiMessage.map((items, index) => (
-                    <div key={index} className='w-full bg-base-200 rounded-sm p-2'>{items.text}</div>
+                    <div key={index} className='w-full bg-base-300 rounded-sm p-2'>{items.text}</div>
                   ))}
                 </div>
               </div>

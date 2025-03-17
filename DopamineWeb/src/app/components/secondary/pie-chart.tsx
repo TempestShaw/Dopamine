@@ -33,7 +33,7 @@ export default function PieChartComponent(data: {data:ChartData}) {
               <g>
                 <path
                   d={`M${sx} ${sy} L${mx} ${my} L${ex} ${ey}`}
-                  stroke={'rgba(0,0,0,0.3)'}
+                  stroke={colors[props.index % colors.length]}
                   fill="none"
                 />
                 <text x={cx} y={cy} dy={8} textAnchor="middle" fill='#000000'>
@@ -50,7 +50,7 @@ export default function PieChartComponent(data: {data:ChartData}) {
                   y={ey}
                   dy={18}
                   textAnchor={textAnchor}
-                  fill={"#222222"}
+                  fill={colors[props.index % colors.length]}
                 >
                   {props.value}
                 </text>
@@ -62,7 +62,7 @@ return (
 
 
 <PieChart width={730} height={500}>
-<Pie data={data.data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={100} outerRadius={200} fill="#8884d8" label={renderLabel}>
+<Pie data={data.data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={100} outerRadius={200} label={renderLabel}>
 {data.data.map((entry, index) => (
 
   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
