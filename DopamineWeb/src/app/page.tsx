@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Image from "next/image";
 import Header from "./components/header";
 import Sidebar from "./components/sidebar";
-import { Cell, Legend, Pie, PieChart, Tooltip } from 'recharts';
+import PieChartComponent from './components/secondary/pie-chart';
 const data = {
   "daily": {
       "cards": [
@@ -59,18 +59,7 @@ const data = {
     }
   ]
 }
-const colors = [
-  '#f0c8ca',
-  '#5fb05a', 
-  '#cadc61',
-  '#5880ba',
-  '#abc5dc',
-  '#ff9999',
-  '#99ff99',
-  '#9999ff',
-  '#ffff99',
-  '#ff99ff'
-];
+
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('tab1');
@@ -129,17 +118,7 @@ export default function Home() {
 
             {activeTab === 'tab2' && (
               <div> 
-                <PieChart width={730} height={500}>
-                  <Tooltip />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Pie data={data.charts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={200} fill="#8884d8" label>
-                  
-                  {data.charts.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                  ))}
-
-                  </Pie>
-                </PieChart>
+               <PieChartComponent data={data.charts}/>
               </div>
               
             )}
