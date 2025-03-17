@@ -6,7 +6,6 @@ export default function Sidebar() {
                 <button className="w-8 h-8 btn btn-outline btn-active btn-sm rounded-full bg-[#5880ba]">
                     All
                 </button>
-              
             </div>
         </div>
     )

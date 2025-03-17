@@ -4,6 +4,7 @@ import Image from "next/image";
 import Header from "./components/header";
 import Sidebar from "./components/sidebar";
 import PieChartComponent from './components/secondary/pie-chart';
+import StreakCalendar from './components/secondary/streakcalendar';
 const data = {
   "daily": {
       "cards": [
@@ -117,14 +118,14 @@ export default function Home() {
             )}
 
             {activeTab === 'tab2' && (
-              <div> 
+              <div className='flex items-center justify-center'> 
                <PieChartComponent data={data.charts}/>
               </div>
               
             )}
            
             {activeTab === 'tab3' && (
-              <div>Tab 3 Content</div>
+              <div><StreakCalendar/></div>
             )}
           </div>
         </div>
