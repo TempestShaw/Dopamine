@@ -2,16 +2,16 @@
 import React, { useEffect, useState } from 'react'
 
 export default function ThemeToggler() {
-    const [theme, setTheme] = useState('light'); // Default theme
+    const [theme, setTheme] = useState('nord'); // Default theme
 
     useEffect(() => {
         // Set initial theme from localStorage after component mounts
-        const savedTheme = localStorage.getItem('theme') || 'light';
+        const savedTheme = localStorage.getItem('theme') || 'nord';
         setTheme(savedTheme);
     }, []);
 
     const toggleTheme = () => {
-        setTheme(theme === 'light' ? 'dark' : 'light');
+        setTheme(theme === 'nord' ? 'dark' : 'nord');
     };
 
     useEffect(() => {
