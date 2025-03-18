@@ -5,12 +5,14 @@ namespace DopamineWin;
 public class NotificationIcon : ApplicationContext
 {
     private readonly WindowTracker _windowTracker;
+    private readonly SettingsService _settings;
     private readonly NotifyIcon _trayIcon;
     private readonly ToolStripItem _trackingToggle;
 
-    public NotificationIcon(WindowTracker windowTracker)
+    public NotificationIcon(WindowTracker windowTracker, SettingsService settings)
     {
         _windowTracker = windowTracker;
+        _settings = settings;
 
         _trayIcon = new NotifyIcon
         {
@@ -21,6 +23,13 @@ public class NotificationIcon : ApplicationContext
 
         _trayIcon.ContextMenuStrip.Items.Add(
             new ToolStripLabel($"Dopamine {DopamineInfo.GetVersionString()}")
+            {
+                Margin = new Padding { Top = 5, Bottom = 5 },
+                ForeColor = Color.Gray
+            }
+        );
+        _trayIcon.ContextMenuStrip.Items.Add(
+            new ToolStripLabel($"Pairing code: {_settings.Settings.PairingCode}")
             {
                 Margin = new Padding { Top = 5, Bottom = 5 },
                 ForeColor = Color.Gray
