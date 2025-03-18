@@ -68,6 +68,7 @@ public class WindowTracker : IDisposable, IAsyncDisposable
 
         _trackingReference.Cancel();
         _trackingReference.Dispose();
+        _trackingReference = null;
 
         _database.InsertActivity(ShutdownTitle, DopamineProcess);
 
