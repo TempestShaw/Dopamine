@@ -20,7 +20,7 @@ public class Program
         var notificationIcon = new NotificationIcon(windowTracker);
         var apiServer = new ApiServer(databaseService, args);
 
-        Application.Run(notificationIcon);
         apiServer.RunAsync();
+        Application.Run(notificationIcon);
     }
 }
