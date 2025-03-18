@@ -1,4 +1,6 @@
-﻿namespace DopamineWin;
+﻿using System.Reflection;
+
+namespace DopamineWin;
 
 public class NotificationIcon : ApplicationContext
 {
@@ -17,26 +19,23 @@ public class NotificationIcon : ApplicationContext
             Visible = true
         };
 
-        _trackingToggle = new ToolStripButton
-        {
-            Text = "Stop Tracking",
-            Image = null
-        };
-        _trackingToggle.Click += (sender, args) =>
+        _trayIcon.ContextMenuStrip.Items.Add(
+            new ToolStripLabel($"Dopamine {Assembly.GetExecutingAssembly().GetName().Version?.ToString()}")
+            {
+                Margin = new Padding { Top = 5, Bottom = 5 },
+                ForeColor = Color.Gray
+            }
+        );
+        _trayIcon.ContextMenuStrip.Items.Add("-");
+        _trackingToggle = _trayIcon.ContextMenuStrip.Items.Add("Stop Tracking", null, (sender, args) =>
         {
             if (_windowTracker.IsTracking)
-            {
                 _windowTracker.StopTracking();
-                _trackingToggle.Text = "Start Tracking";
-            }
             else
-            {
                 _windowTracker.StartTracking();
-                _trackingToggle.Text = "Stop Tracking";
-            }
-        };
 
-        _trayIcon.ContextMenuStrip.Items.Add(_trackingToggle);
+            UpdateToolStrip();
+        });
         _trayIcon.ContextMenuStrip.Items.Add("Exit", null, (sender, args) =>
         {
             _windowTracker.StopTracking();
@@ -45,6 +44,11 @@ public class NotificationIcon : ApplicationContext
         });
 
         _windowTracker.StartTracking();
+    }
+
+    private void UpdateToolStrip()
+    {
+        _trackingToggle.Text = _windowTracker.IsTracking ? "Stop Tracking" : "Start Tracking";
     }
 
     protected override void Dispose(bool disposing)
