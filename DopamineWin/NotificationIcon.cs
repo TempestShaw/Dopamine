@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+﻿using DopamineWin.Models;
 
 namespace DopamineWin;
 
@@ -20,7 +20,7 @@ public class NotificationIcon : ApplicationContext
         };
 
         _trayIcon.ContextMenuStrip.Items.Add(
-            new ToolStripLabel($"Dopamine {Assembly.GetExecutingAssembly().GetName().Version?.ToString()}")
+            new ToolStripLabel($"Dopamine {DopamineInfo.GetVersionString()}")
             {
                 Margin = new Padding { Top = 5, Bottom = 5 },
                 ForeColor = Color.Gray
@@ -36,12 +36,18 @@ public class NotificationIcon : ApplicationContext
 
             UpdateToolStrip();
         });
-        _trayIcon.ContextMenuStrip.Items.Add("Exit", null, (sender, args) =>
+        EventHandler onExit = (sender, args) =>
         {
             _windowTracker.StopTracking();
             _trayIcon.Visible = false;
+        };
+        _trayIcon.ContextMenuStrip.Items.Add("Exit", null, (sender, args) =>
+        {
+            onExit(sender, args);
             Application.Exit();
         });
+        Application.ApplicationExit += onExit;
+        AppDomain.CurrentDomain.ProcessExit += onExit;
 
         _windowTracker.StartTracking();
     }

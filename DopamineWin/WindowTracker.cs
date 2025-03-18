@@ -2,23 +2,24 @@
 
 public class WindowTracker : IDisposable, IAsyncDisposable
 {
-    private const int TrackingDelay = 5000;
     private const string DopamineProcess = "<Dopamine>";
     private const string IdleTitle = "<Idle>";
     private const string ShutdownTitle = "<Shutdown>";
 
     private readonly DatabaseService _database;
+    private readonly SettingsService _settings;
     private readonly ILogger<WindowTracker>? _logger;
 
     private CancellationTokenSource? _trackingReference;
-    private string _currentWindowTitle;
-    private string _currentProcessName;
+    private string? _currentWindowTitle;
+    private string? _currentProcessName;
 
     public bool IsTracking => _trackingReference != null;
 
-    public WindowTracker(DatabaseService database, ILogger<WindowTracker>? logger = null)
+    public WindowTracker(DatabaseService database, SettingsService settings, ILogger<WindowTracker>? logger = null)
     {
         _database = database;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -57,7 +58,7 @@ public class WindowTracker : IDisposable, IAsyncDisposable
                     _logger?.LogError(ex, "Failed to get active window title");
                 }
 
-                await Task.Delay(TrackingDelay, token);
+                await Task.Delay(_settings.Settings.TrackingInterval, token);
             }
         }, token, TaskCreationOptions.LongRunning, TaskScheduler.Current);
     }

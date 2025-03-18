@@ -15,10 +15,12 @@ public class Program
             builder.SetMinimumLevel(LogLevel.Debug);
         });
 
+        var settingsService = new SettingsService(loggerFactory.CreateLogger<SettingsService>());
         var databaseService = new DatabaseService(loggerFactory.CreateLogger<DatabaseService>());
-        var windowTracker = new WindowTracker(databaseService, loggerFactory.CreateLogger<WindowTracker>());
+        var windowTracker =
+            new WindowTracker(databaseService, settingsService, loggerFactory.CreateLogger<WindowTracker>());
         var notificationIcon = new NotificationIcon(windowTracker);
-        var apiServer = new ApiServer(databaseService, args);
+        var apiServer = new ApiServer(databaseService, settingsService, args);
 
         apiServer.RunAsync();
         Application.Run(notificationIcon);

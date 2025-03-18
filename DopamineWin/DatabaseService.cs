@@ -1,4 +1,5 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using DopamineWin.Models;
+using Microsoft.Data.Sqlite;
 
 namespace DopamineWin;
 
@@ -42,22 +43,22 @@ public class DatabaseService : IDisposable, IAsyncDisposable
         command.Parameters.AddWithValue("$WindowTitle", windowTitle);
         command.Parameters.AddWithValue("$ProcessName", processName);
         command.ExecuteNonQuery();
-        
+
         _logger?.LogInformation("Activity inserted");
     }
-    
-    public IEnumerable<WindowActivity> GetActivities(long start, long end)
+
+    public IEnumerable<WindowActivity> GetActivities(long from, long to)
     {
         var command = _connection.CreateCommand();
         command.CommandText = @"
                 SELECT * FROM WindowActivities
                 WHERE Timestamp >= $Start AND Timestamp <= $End
                 ORDER BY Timestamp";
-        command.Parameters.AddWithValue("$Start", start);
-        command.Parameters.AddWithValue("$End", end);
+        command.Parameters.AddWithValue("$Start", from);
+        command.Parameters.AddWithValue("$End", to);
 
         using var reader = command.ExecuteReader();
-        
+
         while (reader.Read())
         {
             yield return new WindowActivity
@@ -68,7 +69,7 @@ public class DatabaseService : IDisposable, IAsyncDisposable
                 ProcessName = reader.GetString(3)
             };
         }
-        
+
         _logger?.LogInformation("Retrieved activities");
     }
 
