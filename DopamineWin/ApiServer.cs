@@ -59,7 +59,7 @@ public class ApiServer : IDisposable, IAsyncDisposable
 
     public Task RunAsync()
     {
-        return _app.RunAsync();
+        return _app.RunAsync("http://localhost:26535/");
     }
 
     public void Dispose()
