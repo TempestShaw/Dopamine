@@ -4,7 +4,7 @@ using System.Text;
 
 namespace DopamineWin;
 
-public partial class NativeMethods
+public static partial class NativeMethods
 {
     [LibraryImport("user32.dll")]
     private static partial IntPtr GetForegroundWindow();
@@ -27,7 +27,7 @@ public partial class NativeMethods
     public static string GetActiveProcessName()
     {
         var hWnd = GetForegroundWindow();
-        if (GetWindowThreadProcessId(hWnd, out var processId) > 0)
+        if (GetWindowThreadProcessId(hWnd, out var processId) == 0)
             return string.Empty;
 
         try
