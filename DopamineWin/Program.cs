@@ -19,7 +19,8 @@ public class Program
         var databaseService = new DatabaseService(loggerFactory.CreateLogger<DatabaseService>());
         var windowTracker =
             new WindowTracker(databaseService, settingsService, loggerFactory.CreateLogger<WindowTracker>());
-        var notificationIcon = new NotificationIcon(windowTracker, settingsService);
+        var notificationIcon =
+            new NotificationIcon(windowTracker, settingsService, loggerFactory.CreateLogger<NotificationIcon>());
         var apiServer = new ApiServer(databaseService, settingsService, args);
 
         apiServer.RunAsync();

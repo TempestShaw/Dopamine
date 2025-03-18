@@ -1,16 +1,20 @@
 ﻿using DopamineWin.Models;
+using Microsoft.Win32;
 
 namespace DopamineWin;
 
 public class NotificationIcon : ApplicationContext
 {
+    private readonly ILogger<NotificationIcon>? _logger;
     private readonly WindowTracker _windowTracker;
     private readonly SettingsService _settings;
     private readonly NotifyIcon _trayIcon;
     private readonly ToolStripItem _trackingToggle;
 
-    public NotificationIcon(WindowTracker windowTracker, SettingsService settings)
+    public NotificationIcon(WindowTracker windowTracker, SettingsService settings,
+        ILogger<NotificationIcon>? logger = null)
     {
+        _logger = logger;
         _windowTracker = windowTracker;
         _settings = settings;
 
@@ -47,6 +51,7 @@ public class NotificationIcon : ApplicationContext
         });
         EventHandler onExit = (sender, args) =>
         {
+            _logger?.LogInformation("Exiting application");
             _windowTracker.StopTracking();
             _trayIcon.Visible = false;
         };
@@ -56,7 +61,24 @@ public class NotificationIcon : ApplicationContext
             Application.Exit();
         });
         Application.ApplicationExit += onExit;
-        AppDomain.CurrentDomain.ProcessExit += onExit;
+        AppDomain.CurrentDomain.DomainUnload += onExit;
+        SystemEvents.SessionEnding += (sender, args) => { onExit(sender, args); };
+        SystemEvents.SessionSwitch += (sender, args) =>
+        {
+            switch (args.Reason)
+            {
+                case SessionSwitchReason.SessionLock:
+                case SessionSwitchReason.SessionLogoff:
+                    _logger?.LogInformation("Stopping tracking due to session lock or logoff");
+                    _windowTracker.StopTracking();
+                    break;
+                case SessionSwitchReason.SessionUnlock:
+                case SessionSwitchReason.SessionLogon:
+                    _logger?.LogInformation("Starting tracking due to session lock or logon");
+                    _windowTracker.StartTracking();
+                    break;
+            }
+        };
 
         _windowTracker.StartTracking();
     }

@@ -3,8 +3,7 @@
 public class WindowTracker : IDisposable, IAsyncDisposable
 {
     private const string DopamineProcess = "<Dopamine>";
-    private const string IdleTitle = "<Idle>";
-    private const string ShutdownTitle = "<Shutdown>";
+    private const string StoppedTitle = "<Stopped>";
 
     private readonly DatabaseService _database;
     private readonly SettingsService _settings;
@@ -71,7 +70,7 @@ public class WindowTracker : IDisposable, IAsyncDisposable
         _trackingReference.Dispose();
         _trackingReference = null;
 
-        _database.InsertActivity(ShutdownTitle, DopamineProcess);
+        _database.InsertActivity(StoppedTitle, DopamineProcess);
 
         _logger?.LogInformation("Window tracking stopped");
     }
