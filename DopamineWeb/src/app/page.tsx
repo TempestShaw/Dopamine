@@ -1,4 +1,7 @@
 'use client'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { activityService } from './services/activityService';
 import { useState } from 'react';
 import Image from "next/image";
 import Header from "./components/header";
@@ -64,6 +67,17 @@ const data = {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('tab1');
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isConnected = await activityService.isAuthenticated;
+      if (!isConnected) {
+        router.push('/login');
+      }
+    };
+    checkAuth();
+  }, [router]);
 
   return (
     <div className="">

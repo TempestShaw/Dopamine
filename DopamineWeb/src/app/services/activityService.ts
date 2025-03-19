@@ -23,9 +23,35 @@ class ActivityService {
         this.baseUrl = 'http://localhost:26535';
         if (typeof window !== 'undefined') {
             this.baseUrl = localStorage.getItem('dopamineUrl') || this.baseUrl;
+            this.pinCode = localStorage.getItem('dopaminePinCode');
         }
     }
 
+    async verifyPinCode(pinCode: string): Promise<boolean> {
+        try {
+            const response = await fetch(`${this.baseUrl}/pair`, {
+                headers: {
+                    'Authorization': `BEARER ${pinCode}`
+                }
+            });
+            
+            if (response.status === 200) {
+                this.pinCode = pinCode;
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('dopaminePinCode', pinCode);
+                }
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error verifying pin code:', error);
+            return false;
+        }
+    }
+
+    isAuthenticated(): boolean {
+        return !!this.pinCode;
+    }
     setBaseUrl(url: string) {
         this.baseUrl = url;
         if (typeof window !== 'undefined') {
@@ -52,24 +78,6 @@ class ActivityService {
             return false;
         } catch (error) {
             console.error('Error checking health:', error);
-            return false;
-        }
-    }
-    async verifyPinCode(pinCode: string): Promise<boolean> {
-        try {
-            const response = await fetch(`${this.baseUrl}/pair`, {
-                headers: {
-                    'Authorization': `BEARER ${pinCode}`
-                }
-            });
-            
-            if (response.status === 200) {
-                this.pinCode = pinCode;
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Error verifying pin code:', error);
             return false;
         }
     }
