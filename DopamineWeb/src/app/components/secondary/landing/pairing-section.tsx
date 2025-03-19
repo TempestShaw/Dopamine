@@ -1,3 +1,4 @@
+'use client'
 import { activityService } from "@/app/services/activityService";
 import router from "next/router";
 import { useState } from "react";

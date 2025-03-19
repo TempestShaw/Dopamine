@@ -1,3 +1,4 @@
+'use client'
 import ThemeToggler from "./secondary/themeToggler"
 export default function Header() {
     return (

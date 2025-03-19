@@ -1,3 +1,4 @@
+'use client'
 import { Cell, Pie, PieChart } from 'recharts';
 type ChartData = {
   name: string;
