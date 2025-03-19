@@ -15,8 +15,8 @@ export default function DownloadSection() {
             if (!response) {
                 setError('Could not connect to Dopamine');
             }
-        //@ts-ignore    
         } catch (error) {
+            console.error('URL Check failed:', error);
             setError('Invalid URL format ');
         }
         setIsChecking(false);

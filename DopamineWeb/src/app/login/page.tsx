@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import PairingSession from '../components/secondary/landing/pairing-session';
+import PairingSession from '../components/secondary/landing/pairing-section';
 import DownloadSection from '../components/secondary/landing/download-section';
 import { Cell, Pie, PieChart } from 'recharts';
 import { activityService } from '../services/activityService';

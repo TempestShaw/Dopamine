@@ -12,8 +12,8 @@ export default function PairingSession() {
             if (success) {
                 router.push('/');
             }
-        //@ts-ignore  
-        } catch (err) {
+        } catch (err: unknown) {
+            console.error('Pin code verification failed:', err);
             setError('Invalid pin code');
         }
     };
