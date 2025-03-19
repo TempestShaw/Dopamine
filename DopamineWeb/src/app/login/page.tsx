@@ -1,54 +1,104 @@
 'use client'
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { activityService } from '@/app/services/activityService';
-
+import PairingSession from '../components/secondary/landing/pairing-session';
+import DownloadSection from '../components/secondary/landing/download-section';
+import { Cell, Pie, PieChart } from 'recharts';
+import { activityService } from '../services/activityService';
 export default function Login() {
-    const [pinCode, setPinCode] = useState('');
-    const [error, setError] = useState('');
-    const router = useRouter();
+    const sudoData = [{
+        name: "Work",
+        value: 4
+    },
+    {
+        name: "Social",
+        value: 1.5
+    },
+    {
+        name: "Gaming",
+        value: 2
+    },
+    ]
+    const colors = [
+        '#f0c8ca',
+        '#5fb05a',
+        '#cadc61',
+        '#5880ba',
+        '#abc5dc'
+    ];
+    //@ts-ignore
+    const renderLabel = (props) => {
+        const RADIAN = Math.PI / 180
+        const { cx, cy, midAngle, outerRadius, fill, percent, value } = props
+        const sin = Math.sin(-RADIAN * midAngle)
+        const cos = Math.cos(-RADIAN * midAngle)
+        const sx = cx + outerRadius * cos
+        const sy = cy + outerRadius * sin
+        const mx = cx + (outerRadius + 45) * cos
+        const my = cy + (outerRadius + 45) * sin
+        const ex = mx + (cos >= 0 ? 1 : -1) * 42
+        const ey = my
+        const textAnchor = cos >= 0 ? 'start' : 'end'
+        return (
+            <g>
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const success = await activityService.verifyPinCode(pinCode);
-            if (success) {
-                router.push('/');
-            }
-        } catch (error) {
-            setError('Invalid pin code');
-        }
-    };
+                <text
+                    className='text-2xl'
+                    x={mx}
+                    y={my}
+                    textAnchor={textAnchor}
+                    fill={colors[props.index % colors.length]}
+                >{props.name}</text>
+                <text
+                    x={mx}
+                    y={my}
+                    dy={18}
+                    textAnchor={textAnchor}
+                    fill={colors[props.index % colors.length]}
+                >
+                    {props.value}
+                </text>
+            </g>
+        )
+    }
 
+
+    const [hasDownloaded, setHasDownloaded] = useState(true);
+    useEffect(() => {
+        const checkDownloaded = async () => {
+            const response = await activityService.healthCheck();
+            setHasDownloaded(response);
+        };
+        checkDownloaded();
+    }, []);
     return (
-        <div className="min-h-screen flex items-center justify-center bg-base-300">
-            <div className="p-8 bg-base-100 rounded-lg shadow-lg w-96">
-                <h1 className="text-2xl text-base-content font-bold mb-6 text-center">Enter Pin Code</h1>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <input
-                            type="password"
-                            value={pinCode}
-                            onChange={(e) => setPinCode(e.target.value)}
-                            placeholder="Enter pin code"
-                            className="input w-full bg-base-200 text-base-content"
-                            maxLength={6}
-                        />
+        <div className="min-h-screen flex items-center justify-center bg-base-100">
+            <div className='flex flex-row m-16'>
+                <div className='flex flex-2/3 flex-col justify-evenly items-start'>
+                    <div className='flex flex-col pl-4'>
+                        <h1 className='text-6xl mb-6'>
+                            Dopamine
+                        </h1>
+                        <h2 className='text-2xl'>
+                            Rediscover your time
+                        </h2>
                     </div>
-                    {error && (
-                        <div className="text-error text-sm text-center">
-                            {error}
-                        </div>
+                    {hasDownloaded ? (
+                        <PairingSession />
+                    ) : (
+                        <DownloadSection />
                     )}
-                    <button
-                        type="submit"
-                        className="btn btn-primary w-full"
-                        disabled={!pinCode}
-                    >
-                        Verify
-                    </button>
-                </form>
+
+                </div>
+                <PieChart width={530} height={400}>
+                    <Pie data={sudoData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} label={renderLabel}>
+                        {sudoData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                        ))}
+
+                    </Pie>
+                </PieChart>
             </div>
         </div>
     );

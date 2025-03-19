@@ -16,10 +16,22 @@ interface DayActivity {
 class ActivityService {
     private static instance: ActivityService;
     private cache: Map<string, DayActivity> = new Map();
-    private baseUrl = 'http://localhost:6000';
+    private baseUrl: string;
     private pinCode: string | null = null;
 
-    private constructor() {}
+    private constructor() {
+        this.baseUrl = 'http://localhost:26535';
+        if (typeof window !== 'undefined') {
+            this.baseUrl = localStorage.getItem('dopamineUrl') || this.baseUrl;
+        }
+    }
+
+    setBaseUrl(url: string) {
+        this.baseUrl = url;
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('dopamineUrl', url);
+        }
+    }   
 
     static getInstance() {
         if (!this.instance) {
@@ -28,6 +40,21 @@ class ActivityService {
         return this.instance;
     }
 
+    async healthCheck(url?: string): Promise<boolean> {
+        const checkUrl = url || this.baseUrl;
+        try {
+            const response = await fetch(`${checkUrl}/identify`);
+            const data = await response.json();
+            if (data.name === "dopamine-win") {
+                if (url) this.setBaseUrl(url);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error checking health:', error);
+            return false;
+        }
+    }
     async verifyPinCode(pinCode: string): Promise<boolean> {
         try {
             const response = await fetch(`${this.baseUrl}/pair`, {
