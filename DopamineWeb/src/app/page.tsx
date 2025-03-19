@@ -70,8 +70,9 @@ export default function Home() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const isConnected = await activityService.isAuthenticated;
-      if (!isConnected) {
+      const isConnected = await activityService.isAuthenticated();
+      const isHealthy = await activityService.healthCheck();
+      if (!isConnected || !isHealthy) {
         router.push("/login");
       }
     };

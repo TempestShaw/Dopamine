@@ -31,7 +31,7 @@ class ActivityService {
         try {
             const response = await fetch(`${this.baseUrl}/pair`, {
                 headers: {
-                    'Authorization': `BEARER ${pinCode}`
+                    'Authorization': `Bearer ${pinCode}`
                 }
             });
             
@@ -89,7 +89,7 @@ class ActivityService {
 
         const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
             headers: {
-                'Authorization': `BEARER ${this.pinCode}`
+                'Authorization': `Bearer ${this.pinCode}`
             }
         });
         if (response.status === 403) throw new Error('Invalid pin code');
