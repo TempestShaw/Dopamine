@@ -12,7 +12,7 @@ export default function PairingSession() {
             if (success) {
                 router.push('/');
             }
-        } catch (error) {
+        } catch (err) {
             setError('Invalid pin code');
         }
     };

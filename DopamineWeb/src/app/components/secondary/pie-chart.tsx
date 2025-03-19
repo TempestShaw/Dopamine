@@ -16,7 +16,7 @@ export default function PieChartComponent(data: {data:ChartData}) {
         '#ffff99',
         '#ff99ff'
         ];
-        //@ts-expect-error
+        // @ts-expect-error - Recharts label prop type is not fully typed
         const renderLabel = (props) => {
             const RADIAN = Math.PI / 180
             const { cx, cy, midAngle, outerRadius } = props

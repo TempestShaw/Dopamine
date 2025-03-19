@@ -85,7 +85,7 @@ export default function Home() {
         <Sidebar />
         <div className="flex flex-col items-center bg-base-300 w-full">
           <div className="m-2 mt-0 p-4 bg-base-100 w-full">
-            <div className="p-2 text-3xl text-base-content">Today's Dashboard</div>
+            <div className="p-2 text-3xl text-base-content">Today&apos;s Dashboard</div>
             <div role="tablist" className="tabs tabs-box">
               <a
                 role="tab"
