@@ -17,9 +17,8 @@ export default function StreakCalendar() {
                 calendarType='iso8601'
                 className="" 
                 tileClassName="p-3 flex justify-center" 
-                tileContent={({ activeStartDate, date, view }) => 
+                tileContent={({ date, view }) => 
                     <CalendarTile 
-                        activeStartDate={activeStartDate} 
                         date={date} 
                         view={view} 
                         data={activities}

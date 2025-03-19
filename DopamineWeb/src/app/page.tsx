@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { activityService } from './services/activityService';
 import { useState } from 'react';
-import Image from "next/image";
 import Header from "./components/header";
 import Sidebar from "./components/sidebar";
 import PieChartComponent from './components/secondary/pie-chart';
@@ -73,7 +72,7 @@ export default function Home() {
     const checkAuth = async () => {
       const isConnected = await activityService.isAuthenticated;
       if (!isConnected) {
-        router.push('/login');
+        router.push("/login");
       }
     };
     checkAuth();

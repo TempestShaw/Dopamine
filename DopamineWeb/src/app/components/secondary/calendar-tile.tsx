@@ -9,13 +9,12 @@ type CalendarData = {
 }
 
 interface CalendarTileProps {
-    activeStartDate: Date;
     date: Date;
     view: 'month' | 'year' | 'decade' | 'century';
     data: CalendarData[];
 }
 
-export default function CalendarTile({ activeStartDate, date, view, data }: CalendarTileProps) {
+export default function CalendarTile({ date, view, data }: CalendarTileProps) {
     const getCurrentDateData = () => {
         switch(view) {
             case 'month':

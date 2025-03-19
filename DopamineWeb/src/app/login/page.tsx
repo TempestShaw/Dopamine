@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import PairingSession from '../components/secondary/landing/pairing-session';
 import DownloadSection from '../components/secondary/landing/download-section';
 import { Cell, Pie, PieChart } from 'recharts';
@@ -27,18 +26,14 @@ export default function Login() {
         '#5880ba',
         '#abc5dc'
     ];
-    //@ts-ignore
+    //@ts-expect-error
     const renderLabel = (props) => {
         const RADIAN = Math.PI / 180
-        const { cx, cy, midAngle, outerRadius, fill, percent, value } = props
+        const { cx, cy, midAngle, outerRadius } = props
         const sin = Math.sin(-RADIAN * midAngle)
         const cos = Math.cos(-RADIAN * midAngle)
-        const sx = cx + outerRadius * cos
-        const sy = cy + outerRadius * sin
         const mx = cx + (outerRadius + 45) * cos
         const my = cy + (outerRadius + 45) * sin
-        const ex = mx + (cos >= 0 ? 1 : -1) * 42
-        const ey = my
         const textAnchor = cos >= 0 ? 'start' : 'end'
         return (
             <g>

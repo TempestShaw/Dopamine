@@ -1,4 +1,4 @@
-import { Cell, Label, Legend, Pie, PieChart, Tooltip } from 'recharts';
+import { Cell, Pie, PieChart } from 'recharts';
 type ChartData = {
   name: string;
   value: number;
@@ -16,10 +16,10 @@ export default function PieChartComponent(data: {data:ChartData}) {
         '#ffff99',
         '#ff99ff'
         ];
-        //@ts-ignore
+        //@ts-expect-error
         const renderLabel = (props) => {
             const RADIAN = Math.PI / 180
-            const { cx, cy, midAngle, outerRadius, fill, percent, value } = props
+            const { cx, cy, midAngle, outerRadius } = props
             const sin = Math.sin(-RADIAN * midAngle)
             const cos = Math.cos(-RADIAN * midAngle)
             const sx = cx + outerRadius * cos
