@@ -1,11 +1,55 @@
 import { TimeSession } from "../types"
-import { format } from 'date-fns';
 
 interface StreamSectionProps {
     streamData: TimeSession[][];
 }
+interface ProcessBehavior {
+    title: string;
+    duration: number;
+    category: string;
+}
 
+interface ProcessGroup {
+    processName: string;
+    behaviors: ProcessBehavior[];
+}
+interface DailyData {
+    [time: string]: ProcessGroup[];
+}
+
+interface GroupedData {
+    [date: string]: DailyData;
+}
 export default function StreamSection({ streamData }: StreamSectionProps) {
+    const StreamViewData = (streamData: TimeSession[][]) => {
+        const groupedData: GroupedData = {};
+        streamData.forEach((daily) => {
+            groupedData[daily[0].time.split('T')[0]] = {};
+            daily.forEach((session) => {
+                const time = session.time.split('T')[1];
+                groupedData[daily[0].time.split('T')[0]][time] = [];
+                session.activities.forEach((process) => {
+                    if (!groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)) {
+                        groupedData[daily[0].time.split('T')[0]][time].push({
+                            processName: process.processName,
+                            behaviors: []
+                        });
+                    }
+                   process.behavior.forEach((behavior) => {
+                        if (!groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)?.behaviors.find((b) => b.title === behavior.title)) {
+                            groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)!.behaviors.push(behavior);
+                        }
+                        else {
+                            groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)!.behaviors.find((b) => b.title === behavior.title)!.duration += behavior.duration;
+                        }
+                    });
+                });
+            });
+        });
+        return groupedData;
+    };
+    const groupedData = StreamViewData(streamData);
+    console.log(groupedData);
     const getActivityColor = (category: string) => {
         switch (category.toLowerCase()) {
             case 'work':
@@ -20,18 +64,16 @@ export default function StreamSection({ streamData }: StreamSectionProps) {
     };
 
     return (
-        <div className="space-y-8 p-4">
+        <div className="space-y-8 p-2">
             {streamData.map((daily, dayIndex) => (
-                <div key={dayIndex} className="p-4">
-                    <h3 className="text-lg font-semibold mb-4">
+                <div key={dayIndex} className="">
+                    <h3 className="text-lg font-semibold mb-4 border-b-2">
                         {daily.length > 0 && daily[0].time.split('T')[0]}
                     </h3>
                     {daily.map((session, sessionIndex) => (
                                 session.activities.map((activity, activityIndex) => (
                                     activity.behavior.map((behavior, behaviorIndex) => {
-                                        const timeHour = parseInt(session.time.split('T')[0].split(':')[0]);
-                                        const timeMinute = parseInt(session.time.split('T')[0].split(':')[1]);
-                                        
+
                                         return (
                                             <div
                                                 key={`${sessionIndex}-${activityIndex}-${behaviorIndex}`}
