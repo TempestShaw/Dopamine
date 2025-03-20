@@ -12,26 +12,17 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchMonthData = async () => {
+        const fetchDayData = async () => {
             const today = new Date();
-            const monthAgo = new Date();
-            monthAgo.setMonth(monthAgo.getMonth() - 1);
-
-            const newActivities = [];
-            for (let d = new Date(monthAgo); d <= today; d.setDate(d.getDate() + 1)) {
-                try {
-                    const activity = await activityService.getDayActivity(new Date(d));
-                    newActivities.push(activity);
-                } catch (error) {
-                    console.error('Error fetching activity:', error);
-                }
-            }
+            const activity = await activityService.getDayActivity(today);
+            const newActivities = [activity];
+            
 
             setActivities(newActivities);
             setLoading(false);
         };
 
-        fetchMonthData();
+        fetchDayData();
     }, []);
 
     return (

@@ -72,17 +72,17 @@ class ActivityService {
     }
 
     private async fetchTitles(from: number, to: number): Promise<TitleData[]> {
-        // if (!this.pinCode) {
-        //     throw new Error('Not authenticated');
-        // }
+        if (!this.pinCode) {
+            throw new Error('Not authenticated');
+        }
 
-        // const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
-        //     headers: {
-        //         'Authorization': `Bearer ${this.pinCode}`
-        //     }
-        // });
-        // if (response.status === 403) throw new Error('Invalid pin code');
-        // return response.json();
+        const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
+            headers: {
+                'Authorization': `Bearer ${this.pinCode}`
+            }
+        });
+        if (response.status === 403) throw new Error('Invalid pin code');
+        return response.json();
         return ([
             {
                 "id": 1,
@@ -170,7 +170,7 @@ class ActivityService {
     }
     private parsingStreamData(titles: TitleData[]): TimeSession[] {
         let prevTitle = titles[0];
-        const firstTime = moment(new Date(prevTitle.timestamp * 1000)).format("HH:mm");
+        const firstTime = moment(new Date(prevTitle.timestamp * 1000)).format("YYYY-MM-DDTHH:mm");
         const timeSessions: TimeSession[] = [{ time: firstTime, activities: [] }];
        
         for (let i = 1; i < titles.length; i++) {
@@ -178,8 +178,10 @@ class ActivityService {
             const date = new Date(title.timestamp * 1000);
             const prevDate = new Date(titles[i - 1].timestamp * 1000);
             const timeDiff = date.getTime() - prevDate.getTime();
-            const titleCategory = "work";
+            
             if(timeSessions[timeSessions.length - 1].activities.length === 0){
+                
+                let titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 timeSessions[timeSessions.length - 1].activities.push({
                     processName: prevTitle.processName,
                     behavior: [{
@@ -190,9 +192,9 @@ class ActivityService {
                 });
                 continue;
             }
-            // const titleCategory = this.categorizeTitles([title]);
             if (timeDiff < 2 * 60 * 1000) {
                 const currentSession = timeSessions[timeSessions.length - 1];
+                let titleCategory = this.categorizeTitles(title.windowTitle, title.processName);
                 const existingActivity = currentSession.activities.find(
                     activity => activity.processName === title.processName
                 );
@@ -247,6 +249,31 @@ class ActivityService {
         this.cache.set(dateStr, activity);
         
         return activity;
+    }
+    async getWeekActivity(date: Date): Promise<TimeSession[][]> {
+        const weekActivities: TimeSession[][] = [];
+        const startOfWeek = moment(date).startOf('week');
+
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(startOfWeek.toDate());
+            day.setDate(day.getDate() + i);
+            weekActivities.push(await this.getDayActivity(day));
+        }
+
+        return weekActivities;
+    }
+    async getMonthActivity(date: Date): Promise<TimeSession[][]> {
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const daysInMonth = moment(date).daysInMonth();
+        const monthActivities: TimeSession[][] = [];
+
+        for (let i = 1; i <= daysInMonth; i++) {
+            const day = new Date(year, month, i);
+            monthActivities.push(await this.getDayActivity(day));
+        }
+
+        return monthActivities;
     }
 }
 

@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import PairingSession from '../components/secondary/landing/pairing-section';
 import DownloadSection from '../components/secondary/landing/download-section';
 import { Cell, Pie, PieChart } from 'recharts';
 import { activityService } from '../services/activityService';
 export default function Login() {
+   
     const sudoData = [{
         name: "Work",
         value: 2
@@ -60,13 +62,32 @@ export default function Login() {
 
 
     const [hasDownloaded, setHasDownloaded] = useState(false);
+    const router = useRouter();
+
     useEffect(() => {
-        const checkDownloaded = async () => {
-            const response = await activityService.healthCheck();
-            setHasDownloaded(response);
+        const initializeLogin = async () => {
+            try {
+                const response = await activityService.healthCheck();
+                setHasDownloaded(response);
+                
+                if (response) {
+                    const pinCode = localStorage.getItem("dopaminePinCode");
+                    if (pinCode) {
+                        const isVerified = await activityService.verifyPinCode(pinCode);
+                        if (isVerified) {
+                            router.push("/");
+                            return;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Login initialization error:", error);
+                setHasDownloaded(false);
+            }
         };
-        checkDownloaded();
-    }, []);
+
+        initializeLogin();
+    }, [router]);
     return (
         <div className="min-h-screen flex items-center justify-center bg-base-100">
             <div className='flex flex-row m-16'>

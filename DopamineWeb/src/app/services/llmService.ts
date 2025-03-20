@@ -26,7 +26,7 @@ Provide only the category name as output.
 const structuredLlm = new ChatOpenAI({
     configuration: {
         baseURL: 'https://open.bigmodel.cn/api/paas/v4/',
-        apiKey: process.env.VITE_ZHIPUAI_API_KEY,
+        apiKey: process.env.ZHIPUAI_API_KEY,
         dangerouslyAllowBrowser: true 
     }
 }).withStructuredOutput(categorySchema);

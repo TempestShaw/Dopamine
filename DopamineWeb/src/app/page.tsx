@@ -7,78 +7,8 @@ import Header from "./components/header";
 import Sidebar from "./components/sidebar";
 import PieChartComponent from './components/secondary/pie-chart';
 import StreakCalendar from './components/secondary/streakcalendar';
-
-const streamData = [
-    {
-      "time": '8:04',
-      "activities": [
-        {
-          processName: "chrome",
-          behaviors: [
-            {
-              title: "Past paper",
-              duration: 10,
-              categories: "Working"
-            },
-            {
-              title: "ABC-Youtube",
-              duration: 20,
-              categories: "Entertainment"
-            },
-          ]
-        },
-        {
-          processName: "discord",
-          behaviors: [
-            {
-              title: "artrmis",
-              duration: 30,
-              categories: "Entertainment"
-            },
-            {
-              title: "GRE 333",
-              duration: 40,
-              categories: "Entertainment"
-            },
-          ]
-        },
-      ],
-    },
-    {
-      "time": '8:17',
-      "activities": [
-        {
-          processName: "chrome",
-          behaviors: [
-            {
-              title: "Past paper",
-              duration: 10,
-              categories: "Working"
-            },
-            {
-              title: "ABC-Youtube",
-              duration: 20,
-              categories: "Entertainment"
-            },
-          ]
-        },
-        {
-          processName: "discord",
-          behaviors: [
-            {
-              title: "artrmis",
-              duration: 30,
-              categories: "Entertainment"
-            },
-            {
-              title: "GRE 333",
-              duration: 40,
-              categories: "Entertainment"
-            },
-          ]
-        },
-      ]
-    }];
+import StreamSection from './components/stream-section';
+import { useActivity } from './contexts/ActivityContext';
 
 const data = {
   "daily": {
@@ -116,9 +46,9 @@ const data = {
   ]
 }
 
-
 export default function Home() {
   const [activeTab, setActiveTab] = useState('Stream');
+  const { activities, loading } = useActivity();
   const router = useRouter();
 
   useEffect(() => {
@@ -126,11 +56,19 @@ export default function Home() {
       const isConnected = await activityService.isAuthenticated();
       const isHealthy = await activityService.healthCheck();
       if (!isConnected || !isHealthy) {
-        // router.push("/login");
+        router.push("/login");
       }
     };
     checkAuth();
   }, [router]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="loading loading-spinner loading-lg"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="">
@@ -165,14 +103,8 @@ export default function Home() {
             {activeTab === 'Stream' && (
               <div>
                 <div className="mt-4 flex flex-col flex-wrap gap-4">
-                  {streamData.map((items, index) => (
-                    // <div className="flex flex-col gap-1.5 p-4 bg-base-200 grow md:basis-[calc(33.333%-1rem)] rounded-lg" key={index}>
-                    //   <div className="text-strong">{items.title}</div>
-                    //   <div className=''><span className='text-primary text-3xl'>{items.number}</span> {items.unit}</div>
-                    //   <div className='text-sm'>{items.description}</div>
-                    // </div>
-                    <div></div>
-                  ))}
+                  <StreamSection streamData={activities}/>
+
                 </div>
 
               </div>
