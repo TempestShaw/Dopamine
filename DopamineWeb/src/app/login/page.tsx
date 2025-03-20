@@ -8,15 +8,15 @@ import { activityService } from '../services/activityService';
 export default function Login() {
     const sudoData = [{
         name: "Work",
-        value: 4
+        value: 2
     },
     {
         name: "Social",
-        value: 1.5
+        value: 4
     },
     {
         name: "Gaming",
-        value: 2
+        value: 1
     },
     ]
     const colors = [
@@ -59,7 +59,7 @@ export default function Login() {
     }
 
 
-    const [hasDownloaded, setHasDownloaded] = useState(true);
+    const [hasDownloaded, setHasDownloaded] = useState(false);
     useEffect(() => {
         const checkDownloaded = async () => {
             const response = await activityService.healthCheck();
@@ -72,17 +72,17 @@ export default function Login() {
             <div className='flex flex-row m-16'>
                 <div className='flex flex-2/3 flex-col justify-evenly items-start'>
                     <div className='flex flex-col pl-4'>
-                        <h1 className='text-6xl mb-6'>
+                        <h1 className='text-6xl mb-6 text-base-content'>
                             Dopamine
                         </h1>
-                        <h2 className='text-2xl'>
+                        <h2 className='text-2xl text-base-content'>
                             Rediscover your time
                         </h2>
                     </div>
-                    {hasDownloaded ? (
-                        <PairingSession />
-                    ) : (
+                    {!hasDownloaded ? (
                         <DownloadSection />
+                    ) : (
+                        <PairingSession />
                     )}
 
                 </div>

@@ -62,8 +62,8 @@ export default function PieChartComponent(data: {data:ChartData}) {
 return (
 
 
-<PieChart width={730} height={500}>
-<Pie data={data.data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={100} outerRadius={200} label={renderLabel}>
+<PieChart width={400} height={500}>
+<Pie data={data.data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={100} label={renderLabel}>
 {data.data.map((entry, index) => (
 
   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />

@@ -1,25 +1,14 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { activityService } from '@/app/services/activityService';
+import { ActivityContextType, TimeSession } from '../types';
 
-interface ActivityData {
-    date: string;
-    work: number;
-    study: number;
-    social: number;
-    other: number;
-    total: number;
-}
 
-interface ActivityContextType {
-    activities: ActivityData[];
-    loading: boolean;
-}
 
 const ActivityContext = createContext<ActivityContextType>({ activities: [], loading: true });
 
 export function ActivityProvider({ children }: { children: ReactNode }) {
-    const [activities, setActivities] = useState<ActivityData[]>([]);
+    const [activities, setActivities] = useState<TimeSession[][]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

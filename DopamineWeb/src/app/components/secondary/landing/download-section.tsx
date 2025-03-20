@@ -33,15 +33,15 @@ export default function DownloadSection() {
             >
                 Download for Windows
             </a>
-            <h1 className="text-slate-800">Already have Dopamine installed?</h1>
+            <h1 className="text-base-content">Already have Dopamine installed?</h1>
             <div className="flex flex-col gap-2">
                 <div className="flex flex-row items-center gap-2">
-                    <p>Enter URL:</p>
+                    <p className='text-base-content'>Enter URL:</p>
                     <input 
                         value={customUrl}
                         onChange={(e) => setCustomUrl(e.target.value)}
                         placeholder="http://localhost:26535"
-                        className="input input-bordered w-64 border-2 border-base-200"
+                        className="placeholder-base-content text-base-content input input-bordered w-64 border-2 border-base-content"
                     />
                 </div>
                 <button 

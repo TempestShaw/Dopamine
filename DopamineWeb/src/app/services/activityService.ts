@@ -1,21 +1,10 @@
-interface TitleData {
-    timestamp: number;
-    process: string;
-    title: string;
-}
+import moment, { duration } from "moment";
+import { DayActivity, TimeSession, TitleData } from "../types";
 
-interface DayActivity {
-    date: string;
-    work: number;
-    study: number;
-    social: number;
-    other: number;
-    total: number;
-}
 
 class ActivityService {
     private static instance: ActivityService;
-    private cache: Map<string, DayActivity> = new Map();
+    private cache: Map<string, TimeSession[]> = new Map();
     private baseUrl: string;
     private pinCode: string | null = null;
 
@@ -83,20 +72,58 @@ class ActivityService {
     }
 
     private async fetchTitles(from: number, to: number): Promise<TitleData[]> {
-        if (!this.pinCode) {
-            throw new Error('Not authenticated');
-        }
+        // if (!this.pinCode) {
+        //     throw new Error('Not authenticated');
+        // }
 
-        const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
-            headers: {
-                'Authorization': `Bearer ${this.pinCode}`
-            }
-        });
-        if (response.status === 403) throw new Error('Invalid pin code');
-        return response.json();
+        // const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
+        //     headers: {
+        //         'Authorization': `Bearer ${this.pinCode}`
+        //     }
+        // });
+        // if (response.status === 403) throw new Error('Invalid pin code');
+        // return response.json();
+        return ([
+            {
+                "id": 1,
+                "timestamp": 1742300803,
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "processName": "explorer"
+            },
+            {
+                "id": 2,
+                "timestamp": 1742300808,
+                "windowTitle": "Identify - My Workspace",
+                "processName": "Postman"
+            },
+            {
+                "id": 3,
+                "timestamp": 1742300817,
+                "windowTitle": "@GRE 333 - Discord",
+                "processName": "Discord"
+            },
+            {
+                "id": 4,
+                "timestamp": 1742300821,
+                "windowTitle": "<Stopped>",
+                "processName": "<Dopamine>"
+            },
+            {
+                "id": 5,
+                "timestamp": 1742301618,
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "processName": "explorer"
+            },
+            {
+                "id": 6,
+                "timestamp": 1742301620,
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "processName": "explorer"
+            },
+        ])
     }
 
-    private categorizeTitles(titles: TitleData[]): DayActivity {
+    private summarizeTitles(titles: TitleData[]): DayActivity {
         const categories = {
             work: 0,
             study: 0,
@@ -107,9 +134,9 @@ class ActivityService {
 
         titles.forEach(title => {
             // Add your categorization logic here
-            if (title.process.includes('Chrome')) categories.work++;
-            else if (title.process.includes('Word')) categories.study++;
-            else if (title.process.includes('Discord')) categories.social++;
+            if (title.processName.includes('Chrome')) categories.work++;
+            else if (title.processName.includes('Word')) categories.study++;
+            else if (title.processName.includes('Discord')) categories.social++;
             else categories.other++;
         });
 
@@ -120,16 +147,90 @@ class ActivityService {
             ...categories
         };
     }
+    private categorizeTitles(windowTitle: string, processName: string): string {
+        // Work related
+        const workRegex = /(Chrome|Edge|Firefox|Safari|Postman|VSCode|Visual Studio|IntelliJ|WebStorm|PyCharm|PhpStorm|Sublime|Atom|Terminal|iTerm|PowerShell|cmd|Git|GitHub|GitLab|Jira|Confluence|Slack|Teams|Zoom|Meet|Excel|PowerPoint|Outlook|Word|Access|SharePoint|OneDrive|Dropbox|FileZilla|putty|WinSCP|Docker|VMware|VirtualBox)/i;
+        
+        // Study related
+        const studyRegex = /(Coursera|Udemy|edX|Kindle|PDF|Notion|Evernote|OneNote|Anki|Quizlet|Canvas|Blackboard|Moodle|Academia|ResearchGate|Google Scholar|Wikipedia|Dictionary|Translator|Calculator|WolframAlpha|LaTeX|Overleaf|Mendeley|Zotero)/i;
+        
+        // Social and entertainment
+        const socialRegex = /(Discord|WhatsApp|Telegram|Signal|WeChat|LINE|Facebook|Messenger|Instagram|Twitter|LinkedIn|Reddit|TikTok|YouTube|Twitch|Netflix|Prime|Hulu|Disney|Spotify|Apple Music|Steam|Epic|Battle.net|Origin|Minecraft|Roblox)/i;
+        
+        // Development tools
+        const devRegex = /(npm|yarn|webpack|babel|react|vue|angular|node|python|java|cpp|golang|rust|ruby|php|mysql|mongodb|postgres|redis|apache|nginx|kubernetes|jenkins|travis|circleci)/i;
 
-    async getDayActivity(date: Date): Promise<DayActivity> {
+        // Check both window title and process name
+        const titleAndProcess = `${windowTitle} ${processName}`.toLowerCase();
+
+        if (workRegex.test(titleAndProcess) || devRegex.test(titleAndProcess)) return 'work';
+        if (studyRegex.test(titleAndProcess)) return 'study';
+        if (socialRegex.test(titleAndProcess)) return 'social';
+        return 'other';
+    }
+    private parsingStreamData(titles: TitleData[]): TimeSession[] {
+        let prevTitle = titles[0];
+        const firstTime = moment(new Date(prevTitle.timestamp * 1000)).format("HH:mm");
+        const timeSessions: TimeSession[] = [{ time: firstTime, activities: [] }];
+       
+        for (let i = 1; i < titles.length; i++) {
+            const title = titles[i];
+            const date = new Date(title.timestamp * 1000);
+            const prevDate = new Date(titles[i - 1].timestamp * 1000);
+            const timeDiff = date.getTime() - prevDate.getTime();
+            const titleCategory = "work";
+            if(timeSessions[timeSessions.length - 1].activities.length === 0){
+                timeSessions[timeSessions.length - 1].activities.push({
+                    processName: prevTitle.processName,
+                    behavior: [{
+                        title: prevTitle.windowTitle,
+                        duration: timeDiff,
+                        category: titleCategory
+                    }]
+                });
+                continue;
+            }
+            // const titleCategory = this.categorizeTitles([title]);
+            if (timeDiff < 2 * 60 * 1000) {
+                const currentSession = timeSessions[timeSessions.length - 1];
+                const existingActivity = currentSession.activities.find(
+                    activity => activity.processName === title.processName
+                );
+
+                if (existingActivity) {
+                    existingActivity.behavior.push({
+                        title: title.windowTitle,
+                        duration: timeDiff,
+                        category: titleCategory
+                    });
+                } else {
+                    currentSession.activities.push({
+                        processName: title.processName,
+                        behavior: [{
+                            title: title.windowTitle,
+                            duration: timeDiff,
+                            category: titleCategory
+                        }]
+                    });
+                }
+            } else {
+                const time = moment(date).format("HH:mm");
+                timeSessions.push({"time": time, "activities": []});
+                prevTitle = title;
+            }
+            }
+    console.log(timeSessions);
+    return timeSessions;
+        }
+
+    
+    async getDayActivity(date: Date): Promise<TimeSession[]> {
         const dateStr = date.toISOString().split('T')[0];
         
-        // Check cache first
         if (this.cache.has(dateStr)) {
             return this.cache.get(dateStr)!;
         }
 
-        // Fetch data for the whole day
         const startOfDay = new Date(date);
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(date);
@@ -140,7 +241,9 @@ class ActivityService {
             Math.floor(endOfDay.getTime() / 1000)
         );
 
-        const activity = this.categorizeTitles(titles);
+        // const activity = this.categorizeTitles(titles);
+        const activity = this.parsingStreamData(titles);
+        
         this.cache.set(dateStr, activity);
         
         return activity;
