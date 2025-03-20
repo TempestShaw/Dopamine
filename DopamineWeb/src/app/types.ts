@@ -28,8 +28,35 @@ time: string;
 activities: Activity[];
 }
 
-
 export interface ActivityContextType {
     activities: TimeSession[][];
     loading: boolean;
+}
+
+export interface StreamSectionProps {
+    streamData: TimeSession[][];
+}
+
+interface ProcessBehavior {
+    title: string;
+    duration: number;
+    category: string;
+}
+
+interface ProcessSummary {
+    [category: string]: number;
+}
+
+export interface ProcessGroup {
+    processName: string;
+    behaviors: ProcessBehavior[];
+    summary: ProcessSummary;
+}
+
+interface DailyData {
+    [time: string]: ProcessGroup[];
+}
+
+export interface GroupedData {
+    [date: string]: DailyData;
 }

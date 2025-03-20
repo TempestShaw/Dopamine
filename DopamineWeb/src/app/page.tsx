@@ -9,6 +9,7 @@ import PieChartComponent from './components/secondary/pie-chart';
 import StreakCalendar from './components/secondary/streakcalendar';
 import StreamSection from './components/stream-section';
 import { useActivity } from './contexts/ActivityContext';
+import GroupSection from './components/grouped-section';
 
 const activities = [[
   {
@@ -20,14 +21,21 @@ const activities = [[
           {
             title: "Past paper",
             duration: 1000,
-            category: "Working"
+            category: "work"
           },
           {
             title: "ABC-Youtube",
             duration: 2000,
             category: "Entertainment"
           },
-        ]
+        ],
+        summary: {
+          work: 1000,
+          Entertainment: 2000,
+          study: 0,
+          social: 0,
+          other: 0,
+        }
       },
       {
         processName: "discord",
@@ -42,7 +50,14 @@ const activities = [[
             duration: 4000,
             category: "Entertainment"
           },
-        ]
+        ],
+        summary: {
+          work: 0,
+          Entertainment: 7000,
+          study: 0,
+          social: 0,
+          other: 0,
+        }
       },
     ],
   },
@@ -55,14 +70,21 @@ const activities = [[
           {
             title: "Past paper",
             duration: 1000,
-            category: "Working"
+            category: "work"
           },
           {
             title: "ABC-Youtube",
             duration: 2000,
             category: "Entertainment"
           },
-        ]
+        ],
+        summary: {
+          work: 1000,
+          Entertainment: 2000,
+          study: 0,
+          social: 0,
+          other: 0,
+        }
       },
       {
         processName: "discord",
@@ -77,7 +99,14 @@ const activities = [[
             duration: 4000,
             category: "Entertainment"
           },
-        ]
+        ],
+        summary: {
+          work: 0,
+          Entertainment: 7000,
+          study: 0,
+          social: 0,
+          other: 0,
+        }
       },
     ]
   }]];
@@ -169,22 +198,14 @@ export default function Home() {
               >
                 Grouped
               </a>
-
             </div>
 
             {activeTab === 'Stream' && (
-              <div>
-                <div className="mt-4 flex flex-col flex-wrap gap-4">
-                  <StreamSection streamData={activities}/>
-
-                </div>
-
-              </div>
+              <StreamSection />
             )}
 
             {activeTab === 'Grouped' && (
-              <></>
-
+              <GroupSection />
             )}
 
 

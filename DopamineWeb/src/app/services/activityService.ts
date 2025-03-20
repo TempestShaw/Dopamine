@@ -1,5 +1,5 @@
 import moment, { duration } from "moment";
-import { DayActivity, TimeSession, TitleData } from "../types";
+import { DayActivity, GroupedData, ProcessGroup, TimeSession, TitleData } from "../types";
 
 
 class ActivityService {
@@ -70,6 +70,14 @@ class ActivityService {
             return false;
         }
     }
+    private formatWindowTitle(title: string): string {
+        // 处理文件路径类型的标题
+        if (title.includes('\\') || title.includes('/')) {
+            const parts = title.split(/[\/\\]/);
+            return parts[parts.length - 1];
+        }
+        return title;
+    }
 
     private async fetchTitles(from: number, to: number): Promise<TitleData[]> {
         if (!this.pinCode) {
@@ -86,67 +94,55 @@ class ActivityService {
         return ([
             {
                 "id": 1,
-                "timestamp": 1742300803,
+                "timestamp": 1742457401,
                 "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
                 "processName": "explorer"
             },
             {
                 "id": 2,
-                "timestamp": 1742300808,
+                "timestamp": 1742457431,
                 "windowTitle": "Identify - My Workspace",
                 "processName": "Postman"
             },
             {
                 "id": 3,
-                "timestamp": 1742300817,
-                "windowTitle": "@GRE 333 - Discord",
+                "timestamp": 1742457461,
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "processName": "explorer"
+            },
+            {
+                "id": 4,
+                "timestamp": 1742457661,
+                "windowTitle": "GRE-333",
                 "processName": "Discord"
             },
             {
                 "id": 4,
-                "timestamp": 1742300821,
+                "timestamp": 1742457681,
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "processName": "explorer"
+            },
+            {
+                "id": 5,
+                "timestamp": 1742457751,
                 "windowTitle": "<Stopped>",
                 "processName": "<Dopamine>"
             },
             {
-                "id": 5,
-                "timestamp": 1742301618,
+                "id": 6,
+                "timestamp": 1742475461,
                 "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
                 "processName": "explorer"
             },
             {
-                "id": 6,
-                "timestamp": 1742301620,
-                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
-                "processName": "explorer"
+                "id": 5,
+                "timestamp": 1742475495,
+                "windowTitle": "<Stopped>",
+                "processName": "<Dopamine>"
             },
         ])
     }
 
-    private summarizeTitles(titles: TitleData[]): DayActivity {
-        const categories = {
-            work: 0,
-            study: 0,
-            social: 0,
-            other: 0,
-            total: 0
-        };
-
-        titles.forEach(title => {
-            // Add your categorization logic here
-            if (title.processName.includes('Chrome')) categories.work++;
-            else if (title.processName.includes('Word')) categories.study++;
-            else if (title.processName.includes('Discord')) categories.social++;
-            else categories.other++;
-        });
-
-        categories.total = categories.work + categories.study + categories.social + categories.other;
-
-        return {
-            date: new Date().toISOString().split('T')[0],
-            ...categories
-        };
-    }
     private categorizeTitles(windowTitle: string, processName: string): string {
         // Work related
         const workRegex = /(Chrome|Edge|Firefox|Safari|Postman|VSCode|Visual Studio|IntelliJ|WebStorm|PyCharm|PhpStorm|Sublime|Atom|Terminal|iTerm|PowerShell|cmd|Git|GitHub|GitLab|Jira|Confluence|Slack|Teams|Zoom|Meet|Excel|PowerPoint|Outlook|Word|Access|SharePoint|OneDrive|Dropbox|FileZilla|putty|WinSCP|Docker|VMware|VirtualBox)/i;
@@ -169,59 +165,62 @@ class ActivityService {
         return 'other';
     }
     private parsingStreamData(titles: TitleData[]): TimeSession[] {
-        let prevTitle = titles[0];
-        const firstTime = moment(new Date(prevTitle.timestamp * 1000)).format("YYYY-MM-DDTHH:mm");
-        const timeSessions: TimeSession[] = [{ time: firstTime, activities: [] }];
-       
-        for (let i = 1; i < titles.length; i++) {
+        const timeSessions: TimeSession[] = [];
+        let prevTitle = titles[0]
+        for (let i = 0; i < titles.length; i++) {
             const title = titles[i];
             const date = new Date(title.timestamp * 1000);
-            const prevDate = new Date(titles[i - 1].timestamp * 1000);
+            if (i === 0) {
+                timeSessions.push({"time": moment(date).format("YYYY-MM-DDTHH:mm"), "activities": []});
+                prevTitle = title;
+                continue;
+            }
+            const prevDate = new Date(prevTitle.timestamp * 1000);
             const timeDiff = date.getTime() - prevDate.getTime();
-            
-            if(timeSessions[timeSessions.length - 1].activities.length === 0){
-                
+            if(timeSessions[timeSessions.length - 1].activities.length === 0) {
                 let titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 timeSessions[timeSessions.length - 1].activities.push({
                     processName: prevTitle.processName,
                     behavior: [{
-                        title: prevTitle.windowTitle,
+                        title: this.formatWindowTitle(prevTitle.windowTitle),
                         duration: timeDiff,
                         category: titleCategory
                     }]
                 });
+                prevTitle = title;
                 continue;
             }
             if (timeDiff < 2 * 60 * 1000) {
                 const currentSession = timeSessions[timeSessions.length - 1];
-                let titleCategory = this.categorizeTitles(title.windowTitle, title.processName);
+                let titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 const existingActivity = currentSession.activities.find(
-                    activity => activity.processName === title.processName
+                    activity => activity.processName === prevTitle.processName
                 );
 
                 if (existingActivity) {
                     existingActivity.behavior.push({
-                        title: title.windowTitle,
+                        title: this.formatWindowTitle(prevTitle.windowTitle),
                         duration: timeDiff,
                         category: titleCategory
                     });
                 } else {
                     currentSession.activities.push({
-                        processName: title.processName,
+                        processName: prevTitle.processName,
                         behavior: [{
-                            title: title.windowTitle,
+                            title: this.formatWindowTitle(prevTitle.windowTitle),
                             duration: timeDiff,
                             category: titleCategory
                         }]
                     });
                 }
+                
             } else {
-                const time = moment(date).format("HH:mm");
+                const time = moment(date).format("YYYY-MM-DDTHH:mm");
                 timeSessions.push({"time": time, "activities": []});
-                prevTitle = title;
+
             }
+            prevTitle = title;
             }
-    console.log(timeSessions);
     return timeSessions;
         }
 
@@ -243,7 +242,6 @@ class ActivityService {
             Math.floor(endOfDay.getTime() / 1000)
         );
 
-        // const activity = this.categorizeTitles(titles);
         const activity = this.parsingStreamData(titles);
         
         this.cache.set(dateStr, activity);
@@ -275,6 +273,157 @@ class ActivityService {
 
         return monthActivities;
     }
+
+    private processStreamData(streamData: TimeSession[][]): GroupedData {
+        const groupedData: GroupedData = {};
+        streamData.forEach((daily) => {
+            groupedData[daily[0].time.split('T')[0]] = {};
+            daily.forEach((session) => {
+                const time = session.time.split('T')[1];
+                groupedData[daily[0].time.split('T')[0]][time] = [];
+                session.activities.forEach((process) => {
+                    if (!groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)) {
+                        const mergedBehaviors: any[] = [];
+                        const behaviorMap = new Map();
+                        const summary: Record<string, number> = {
+                            work: 0,
+                            study: 0,
+                            social: 0,
+                            other: 0,
+                        };
+                        
+                        process.behavior.forEach(behavior => {
+                            const existingBehavior = behaviorMap.get(behavior.title);
+                            if (existingBehavior) {
+                                existingBehavior.duration += behavior.duration;
+                            } else {
+                                behaviorMap.set(behavior.title, { ...behavior });
+                                mergedBehaviors.push(behaviorMap.get(behavior.title));
+                            }
+                            
+                            summary[behavior.category] = summary[behavior.category] || 0;
+                        });
+                    
+                        groupedData[daily[0].time.split('T')[0]][time].push({
+                            processName: process.processName,
+                            behaviors: mergedBehaviors,
+                            summary: summary
+                        });
+                    }
+                    
+                    const currentGroup = groupedData[daily[0].time.split('T')[0]][time].find(
+                        (group) => group.processName === process.processName
+                    )!;
+
+                    currentGroup.summary = {
+                        work: 0,
+                        study: 0,
+                        social: 0,
+                        other: 0,
+                    };
+
+                    currentGroup.behaviors.forEach((behavior) => {
+                        currentGroup.summary[behavior.category] += behavior.duration;
+                    });
+                });
+            });
+        });
+        return groupedData;
+    }
+
+    async getProcessedDayActivity(date: Date): Promise<GroupedData> {
+        const activity = await this.getDayActivity(date);
+        return this.processStreamData([activity]);
+    }
+
+    async getProcessedWeekActivity(date: Date): Promise<GroupedData> {
+        const activities = await this.getWeekActivity(date);
+        return this.processStreamData(activities);
+    }
+
+    async getProcessedMonthActivity(date: Date): Promise<GroupedData> {
+        const activities = await this.getMonthActivity(date);
+        return this.processStreamData(activities);
+    }
+    async getGroupedDayActivity(date: Date): Promise<{ [date: string]: { [hour: string]: ProcessGroup[] } }> {
+        const processedData = await this.getProcessedDayActivity(date);
+        const dateStr = date.toISOString().split('T')[0];
+        const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {
+            [dateStr]: {}
+        };
+
+        if (processedData[dateStr]) {
+            Object.entries(processedData[dateStr]).forEach(([time, processes]) => {
+                const hour = time.split(':')[0];
+                
+                if (!groupedData[dateStr][hour]) {
+                    groupedData[dateStr][hour] = [];
+                }
+    
+                processes.forEach(process => {
+                    const existingProcess = groupedData[dateStr][hour].find(
+                        p => p.processName === process.processName
+                    );
+    
+                    if (existingProcess) {
+                        process.behaviors.forEach(behavior => {
+                            const existingBehavior = existingProcess.behaviors.find(
+                                b => b.title === behavior.title
+                            );
+                            if (existingBehavior) {
+                                existingBehavior.duration += behavior.duration;
+                            } else {
+                                existingProcess.behaviors.push({ ...behavior });
+                            }
+                        });
+    
+                        Object.entries(process.summary).forEach(([category, duration]) => {
+                            existingProcess.summary[category] = 
+                                (existingProcess.summary[category] || 0) + duration;
+                        });
+                    } else {
+                        groupedData[dateStr][hour].push({
+                            processName: process.processName,
+                            behaviors: [...process.behaviors],
+                            summary: { ...process.summary }
+                        });
+                    }
+                });
+            });
+        }
+    
+        return groupedData;
+    }
+
+    async getGroupedWeekActivity(date: Date): Promise<{ [date: string]: { [hour: string]: ProcessGroup[] } }> {
+        const startOfWeek = moment(date).startOf('week');
+        const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {};
+
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(startOfWeek.toDate());
+            day.setDate(day.getDate() + i);
+            const dailyData = await this.getGroupedDayActivity(day);
+            Object.assign(groupedData, dailyData);
+        }
+
+        return groupedData;
+    }
+
+    async getGroupedMonthActivity(date: Date): Promise<{ [date: string]: { [hour: string]: ProcessGroup[] } }> {
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const daysInMonth = moment(date).daysInMonth();
+        const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {};
+
+        for (let i = 1; i <= daysInMonth; i++) {
+            const day = new Date(year, month, i);
+            const dailyData = await this.getGroupedDayActivity(day);
+            Object.assign(groupedData, dailyData);
+        }
+
+        return groupedData;
+    }
 }
 
 export const activityService = ActivityService.getInstance();
+
