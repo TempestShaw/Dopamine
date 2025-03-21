@@ -1,5 +1,5 @@
 import moment from "moment";
-import { GroupedData, ProcessGroup, TimeSession, TitleData } from "../types";
+import { GroupedData, ProcessGroup, ProcessSummary, TimeSession, TitleData } from "../types";
 
 
 class ActivityService {
@@ -224,6 +224,38 @@ class ActivityService {
     return timeSessions;
         }
 
+
+
+    getCategorySummary(data: GroupedData | { [hour: string]: ProcessGroup[] } | ProcessGroup[]): ProcessSummary {
+        const summary: ProcessSummary = {};
+
+        const processValue = (value: GroupedData | { [hour: string]: ProcessGroup[] } | ProcessGroup[]) => {
+            if (Array.isArray(value)) {
+                value.forEach(group => {
+                    if ('summary' in group) {
+                        Object.entries(group.summary).forEach(([category, duration]) => {
+                            summary[category] = (summary[category] || 0) + duration;
+                        });
+                    }
+                });
+            } else if (typeof value === 'object' && value !== null) {
+                Object.values(value).forEach(v => processValue(v));
+            }
+        };
+
+        processValue(data);
+        
+        summary.total = Object.entries(summary)
+            .filter(([key]) => key !== 'total')
+            .reduce((acc, [_, duration]) => acc + duration, 0);
+
+        return summary;
+    }
+
+    async getActivitySummary(timeRange: 'day' | 'week' | 'month', date: Date): Promise<ProcessSummary> {
+        const groupedData = await this.getGroupedActivity(timeRange, date);
+        return this.getCategorySummary(groupedData);
+    }
     
     async getDayActivity(date: Date): Promise<TimeSession[]> {
         const dateStr = date.toISOString().split('T')[0];
@@ -286,8 +318,10 @@ class ActivityService {
     private processStreamData(streamData: TimeSession[][]): GroupedData {
         const groupedData: GroupedData = {};
         streamData.forEach((daily) => {
+            if (!daily || daily.length === 0) return;
             groupedData[daily[0].time.split('T')[0]] = {};
             daily.forEach((session) => {
+                if (!session.time) return;
                 const time = session.time.split('T')[1];
                 groupedData[daily[0].time.split('T')[0]][time] = [];
                 session.activities.forEach((process) => {
@@ -367,7 +401,7 @@ class ActivityService {
             case 'day': {
                 const processedData = await this.getProcessedDayActivity(date);
                 const dateStr = date.toISOString().split('T')[0];
-                const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {
+                const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {  
                     [dateStr]: {}
                 };
 
@@ -444,6 +478,7 @@ class ActivityService {
                 throw new Error('Invalid time range specified');
         }
     }
+
 }
 
 export const activityService = ActivityService.getInstance();

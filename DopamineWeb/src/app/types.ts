@@ -43,7 +43,7 @@ interface ProcessBehavior {
     category: string;
 }
 
-interface ProcessSummary {
+export interface ProcessSummary {
     [category: string]: number;
 }
 
