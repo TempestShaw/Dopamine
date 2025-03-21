@@ -247,7 +247,7 @@ class ActivityService {
         
         summary.total = Object.entries(summary)
             .filter(([key]) => key !== 'total')
-            .reduce((acc, [_, duration]) => acc + duration, 0);
+            .reduce((acc, [, duration]) => acc + duration, 0);
 
         return summary;
     }

@@ -5,10 +5,9 @@ import { useState, useEffect } from "react";
 interface CalendarTileProps {
     date: Date;
     view: 'month' | 'year' | 'decade' | 'century';
-    data: {[date: string]: {[hour: string]: ProcessGroup[];}};
 }
 
-export default function CalendarTile({ date, view, data }: CalendarTileProps) {
+export default function CalendarTile({ date, view }: CalendarTileProps) {
     const [currentDateData, setCurrentDateData] = useState<number>(0);
 
     useEffect(() => {

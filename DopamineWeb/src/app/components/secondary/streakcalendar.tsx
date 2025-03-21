@@ -4,7 +4,7 @@ import CalendarTile from "./calendar-tile";
 import { useActivity } from '@/app/contexts/ActivityContext';
 
 export default function StreakCalendar() {
-    const { groupedActivities, loading } = useActivity();
+    const { loading } = useActivity();
 
     if (loading) {
         return <div>Loading...</div>;
@@ -21,7 +21,6 @@ export default function StreakCalendar() {
                     <CalendarTile 
                         date={date} 
                         view={view} 
-                        data={groupedActivities}
                     />
                 } 
             />
