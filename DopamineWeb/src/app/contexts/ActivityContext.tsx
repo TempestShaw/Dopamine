@@ -6,7 +6,7 @@ import { TimeSession, GroupedData, ProcessGroup } from '../types';
 interface ExtendedActivityContextType {
     rawActivities: TimeSession[][];
     processedActivities: GroupedData;
-    groupedActivities: {[date: string]: { [hour: string]: ProcessGroup[] }};
+    groupedActivities: {[date: string]: { [time: string]: ProcessGroup[] }};
     loading: boolean;
     timeRange: 'day' | 'week' | 'month';
     selectedDate: Date;

@@ -275,44 +275,58 @@ class ActivityService {
         );
 
         const activity = this.parsingStreamData(titles);
-        
         this.cache.set(dateStr, activity);
         
         return activity;
     }
+
     async getActivities(timeRange: 'day' | 'week' | 'month', date: Date): Promise<TimeSession[][]> {
+        let startTime: Date, endTime: Date;
+
         switch (timeRange) {
             case 'day':
                 return [await this.getDayActivity(date)];
                 
             case 'week': {
-                const weekActivities: TimeSession[][] = [];
-                const startOfWeek = moment(date).startOf('week');
-                
-                for (let i = 0; i < 7; i++) {
-                    const day = new Date(startOfWeek.toDate());
-                    day.setDate(day.getDate() + i);
-                    weekActivities.push(await this.getDayActivity(day));
-                }
-                return weekActivities;
+                startTime = moment(date).startOf('week').toDate();
+                endTime = moment(date).endOf('week').toDate();
+                break;
             }
                 
             case 'month': {
-                const monthActivities: TimeSession[][] = [];
-                const daysInMonth = moment(date).daysInMonth();
-                const month = date.getMonth();
-                const year = date.getFullYear();
-                
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const day = new Date(year, month, i);
-                    monthActivities.push(await this.getDayActivity(day));
-                }
-                return monthActivities;
+                startTime = moment(date).startOf('month').toDate();
+                endTime = moment(date).endOf('month').toDate();
+                break;
             }
                 
             default:
                 throw new Error('Invalid time range specified');
         }
+        
+        const titles = await this.fetchTitles(
+            Math.floor(startTime.getTime() / 1000),
+            Math.floor(endTime.getTime() / 1000)
+        );
+
+        const groupedTitles: { [key: string]: TitleData[] } = {};
+        titles.forEach(title => {
+            const day = moment(title.timestamp * 1000).format('YYYY-MM-DD');
+            if (!groupedTitles[day]) {
+                groupedTitles[day] = [];
+            }
+            groupedTitles[day].push(title);
+        });
+
+        const activities: TimeSession[][] = [];
+        const days = Object.keys(groupedTitles).sort();
+        
+        days.forEach(day => {
+            const dayActivities = this.parsingStreamData(groupedTitles[day]);
+            this.cache.set(day, dayActivities);
+            activities.push(dayActivities);
+        });
+
+        return activities;
     }
 
     private processStreamData(streamData: TimeSession[][]): GroupedData {
@@ -396,25 +410,25 @@ class ActivityService {
         const activities = await this.getActivities('month', date);
         return this.processStreamData(activities);
     }
-    async getGroupedActivity(timeRange: 'day' | 'week' | 'month', date: Date): Promise<{ [date: string]: { [hour: string]: ProcessGroup[] } }> {
+    async getGroupedActivity(timeRange: 'day' | 'week' | 'month', date: Date): Promise<{ [date: string]: { [timeUnit: string]: ProcessGroup[] } }> {
         switch (timeRange) {
             case 'day': {
                 const processedData = await this.getProcessedDayActivity(date);
                 const dateStr = date.toISOString().split('T')[0];
-                const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {  
+                const groupedData: { [date: string]: { [time: string]: ProcessGroup[] } } = {  
                     [dateStr]: {}
                 };
 
                 if (processedData[dateStr]) {
                     Object.entries(processedData[dateStr]).forEach(([time, processes]) => {
-                        const hour = time.split(':')[0];
+                        const timeUnit = time.split(':')[0];
                         
-                        if (!groupedData[dateStr][hour]) {
-                            groupedData[dateStr][hour] = [];
+                        if (!groupedData[dateStr][timeUnit]) {
+                            groupedData[dateStr][timeUnit] = [];
                         }
             
                         processes.forEach(process => {
-                            const existingProcess = groupedData[dateStr][hour].find(
+                            const existingProcess = groupedData[dateStr][timeUnit].find(
                                 p => p.processName === process.processName
                             );
             
@@ -435,7 +449,7 @@ class ActivityService {
                                         (existingProcess.summary[category] || 0) + duration;
                                 });
                             } else {
-                                groupedData[dateStr][hour].push({
+                                groupedData[dateStr][timeUnit].push({
                                     processName: process.processName,
                                     behaviors: [...process.behaviors],
                                     summary: { ...process.summary }
@@ -449,28 +463,103 @@ class ActivityService {
 
             case 'week': {
                 const startOfWeek = moment(date).startOf('week');
-                const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {};
+                const processedData = await this.getProcessedWeekActivity(date);
+                const groupedData: { [date: string]: { [day: string]: ProcessGroup[] } } = {};
+                const weekStr = startOfWeek.format('YYYY-[W]WW');
+                groupedData[weekStr] = {};
 
-                for (let i = 0; i < 7; i++) {
-                    const day = new Date(startOfWeek.toDate());
-                    day.setDate(day.getDate() + i);
-                    const dailyData = await this.getGroupedActivity('day', day);
-                    Object.assign(groupedData, dailyData);
-                }
+                Object.entries(processedData).forEach(([dateStr, dailyData]) => {
+                    const currentDate = moment(dateStr);
+                    const dayStr = currentDate.format('DD');
+                    
+                    if (!groupedData[weekStr][dayStr]) {
+                        groupedData[weekStr][dayStr] = [];
+                    }
+
+                    Object.values(dailyData).forEach(sessionGroup => {
+                        sessionGroup.forEach(process => {
+                            const existingProcess = groupedData[weekStr][dayStr].find(
+                                p => p.processName === process.processName
+                            );
+
+                            if (existingProcess) {
+                                process.behaviors.forEach(behavior => {
+                                    const existingBehavior = existingProcess.behaviors.find(
+                                        b => b.title === behavior.title
+                                    );
+                                    if (existingBehavior) {
+                                        existingBehavior.duration += behavior.duration;
+                                    } else {
+                                        existingProcess.behaviors.push({ ...behavior });
+                                    }
+                                });
+            
+                                Object.entries(process.summary).forEach(([category, duration]) => {
+                                    existingProcess.summary[category] = 
+                                        (existingProcess.summary[category] || 0) + duration;
+                                });
+                            } else {
+                                groupedData[weekStr][dayStr].push({
+                                    processName: process.processName,
+                                    behaviors: [...process.behaviors],
+                                    summary: { ...process.summary }
+                                });
+                            }
+                        });
+                    });
+                });
+
                 return groupedData;
             }
 
             case 'month': {
-                const month = date.getMonth();
-                const year = date.getFullYear();
-                const daysInMonth = moment(date).daysInMonth();
-                const groupedData: { [date: string]: { [hour: string]: ProcessGroup[] } } = {};
+                const startOfMonth = moment(date).startOf('month');
+                const processedData = await this.getProcessedMonthActivity(date);
+                const groupedData: { [date: string]: { [week: string]: ProcessGroup[] } } = {};
+                const monthStr = startOfMonth.format('YYYY-MM');
+                groupedData[monthStr] = {};
 
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const day = new Date(year, month, i);
-                    const dailyData = await this.getGroupedActivity('day', day);
-                    Object.assign(groupedData, dailyData);
-                }
+                Object.entries(processedData).forEach(([dateStr, dailyData]) => {
+                    const currentDate = moment(dateStr);
+                    const weekStr = `W${currentDate.week()}`;
+                    
+                    if (!groupedData[monthStr][weekStr]) {
+                        groupedData[monthStr][weekStr] = [];
+                    }
+
+                    Object.values(dailyData).forEach(sessionGroup => {
+                        sessionGroup.forEach(process => {
+                            const existingProcess = groupedData[monthStr][weekStr].find(
+                                p => p.processName === process.processName
+                            );
+
+                            if (existingProcess) {
+                                process.behaviors.forEach(behavior => {
+                                    const existingBehavior = existingProcess.behaviors.find(
+                                        b => b.title === behavior.title
+                                    );
+                                    if (existingBehavior) {
+                                        existingBehavior.duration += behavior.duration;
+                                    } else {
+                                        existingProcess.behaviors.push({ ...behavior });
+                                    }
+                                });
+            
+                                Object.entries(process.summary).forEach(([category, duration]) => {
+                                    existingProcess.summary[category] = 
+                                        (existingProcess.summary[category] || 0) + duration;
+                                });
+                            } else {
+                                groupedData[monthStr][weekStr].push({
+                                    processName: process.processName,
+                                    behaviors: [...process.behaviors],
+                                    summary: { ...process.summary }
+                                });
+                            }
+                        });
+                    });
+                });
+
                 return groupedData;
             }
 
