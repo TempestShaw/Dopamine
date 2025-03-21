@@ -175,13 +175,13 @@ export default function Home() {
     <div className="">
       <Header />
       <main className="flex p-4 h-[calc(100vh-64px)] bg-base-300">
-        <div className='flex-1/5 bg-base-100'>
+        <div className='flex-1/12 bg-base-100'>
           <div className='flex flex-col h-full justify-between'>
             <StreakCalendar />
             <Sidebar />
           </div>
         </div>
-        <div className="flex flex-2/5 flex-col items-center ">
+        <div className="flex flex-8/12 flex-col items-center ">
           <div className="p-4 bg-base-100 h-full w-full">
             <div role="tablist" className="tabs tabs-box w-fit ml-auto">
               <a
