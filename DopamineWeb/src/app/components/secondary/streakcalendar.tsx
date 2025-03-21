@@ -1,6 +1,6 @@
 'use client'
 import Calendar from "react-calendar";
-import CalendarTile from "./calendar-tile";
+// import CalendarTile from "./calendar-tile";
 import { useActivity } from '@/app/contexts/ActivityContext';
 
 export default function StreakCalendar() {
@@ -17,13 +17,13 @@ export default function StreakCalendar() {
                 calendarType='iso8601'
                 className="" 
                 tileClassName="p-3 flex justify-center" 
-                tileContent={({ date, view }) => 
-                    <CalendarTile 
-                        date={date} 
-                        view={view} 
-                        data={rawActivities}
-                    />
-                } 
+                // tileContent={({ date, view }) => 
+                //     <CalendarTile 
+                //         date={date} 
+                //         view={view} 
+                //         data={rawActivities}
+                //     />
+                // } 
             />
         </div>
     );
