@@ -22,7 +22,7 @@ export default function GroupSection() {
                 .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
                 .map(([date, hourlyData]) => (
                     <div key={date} className="space-y-4">
-                        <h2 className="text-lg font-semibold">{date}</h2>
+                        <h2 className="text-lg text-base-content font-semibold">{date}</h2>
                         <div className="space-y-4">
                             {Object.entries(hourlyData)
                                 .sort(([hourA], [hourB]) => {
