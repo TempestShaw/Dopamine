@@ -4,7 +4,7 @@ import Calendar from "react-calendar";
 import { useActivity } from '@/app/contexts/ActivityContext';
 
 export default function StreakCalendar() {
-    const { rawActivities, loading } = useActivity();
+    const { loading } = useActivity();
 
     if (loading) {
         return <div>Loading...</div>;
