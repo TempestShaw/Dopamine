@@ -1,5 +1,4 @@
 import { activityService } from "@/app/services/activityService";
-import { ProcessGroup } from "@/app/types";
 import { useState, useEffect } from "react";
 
 interface CalendarTileProps {
