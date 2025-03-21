@@ -23,7 +23,7 @@ class ActivityService {
                     'Authorization': `Bearer ${pinCode}`
                 }
             });
-            
+
             if (response.status === 200) {
                 this.pinCode = pinCode;
                 if (typeof window !== 'undefined') {
@@ -46,7 +46,7 @@ class ActivityService {
         if (typeof window !== 'undefined') {
             localStorage.setItem('dopamineUrl', url);
         }
-    }   
+    }
 
     static getInstance() {
         if (!this.instance) {
@@ -146,13 +146,13 @@ class ActivityService {
     private categorizeTitles(windowTitle: string, processName: string): string {
         // Work related
         const workRegex = /(Chrome|Edge|Firefox|Safari|Postman|VSCode|Visual Studio|IntelliJ|WebStorm|PyCharm|PhpStorm|Sublime|Atom|Terminal|iTerm|PowerShell|cmd|Git|GitHub|GitLab|Jira|Confluence|Slack|Teams|Zoom|Meet|Excel|PowerPoint|Outlook|Word|Access|SharePoint|OneDrive|Dropbox|FileZilla|putty|WinSCP|Docker|VMware|VirtualBox)/i;
-        
+
         // Study related
         const studyRegex = /(Coursera|Udemy|edX|Kindle|PDF|Notion|Evernote|OneNote|Anki|Quizlet|Canvas|Blackboard|Moodle|Academia|ResearchGate|Google Scholar|Wikipedia|Dictionary|Translator|Calculator|WolframAlpha|LaTeX|Overleaf|Mendeley|Zotero)/i;
-        
+
         // Social and entertainment
         const socialRegex = /(Discord|WhatsApp|Telegram|Signal|WeChat|LINE|Facebook|Messenger|Instagram|Twitter|LinkedIn|Reddit|TikTok|YouTube|Twitch|Netflix|Prime|Hulu|Disney|Spotify|Apple Music|Steam|Epic|Battle.net|Origin|Minecraft|Roblox)/i;
-        
+
         // Development tools
         const devRegex = /(npm|yarn|webpack|babel|react|vue|angular|node|python|java|cpp|golang|rust|ruby|php|mysql|mongodb|postgres|redis|apache|nginx|kubernetes|jenkins|travis|circleci)/i;
 
@@ -171,13 +171,13 @@ class ActivityService {
             const title = titles[i];
             const date = new Date(title.timestamp * 1000);
             if (i === 0) {
-                timeSessions.push({"time": moment(date).format("YYYY-MM-DDTHH:mm"), "activities": []});
+                timeSessions.push({ "time": moment(date).format("YYYY-MM-DDTHH:mm"), "activities": [] });
                 prevTitle = title;
                 continue;
             }
             const prevDate = new Date(prevTitle.timestamp * 1000);
             const timeDiff = date.getTime() - prevDate.getTime();
-            if(timeSessions[timeSessions.length - 1].activities.length === 0) {
+            if (timeSessions[timeSessions.length - 1].activities.length === 0) {
                 const titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 timeSessions[timeSessions.length - 1].activities.push({
                     processName: prevTitle.processName,
@@ -213,16 +213,16 @@ class ActivityService {
                         }]
                     });
                 }
-                
+
             } else {
                 const time = moment(date).format("YYYY-MM-DDTHH:mm");
-                timeSessions.push({"time": time, "activities": []});
+                timeSessions.push({ "time": time, "activities": [] });
 
             }
             prevTitle = title;
-            }
-    return timeSessions;
         }
+        return timeSessions;
+    }
 
 
 
@@ -244,7 +244,7 @@ class ActivityService {
         };
 
         processValue(data);
-        
+
         summary.total = Object.entries(summary)
             .filter(([key]) => key !== 'total')
             .reduce((acc, [, duration]) => acc + duration, 0);
@@ -256,10 +256,10 @@ class ActivityService {
         const groupedData = await this.getGroupedActivity(timeRange, date);
         return this.getCategorySummary(groupedData);
     }
-    
+
     async getDayActivity(date: Date): Promise<TimeSession[]> {
         const dateStr = date.toISOString().split('T')[0];
-        
+
         if (this.cache.has(dateStr)) {
             return this.cache.get(dateStr)!;
         }
@@ -276,7 +276,7 @@ class ActivityService {
 
         const activity = this.parsingStreamData(titles);
         this.cache.set(dateStr, activity);
-        
+
         return activity;
     }
 
@@ -286,23 +286,23 @@ class ActivityService {
         switch (timeRange) {
             case 'day':
                 return [await this.getDayActivity(date)];
-                
+
             case 'week': {
                 startTime = moment(date).startOf('week').toDate();
                 endTime = moment(date).endOf('week').toDate();
                 break;
             }
-                
+
             case 'month': {
                 startTime = moment(date).startOf('month').toDate();
                 endTime = moment(date).endOf('month').toDate();
                 break;
             }
-                
+
             default:
                 throw new Error('Invalid time range specified');
         }
-        
+
         const titles = await this.fetchTitles(
             Math.floor(startTime.getTime() / 1000),
             Math.floor(endTime.getTime() / 1000)
@@ -319,7 +319,7 @@ class ActivityService {
 
         const activities: TimeSession[][] = [];
         const days = Object.keys(groupedTitles).sort();
-        
+
         days.forEach(day => {
             const dayActivities = this.parsingStreamData(groupedTitles[day]);
             this.cache.set(day, dayActivities);
@@ -356,7 +356,7 @@ class ActivityService {
                             social: 0,
                             other: 0,
                         };
-                        
+
                         process.behavior.forEach(behavior => {
                             const existingBehavior = behaviorMap.get(behavior.title);
                             if (existingBehavior) {
@@ -365,17 +365,17 @@ class ActivityService {
                                 behaviorMap.set(behavior.title, { ...behavior });
                                 mergedBehaviors.push(behaviorMap.get(behavior.title)!);
                             }
-                            
+
                             summary[behavior.category] = summary[behavior.category] || 0;
                         });
-                    
+
                         groupedData[daily[0].time.split('T')[0]][time].push({
                             processName: process.processName,
                             behaviors: mergedBehaviors,
                             summary: summary
                         });
                     }
-                    
+
                     const currentGroup = groupedData[daily[0].time.split('T')[0]][time].find(
                         (group) => group.processName === process.processName
                     )!;
@@ -415,23 +415,23 @@ class ActivityService {
             case 'day': {
                 const processedData = await this.getProcessedDayActivity(date);
                 const dateStr = date.toISOString().split('T')[0];
-                const groupedData: { [date: string]: { [time: string]: ProcessGroup[] } } = {  
+                const groupedData: { [date: string]: { [time: string]: ProcessGroup[] } } = {
                     [dateStr]: {}
                 };
 
                 if (processedData[dateStr]) {
                     Object.entries(processedData[dateStr]).forEach(([time, processes]) => {
                         const timeUnit = time.split(':')[0];
-                        
+
                         if (!groupedData[dateStr][timeUnit]) {
                             groupedData[dateStr][timeUnit] = [];
                         }
-            
+
                         processes.forEach(process => {
                             const existingProcess = groupedData[dateStr][timeUnit].find(
                                 p => p.processName === process.processName
                             );
-            
+
                             if (existingProcess) {
                                 process.behaviors.forEach(behavior => {
                                     const existingBehavior = existingProcess.behaviors.find(
@@ -443,9 +443,9 @@ class ActivityService {
                                         existingProcess.behaviors.push({ ...behavior });
                                     }
                                 });
-            
+
                                 Object.entries(process.summary).forEach(([category, duration]) => {
-                                    existingProcess.summary[category] = 
+                                    existingProcess.summary[category] =
                                         (existingProcess.summary[category] || 0) + duration;
                                 });
                             } else {
@@ -471,7 +471,7 @@ class ActivityService {
                 Object.entries(processedData).forEach(([dateStr, dailyData]) => {
                     const currentDate = moment(dateStr);
                     const dayStr = currentDate.format('DD');
-                    
+
                     if (!groupedData[weekStr][dayStr]) {
                         groupedData[weekStr][dayStr] = [];
                     }
@@ -493,9 +493,9 @@ class ActivityService {
                                         existingProcess.behaviors.push({ ...behavior });
                                     }
                                 });
-            
+
                                 Object.entries(process.summary).forEach(([category, duration]) => {
-                                    existingProcess.summary[category] = 
+                                    existingProcess.summary[category] =
                                         (existingProcess.summary[category] || 0) + duration;
                                 });
                             } else {
@@ -522,7 +522,7 @@ class ActivityService {
                 Object.entries(processedData).forEach(([dateStr, dailyData]) => {
                     const currentDate = moment(dateStr);
                     const weekStr = `W${currentDate.week()}`;
-                    
+
                     if (!groupedData[monthStr][weekStr]) {
                         groupedData[monthStr][weekStr] = [];
                     }
@@ -544,9 +544,9 @@ class ActivityService {
                                         existingProcess.behaviors.push({ ...behavior });
                                     }
                                 });
-            
+
                                 Object.entries(process.summary).forEach(([category, duration]) => {
-                                    existingProcess.summary[category] = 
+                                    existingProcess.summary[category] =
                                         (existingProcess.summary[category] || 0) + duration;
                                 });
                             } else {

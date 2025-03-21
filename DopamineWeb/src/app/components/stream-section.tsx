@@ -21,7 +21,7 @@ export default function StreamSection() {
                 <div key={date} className="space-y-4">
                     <h3 className="text-lg text-base-content font-semibold">{date}</h3>
                     {Object.entries(timelines).map(([time, processes]) => {
-                        
+
                         return (
                             <div key={time} className="space-y-4 border-l-2 border-base-300 pl-4">
                                 <div className="text-sm text-base-content/70 mb-2">{time}</div>

@@ -42,32 +42,32 @@ export default function GroupSection() {
                                                 {`${hour.padStart(2, '0')}:00 - ${hour.padStart(2, '0')}:59`}
                                             </h3>
 
-                                        {sortedProcesses.map((process, processIndex) => (
-                                            <div key={processIndex}>
-                                                <div className="font-medium text-base-content">
-                                                {process.processName}
-                                                <span className="text-xs ml-2 text-base-content/50">
-                                                    {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
-                                                </span>
-                                                </div>
-                                              
-                                                <div className="grid grid-cols-2 gap-2">
-                                                {process.behaviors.map((behavior, behaviorIndex) => (
-                                                    <div
-                                                        key={behaviorIndex}
-                                                        className={`
-                                                            p-2 rounded text-sm text-base-content`}
-                                                    >
-                                                        <div className={`${getActivityColor(behavior.category)} font-medium`}>{behavior.title}</div>
-                                                        <div className="text-xs opacity-75">
-                                                            {formatDuration(behavior.duration)}
-                                                        </div>
+                                            {sortedProcesses.map((process, processIndex) => (
+                                                <div key={processIndex}>
+                                                    <div className="font-medium text-base-content">
+                                                        {process.processName}
+                                                        <span className="text-xs ml-2 text-base-content/50">
+                                                            {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
+                                                        </span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                            </div>
-                                            
-                                        ) )}
+
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {process.behaviors.map((behavior, behaviorIndex) => (
+                                                            <div
+                                                                key={behaviorIndex}
+                                                                className={`
+                                                            p-2 rounded text-sm text-base-content`}
+                                                            >
+                                                                <div className={`${getActivityColor(behavior.category)} font-medium`}>{behavior.title}</div>
+                                                                <div className="text-xs opacity-75">
+                                                                    {formatDuration(behavior.duration)}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                            ))}
                                         </div>
                                     )
                                 }

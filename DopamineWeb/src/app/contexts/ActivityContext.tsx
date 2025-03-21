@@ -6,7 +6,7 @@ import { TimeSession, GroupedData, ProcessGroup } from '../types';
 interface ExtendedActivityContextType {
     rawActivities: TimeSession[][];
     processedActivities: GroupedData;
-    groupedActivities: {[date: string]: { [time: string]: ProcessGroup[] }};
+    groupedActivities: { [date: string]: { [time: string]: ProcessGroup[] } };
     loading: boolean;
     timeRange: 'day' | 'week' | 'month';
     selectedDate: Date;
@@ -21,8 +21,8 @@ const ActivityContext = createContext<ExtendedActivityContextType>({
     loading: true,
     timeRange: 'day',
     selectedDate: new Date(),
-    changeTimeRange: () => {},
-    changeDate: () => {}
+    changeTimeRange: () => { },
+    changeDate: () => { }
 });
 
 export function ActivityProvider({ children }: { children: ReactNode }) {
@@ -30,7 +30,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [rawActivities, setRawActivities] = useState<TimeSession[][]>([]);
     const [processedActivities, setProcessedActivities] = useState<GroupedData>({});
-    const [groupedActivities, setGroupedActivities] = useState<{ [date: string]: { [hour: string]: ProcessGroup[] }}>({});
+    const [groupedActivities, setGroupedActivities] = useState<{ [date: string]: { [hour: string]: ProcessGroup[] } }>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
