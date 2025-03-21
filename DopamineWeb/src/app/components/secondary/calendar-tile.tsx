@@ -11,11 +11,30 @@ export default function CalendarTile({ date, view }: CalendarTileProps) {
 
     useEffect(() => {
         const fetchData = async () => {
-            const summary = await activityService.getActivitySummary("day", date);
-            setCurrentDateData(summary.total/1000/60/60);
+            switch(view) {
+                case 'month': {
+                    const summary = await activityService.getActivitySummary("day", date);
+                    setCurrentDateData(summary.total/1000/60/60);
+                }
+                case 'year': {
+                    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+                    let monthTotal = 0;
+                    
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const currentDate = new Date(date.getFullYear(), date.getMonth(), day);
+                        const summary = await activityService.getActivitySummary("day", currentDate);
+                        monthTotal += summary.total;
+                    }
+                    
+                    setCurrentDateData(monthTotal/1000/60/60);
+                    break;
+                }
+                default:
+                    setCurrentDateData(0);
+            }
         };
         fetchData();
-    }, [date]);
+    }, [date, view]);
 
     const getMaxValue = (view: string) => {
         switch(view) {
