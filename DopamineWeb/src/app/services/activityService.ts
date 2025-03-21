@@ -1,5 +1,5 @@
-import moment, { duration } from "moment";
-import { DayActivity, GroupedData, ProcessGroup, TimeSession, TitleData } from "../types";
+import moment from "moment";
+import { GroupedData, ProcessGroup, TimeSession, TitleData } from "../types";
 
 
 class ActivityService {
@@ -178,7 +178,7 @@ class ActivityService {
             const prevDate = new Date(prevTitle.timestamp * 1000);
             const timeDiff = date.getTime() - prevDate.getTime();
             if(timeSessions[timeSessions.length - 1].activities.length === 0) {
-                let titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
+                const titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 timeSessions[timeSessions.length - 1].activities.push({
                     processName: prevTitle.processName,
                     behavior: [{
@@ -192,7 +192,7 @@ class ActivityService {
             }
             if (timeDiff < 2 * 60 * 1000) {
                 const currentSession = timeSessions[timeSessions.length - 1];
-                let titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
+                const titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 const existingActivity = currentSession.activities.find(
                     activity => activity.processName === prevTitle.processName
                 );
@@ -292,8 +292,16 @@ class ActivityService {
                 groupedData[daily[0].time.split('T')[0]][time] = [];
                 session.activities.forEach((process) => {
                     if (!groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)) {
-                        const mergedBehaviors: any[] = [];
-                        const behaviorMap = new Map();
+                        const mergedBehaviors: {
+                            title: string;
+                            duration: number;
+                            category: string;
+                        }[] = [];
+                        const behaviorMap = new Map<string, {
+                            title: string;
+                            duration: number;
+                            category: string;
+                        }>();
                         const summary: Record<string, number> = {
                             work: 0,
                             study: 0,
@@ -307,7 +315,7 @@ class ActivityService {
                                 existingBehavior.duration += behavior.duration;
                             } else {
                                 behaviorMap.set(behavior.title, { ...behavior });
-                                mergedBehaviors.push(behaviorMap.get(behavior.title));
+                                mergedBehaviors.push(behaviorMap.get(behavior.title)!);
                             }
                             
                             summary[behavior.category] = summary[behavior.category] || 0;

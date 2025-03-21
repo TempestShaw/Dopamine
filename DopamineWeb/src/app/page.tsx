@@ -11,105 +11,105 @@ import StreamSection from './components/stream-section';
 import { useActivity } from './contexts/ActivityContext';
 import GroupSection from './components/grouped-section';
 
-const activities = [[
-  {
-    "time": '2024-03-20T08:20',
-    "activities": [
-      {
-        processName: "chrome",
-        behavior: [
-          {
-            title: "Past paper",
-            duration: 1000,
-            category: "work"
-          },
-          {
-            title: "ABC-Youtube",
-            duration: 2000,
-            category: "Entertainment"
-          },
-        ],
-        summary: {
-          work: 1000,
-          Entertainment: 2000,
-          study: 0,
-          social: 0,
-          other: 0,
-        }
-      },
-      {
-        processName: "discord",
-        behavior: [
-          {
-            title: "artrmis",
-            duration: 3000,
-            category: "Entertainment"
-          },
-          {
-            title: "GRE 333",
-            duration: 4000,
-            category: "Entertainment"
-          },
-        ],
-        summary: {
-          work: 0,
-          Entertainment: 7000,
-          study: 0,
-          social: 0,
-          other: 0,
-        }
-      },
-    ],
-  },
-  {
-    "time": '2024-03-20T08:23',
-    "activities": [
-      {
-        processName: "chrome",
-        behavior: [
-          {
-            title: "Past paper",
-            duration: 1000,
-            category: "work"
-          },
-          {
-            title: "ABC-Youtube",
-            duration: 2000,
-            category: "Entertainment"
-          },
-        ],
-        summary: {
-          work: 1000,
-          Entertainment: 2000,
-          study: 0,
-          social: 0,
-          other: 0,
-        }
-      },
-      {
-        processName: "discord",
-        behavior: [
-          {
-            title: "artrmis",
-            duration: 3000,
-            category: "Entertainment"
-          },
-          {
-            title: "GRE 333",
-            duration: 4000,
-            category: "Entertainment"
-          },
-        ],
-        summary: {
-          work: 0,
-          Entertainment: 7000,
-          study: 0,
-          social: 0,
-          other: 0,
-        }
-      },
-    ]
-  }]];
+// const activities = [[
+//   {
+//     "time": '2024-03-20T08:20',
+//     "activities": [
+//       {
+//         processName: "chrome",
+//         behavior: [
+//           {
+//             title: "Past paper",
+//             duration: 1000,
+//             category: "work"
+//           },
+//           {
+//             title: "ABC-Youtube",
+//             duration: 2000,
+//             category: "Entertainment"
+//           },
+//         ],
+//         summary: {
+//           work: 1000,
+//           Entertainment: 2000,
+//           study: 0,
+//           social: 0,
+//           other: 0,
+//         }
+//       },
+//       {
+//         processName: "discord",
+//         behavior: [
+//           {
+//             title: "artrmis",
+//             duration: 3000,
+//             category: "Entertainment"
+//           },
+//           {
+//             title: "GRE 333",
+//             duration: 4000,
+//             category: "Entertainment"
+//           },
+//         ],
+//         summary: {
+//           work: 0,
+//           Entertainment: 7000,
+//           study: 0,
+//           social: 0,
+//           other: 0,
+//         }
+//       },
+//     ],
+//   },
+//   {
+//     "time": '2024-03-20T08:23',
+//     "activities": [
+//       {
+//         processName: "chrome",
+//         behavior: [
+//           {
+//             title: "Past paper",
+//             duration: 1000,
+//             category: "work"
+//           },
+//           {
+//             title: "ABC-Youtube",
+//             duration: 2000,
+//             category: "Entertainment"
+//           },
+//         ],
+//         summary: {
+//           work: 1000,
+//           Entertainment: 2000,
+//           study: 0,
+//           social: 0,
+//           other: 0,
+//         }
+//       },
+//       {
+//         processName: "discord",
+//         behavior: [
+//           {
+//             title: "artrmis",
+//             duration: 3000,
+//             category: "Entertainment"
+//           },
+//           {
+//             title: "GRE 333",
+//             duration: 4000,
+//             category: "Entertainment"
+//           },
+//         ],
+//         summary: {
+//           work: 0,
+//           Entertainment: 7000,
+//           study: 0,
+//           social: 0,
+//           other: 0,
+//         }
+//       },
+//     ]
+//   }]];
 
 const data = {
   "daily": {

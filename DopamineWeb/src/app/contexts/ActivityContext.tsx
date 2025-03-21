@@ -1,7 +1,7 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { activityService } from '@/app/services/activityService';
-import { ActivityContextType, TimeSession, GroupedData, ProcessGroup } from '../types';
+import { TimeSession, GroupedData, ProcessGroup } from '../types';
 
 interface ExtendedActivityContextType {
     rawActivities: TimeSession[][];
