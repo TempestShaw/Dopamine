@@ -25,31 +25,48 @@ export default function StreamSection() {
                         return (
                             <div key={time} className="space-y-4 border-l-2 border-base-300 pl-4">
                                 <div className="text-sm text-base-content/70 mb-2">{time}</div>
-                                <div className="space-y-4">
-                                    {processes.map((process, processIndex) => (
-                                        <div key={processIndex}>
-                                            <div className="font-medium text-base-content">
-                                                {process.processName}
-                                                <span className="text-xs ml-2 text-base-content/50">
-                                                    {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
-                                                </span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {process.behaviors.map((behavior, behaviorIndex) => (
-                                                    <div
-                                                        key={behaviorIndex}
-                                                        className={`
-                                                            p-2 rounded text-sm text-base-content`}
-                                                    >
-                                                        <div className={`${getActivityColor(behavior.category)} font-medium`}>{behavior.title}</div>
-                                                        <div className="text-xs opacity-75">
-                                                            {formatDuration(behavior.duration)}
-                                                        </div>
+                                <div className="space-y-4 flex flex-col">
+                                    <div className="flex flex-row">
+                                        {processes.map((process, processIndex) => {
+                                            if (process.processName === "<Dopamine>" &&
+                                                process.behaviors.some(b => b.title === "<Stopped>")) {
+                                                return null;
+                                            }
+                                            return (
+                                                <div key={processIndex} className="p-2">
+                                                    <div className="font-medium text-base-content">
+                                                        {process.processName}
+                                                        <span className="text-xs ml-2 text-base-content/50">
+                                                            {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
+                                                        </span>
                                                     </div>
-                                                ))}
+                                                    <div className="grid">
+                                                        {process.behaviors.map((behavior, behaviorIndex) => (
+                                                            <div
+                                                                key={behaviorIndex}
+                                                                className={`p-2 rounded text-sm text-base-content`}
+                                                            >
+                                                                <div className={`${getActivityColor(behavior.category)} font-medium`}>{behavior.title}</div>
+                                                                <div className="text-xs opacity-75">
+                                                                    {formatDuration(behavior.duration)}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {processes.some(p => p.processName === "<Dopamine>" &&
+                                        p.behaviors.some(b => b.title === "<Stopped>")) && (
+                                            <div className="w-full">
+                                                <div className="border-t-2 border-base-300 relative">
+                                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-base-100 px-2 text-xs text-base-content/50">
+                                                        Stopped
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )}
                                 </div>
                             </div>
                         );

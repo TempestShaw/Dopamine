@@ -71,7 +71,6 @@ class ActivityService {
         }
     }
     private formatWindowTitle(title: string): string {
-        // 处理文件路径类型的标题
         if (title.includes('\\') || title.includes('/')) {
             const parts = title.split(/[\/\\]/);
             return parts[parts.length - 1];
@@ -107,7 +106,7 @@ class ActivityService {
             {
                 "id": 3,
                 "timestamp": 1742457461,
-                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - Folder Explorer",
                 "processName": "explorer"
             },
             {
@@ -135,7 +134,7 @@ class ActivityService {
                 "processName": "explorer"
             },
             {
-                "id": 5,
+                "id": 7,
                 "timestamp": 1742475495,
                 "windowTitle": "<Stopped>",
                 "processName": "<Dopamine>"
@@ -166,20 +165,23 @@ class ActivityService {
     }
     private parsingStreamData(titles: TitleData[]): TimeSession[] {
         const timeSessions: TimeSession[] = [];
-        let prevTitle = titles[0]
-        for (let i = 0; i < titles.length; i++) {
+        timeSessions.push(
+            {
+             "time": moment(new Date(titles[0].timestamp*1000)).format("YYYY-MM-DDTHH:mm"), 
+             "activities": [] 
+            }
+        );
+        for (let i = 1; i < titles.length; i++) {
             const title = titles[i];
             const date = new Date(title.timestamp * 1000);
-            if (i === 0) {
-                timeSessions.push({ "time": moment(date).format("YYYY-MM-DDTHH:mm"), "activities": [] });
-                prevTitle = title;
-                continue;
-            }
+            const prevTitle = titles[i - 1]
             const prevDate = new Date(prevTitle.timestamp * 1000);
             const timeDiff = date.getTime() - prevDate.getTime();
-            if (timeSessions[timeSessions.length - 1].activities.length === 0) {
+            const currentSession = timeSessions[timeSessions.length - 1];
+       
+            if (currentSession.activities.length === 0) {
                 const titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
-                timeSessions[timeSessions.length - 1].activities.push({
+                currentSession.activities.push({
                     processName: prevTitle.processName,
                     behavior: [{
                         title: this.formatWindowTitle(prevTitle.windowTitle),
@@ -187,7 +189,6 @@ class ActivityService {
                         category: titleCategory
                     }]
                 });
-                prevTitle = title;
                 continue;
             }
             if (timeDiff < 2 * 60 * 1000) {
@@ -215,11 +216,27 @@ class ActivityService {
                 }
 
             } else {
+                const titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
+                const activity = {
+                    title: this.formatWindowTitle(prevTitle.windowTitle),
+                    duration: prevTitle.processName === "<Dopamine>" ? 0 : timeDiff,
+                    category: titleCategory
+                };
+
+                const processGroup = currentSession.activities.find(a => a.processName === prevTitle.processName) || (() => {
+                    const newGroup = {
+                        processName: prevTitle.processName,
+                        behavior: []
+                    };
+                    currentSession.activities.push(newGroup);
+                    return newGroup;
+                })();
+
+                processGroup.behavior.push(activity);
+
                 const time = moment(date).format("YYYY-MM-DDTHH:mm");
                 timeSessions.push({ "time": time, "activities": [] });
-
             }
-            prevTitle = title;
         }
         return timeSessions;
     }
@@ -410,6 +427,7 @@ class ActivityService {
         const activities = await this.getActivities('month', date);
         return this.processStreamData(activities);
     }
+
     async getGroupedActivity(timeRange: 'day' | 'week' | 'month', date: Date): Promise<{ [date: string]: { [timeUnit: string]: ProcessGroup[] } }> {
         switch (timeRange) {
             case 'day': {

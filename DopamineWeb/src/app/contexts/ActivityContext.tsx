@@ -30,12 +30,13 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [rawActivities, setRawActivities] = useState<TimeSession[][]>([]);
     const [processedActivities, setProcessedActivities] = useState<GroupedData>({});
-    const [groupedActivities, setGroupedActivities] = useState<{ [date: string]: { [hour: string]: ProcessGroup[] } }>({});
+    const [groupedActivities, setGroupedActivities] = useState<{ [date: string]: { [time: string]: ProcessGroup[] } }>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
+                setLoading(true);
                 const activities = await activityService.getActivities(timeRange, selectedDate);
                 setRawActivities(activities);
 
