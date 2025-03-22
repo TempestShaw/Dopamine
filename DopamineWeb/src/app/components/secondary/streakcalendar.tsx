@@ -13,6 +13,8 @@ export default function StreakCalendar() {
     return (
         <div className="flex justify-center">
             <Calendar 
+            minDetail="year"
+            showWeekNumbers={true}
                 locale='en-US'
                 calendarType='iso8601'
                 className="" 

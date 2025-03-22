@@ -20,11 +20,11 @@ export default function GroupSection() {
         <div className="space-y-8 p-2">
             {Object.entries(groupedActivities)
                 .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-                .map(([date, hourlyData]) => (
+                .map(([date, timelyData]) => (
                     <div key={date} className="space-y-4">
                         <h2 className="text-lg text-base-content font-semibold">{date}</h2>
                         <div className="space-y-4">
-                            {Object.entries(hourlyData)
+                            {Object.entries(timelyData)
                                 .sort(([hourA], [hourB]) => {
                                     const hourNumA = parseInt(hourA);
                                     const hourNumB = parseInt(hourB);
