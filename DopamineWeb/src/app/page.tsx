@@ -10,6 +10,7 @@ import StreakCalendar from './components/secondary/streakcalendar';
 import StreamSection from './components/stream-section';
 import { useActivity } from './contexts/ActivityContext';
 import GroupSection from './components/grouped-section';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const data = {
   "daily": {
@@ -57,7 +58,7 @@ export default function Home() {
       const isConnected = await activityService.isAuthenticated();
       const isHealthy = await activityService.healthCheck();
       if (!isConnected || !isHealthy) {
-        // router.push("/login");
+        router.push("/login");
       }
     };
     checkAuth();
@@ -81,39 +82,80 @@ export default function Home() {
             <Sidebar />
           </div>
         </div>
-        <div className="flex flex-8/12 flex-col items-center ">
-          <div className="p-4 bg-base-100 h-full w-full">
-            <div role="tablist" className="tabs tabs-box w-fit ml-auto">
+        <div className="flex flex-8/12 flex-col items-center">
+          <div className="p-4 bg-base-100 h-full w-full flex flex-col">
+            <div role="tablist" className="tabs tabs-box w-fit ml-auto shrink-0 relative p-1 bg-base-200/30 backdrop-blur-md rounded-xl">
+              <motion.div 
+                className="absolute bg-base-200 backdrop-blur-sm rounded-sm shadow-sm" 
+                initial={false}
+                animate={{ 
+                  x: activeTab === 'Grouped' ? '100%' : '0%',
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+                style={{ 
+                  left: '4px', 
+                  top: '4px',
+                  width: 'calc(50% - 4px)', 
+                  height: 'calc(100% - 8px)',
+                }}
+              />
               <a
                 role="tab"
-                className={`text-base-content tab ${activeTab === 'Stream' ? 'tab-active' : ''}`}
+                className={`text-base-content tab relative z-10 transition-colors duration-300 min-w-24 ${
+                  activeTab === 'Stream' ? 'text-primary' : 'hover:text-primary/70'
+                }`}
                 onClick={() => setActiveTab('Stream')}
               >
                 Stream
               </a>
               <a
                 role="tab"
-                className={`text-base-content tab ${activeTab === 'Grouped' ? 'tab-active' : ''}`}
+                className={`text-base-content tab relative z-10 transition-colors duration-300 min-w-24 ${
+                  activeTab === 'Grouped' ? 'text-primary' : 'hover:text-primary/70'
+                }`}
                 onClick={() => setActiveTab('Grouped')}
               >
                 Grouped
               </a>
             </div>
 
-            {activeTab === 'Stream' && (
-              <div className="h-full overflow-y-auto">
-                <StreamSection />
+            <div className="flex-1 min-h-0 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="h-full overflow-y-auto">
+                  <div className="pb-16">
+                    <AnimatePresence mode="wait">
+                      {activeTab === 'Stream' && (
+                        <motion.div
+                          key="stream"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <StreamSection />
+                        </motion.div>
+                      )}
+
+                      {activeTab === 'Grouped' && (
+                        <motion.div
+                          key="grouped"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <GroupSection />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
               </div>
-            )}
-
-            {activeTab === 'Grouped' && (
-              <div className="h-full overflow-y-auto">
-                <GroupSection />
-              </div>
-            )}
-
-
-
+            </div>
           </div>
         </div>
         <div className='bg-base-100'>

@@ -16,7 +16,7 @@ export default function StreamSection() {
     };
 
     return (
-        <div className="space-y-8 p-2">
+        <div className="space-y-8">
             {Object.entries(processedActivities).map(([date, timelines]) => (
                 <div key={date} className="space-y-4">
                     <h3 className="text-lg text-base-content font-semibold">{date}</h3>
@@ -26,7 +26,7 @@ export default function StreamSection() {
                             <div key={time} className="space-y-4 border-l-2 border-base-300 pl-4">
                                 <div className="text-sm text-base-content/70 mb-2">{time}</div>
                                 <div className="space-y-4 flex flex-col">
-                                    <div className="flex flex-row">
+                                    <div className="flex flex-row flex-wrap">
                                         {processes.map((process, processIndex) => {
                                             if (process.processName === "<Dopamine>" &&
                                                 process.behaviors.some(b => b.title === "<Stopped>")) {
@@ -46,7 +46,7 @@ export default function StreamSection() {
                                                                 key={behaviorIndex}
                                                                 className={`p-2 rounded text-sm text-base-content`}
                                                             >
-                                                                <div className={`${getActivityColor(behavior.category)} font-medium`}>{behavior.title}</div>
+                                                                <div className={`${getActivityColor(behavior.category)} font-medium  min-w-[300px]`}>{behavior.title}</div>
                                                                 <div className="text-xs opacity-75">
                                                                     {formatDuration(behavior.duration)}
                                                                 </div>
@@ -73,6 +73,7 @@ export default function StreamSection() {
                     })}
                 </div>
             ))}
+        <div ></div>
         </div>
     );
 }

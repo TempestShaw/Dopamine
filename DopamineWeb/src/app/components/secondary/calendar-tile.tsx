@@ -45,12 +45,12 @@ export default function CalendarTile({ date, view }: CalendarTileProps) {
                             group
                             cursor-pointer
                             backdrop-blur-sm
+                            p-2
                         `}
                     >
                         <div className="text-sm font-medium group-hover:scale-110 transition-all duration-100">
-                            {date.getDate()}
-                            
-                            </div>
+                            {date.getUTCDate()}
+                        </div>
                     </div>
                 );
             case 'year':
@@ -64,6 +64,7 @@ export default function CalendarTile({ date, view }: CalendarTileProps) {
                             group
                             cursor-pointer
                             backdrop-blur-sm
+                            p-2
                         `}
                     >
                         <div className="text-sm font-medium group-hover:scale-110 transition-all duration-100">

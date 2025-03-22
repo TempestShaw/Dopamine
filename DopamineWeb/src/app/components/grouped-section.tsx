@@ -17,7 +17,7 @@ export default function GroupSection() {
     };
 
     return (
-        <div className="space-y-8 p-2">
+        <div className="space-y-8">
             {Object.entries(groupedActivities)
                 .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
                 .map(([date, hourlyData]) => (
@@ -41,38 +41,38 @@ export default function GroupSection() {
                                             <h3 className="text-sm text-base-content/70 mb-2">
                                                 {`${hour.padStart(2, '0')}:00 - ${hour.padStart(2, '0')}:59`}
                                             </h3>
-
-                                            {sortedProcesses.map((process, processIndex) => (
-                                                <div key={processIndex}>
-                                                    <div className="font-medium text-base-content">
-                                                        {process.processName}
-                                                        <span className="text-xs ml-2 text-base-content/50">
-                                                            {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        {process.behaviors.map((behavior, behaviorIndex) => (
-                                                            <div
-                                                                key={behaviorIndex}
-                                                                className={`
-                                                            p-2 rounded text-sm text-base-content`}
-                                                            >
-                                                                <div className={`${getActivityColor(behavior.category)} font-medium`}>{behavior.title}</div>
-                                                                <div className="text-xs opacity-75">
-                                                                    {formatDuration(behavior.duration)}
-                                                                </div>
+                                            <div className="space-y-4 flex flex-col">
+                                                <div className="flex flex-row flex-wrap">
+                                                    {sortedProcesses.map((process, processIndex) => (
+                                                        <div key={processIndex} className="p-2">
+                                                            <div className="font-medium text-base-content">
+                                                                {process.processName}
+                                                                <span className="text-xs ml-2 text-base-content/50">
+                                                                    {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
+                                                                </span>
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                            <div className="grid">
+                                                                {process.behaviors.map((behavior, behaviorIndex) => (
+                                                                    <div
+                                                                        key={behaviorIndex}
+                                                                        className={`p-2 rounded text-sm text-base-content`}
+                                                                    >
+                                                                        <div className={`${getActivityColor(behavior.category)} font-medium min-w-[300px]`}>
+                                                                            {behavior.title}
+                                                                        </div>
+                                                                        <div className="text-xs opacity-75">
+                                                                            {formatDuration(behavior.duration)}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-
-                                            ))}
+                                            </div>
                                         </div>
-                                    )
-                                }
-                                )
-                            }
+                                    );
+                                })}
                         </div>
                     </div>
                 ))}

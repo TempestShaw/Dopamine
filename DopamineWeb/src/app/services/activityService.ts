@@ -290,7 +290,7 @@ class ActivityService {
             Math.floor(startOfDay.getTime() / 1000),
             Math.floor(endOfDay.getTime() / 1000)
         );
-
+        if(titles.length ==0) return []
         const activity = this.parsingStreamData(titles);
         this.cache.set(dateStr, activity);
 
@@ -326,6 +326,7 @@ class ActivityService {
         );
 
         const groupedTitles: { [key: string]: TitleData[] } = {};
+        if (titles.length == 0) return []
         titles.forEach(title => {
             const day = moment(title.timestamp * 1000).format('YYYY-MM-DD');
             if (!groupedTitles[day]) {
