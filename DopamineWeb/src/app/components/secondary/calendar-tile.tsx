@@ -1,30 +1,10 @@
-import { activityService } from "@/app/services/activityService";
-import { useState, useEffect } from "react";
-
 interface CalendarTileProps {
     date: Date;
     view: 'month' | 'year' | 'decade' | 'century';
+    activityData: {[key: string]: number};
 }
 
-export default function CalendarTile({ date, view }: CalendarTileProps) {
-    const [activityData, setActivityData] = useState<{[key: string]: number}>({});
-
-    useEffect(() => {
-        const fetchData = async () => {
-            switch(view) {
-                case 'month': {
-                    const summary = await activityService.getActivitySummary("day", date);
-                    const dateKey = date.toISOString().split('T')[0];
-                    setActivityData({[dateKey]: summary.total/1000/60/60});
-                    break; 
-                }
-                default:
-                    setActivityData({});
-            }
-        };
-        fetchData();
-    }, [date, view]);
-
+export default function CalendarTile({ date, view, activityData }: CalendarTileProps) {
     const getLevel = (date: Date) => {
         const dateKey = date.toISOString().split('T')[0];
         const total = activityData[dateKey] || 0;
@@ -41,14 +21,14 @@ export default function CalendarTile({ date, view }: CalendarTileProps) {
                             ${getColorClass(level)} 
                             rounded-md w-4 h-4
                             flex items-center justify-center 
-                            transition-all duration-200 ease-in-out
+                            transition-all duration-100 ease-in-out
                             group
                             cursor-pointer
                             backdrop-blur-sm
                             p-2
                         `}
                     >
-                        <div className="text-sm font-medium group-hover:scale-110 transition-all duration-100">
+                        <div className="text-sm font-medium group-hover:scale-110 transition-all ">
                             {date.getUTCDate()}
                         </div>
                     </div>
@@ -58,16 +38,16 @@ export default function CalendarTile({ date, view }: CalendarTileProps) {
                     <div 
                         className={`
                             ${getColorClass(level)}
-                            rounded-lg w-16 h-16 
+                            rounded-lg 
                             flex items-center justify-center 
-                            transition-all duration-200 ease-in-out
+                            transition-all duration-100 ease-in-out
                             group
                             cursor-pointer
                             backdrop-blur-sm
                             p-2
                         `}
                     >
-                        <div className="text-sm font-medium group-hover:scale-110 transition-all duration-100">
+                        <div className="text-lg font-medium group-hover:scale-110 transition-all ">
                             {date.toLocaleString('en-US', { month: 'short' })}
                         </div>
                     </div>

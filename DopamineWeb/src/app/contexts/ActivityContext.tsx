@@ -1,34 +1,31 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { activityService } from '@/app/services/activityService';
-import { TimeSession, GroupedData, ProcessGroup } from '../types';
+import { GroupedData, ProcessGroup } from '../types';
 
 interface ExtendedActivityContextType {
-    rawActivities: TimeSession[][];
     processedActivities: GroupedData;
     groupedActivities: { [date: string]: { [time: string]: ProcessGroup[] } };
     loading: boolean;
-    timeRange: 'day' | 'week' | 'month';
+    view: 'day' | 'week' | 'month';
     selectedDate: Date;
-    changeTimeRange: (newRange: 'day' | 'week' | 'month') => void;
+    changeView: (newRange: 'day' | 'week' | 'month') => void;
     changeDate: (newDate: Date) => void;
 }
 
 const ActivityContext = createContext<ExtendedActivityContextType>({
-    rawActivities: [],
     processedActivities: {},
     groupedActivities: {},
     loading: true,
-    timeRange: 'day',
+    view: 'day',
     selectedDate: new Date(),
-    changeTimeRange: () => { },
+    changeView: () => { },
     changeDate: () => { }
 });
 
 export function ActivityProvider({ children }: { children: ReactNode }) {
-    const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
+    const [view, setView] = useState<'day' | 'week' | 'month'>('day');
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [rawActivities, setRawActivities] = useState<TimeSession[][]>([]);
     const [processedActivities, setProcessedActivities] = useState<GroupedData>({});
     const [groupedActivities, setGroupedActivities] = useState<{ [date: string]: { [time: string]: ProcessGroup[] } }>({});
     const [loading, setLoading] = useState(true);
@@ -37,13 +34,10 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const activities = await activityService.getActivities(timeRange, selectedDate);
-                setRawActivities(activities);
-
-                const processed = await activityService.getProcessedDayActivity(selectedDate);
+                const processed = await activityService.getProcessedActivity(view, selectedDate);
                 setProcessedActivities(processed);
 
-                const grouped = await activityService.getGroupedActivity(timeRange, selectedDate);
+                const grouped = await activityService.getGroupedActivity(view, selectedDate);
                 setGroupedActivities(grouped);
 
                 setLoading(false);
@@ -54,10 +48,10 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         };
 
         fetchData();
-    }, [timeRange, selectedDate]);
+    }, [view, selectedDate]);
 
-    const changeTimeRange = (newRange: 'day' | 'week' | 'month') => {
-        setTimeRange(newRange);
+    const changeView = (newRange: 'day' | 'week' | 'month') => {
+        setView(newRange);
     };
 
     const changeDate = (newDate: Date) => {
@@ -66,13 +60,12 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
 
     return (
         <ActivityContext.Provider value={{
-            rawActivities,
             processedActivities,
             groupedActivities,
             loading,
-            timeRange,
+            view,
             selectedDate,
-            changeTimeRange,
+            changeView,
             changeDate
         }}>
             {children}
