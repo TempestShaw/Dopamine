@@ -79,63 +79,119 @@ class ActivityService {
     }
 
     private async fetchTitles(from: number, to: number): Promise<TitleData[]> {
-        if (!this.pinCode) {
-            throw new Error('Not authenticated');
-        }
+        // if (!this.pinCode) {
+        //     throw new Error('Not authenticated');
+        // }
 
-        const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
-            headers: {
-                'Authorization': `Bearer ${this.pinCode}`
-            }
-        });
-        if (response.status === 403) throw new Error('Invalid pin code');
-        return response.json();
+        // const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
+        //     headers: {
+        //         'Authorization': `Bearer ${this.pinCode}`
+        //     }
+        // });
+        // if (response.status === 403) throw new Error('Invalid pin code');
+        // return response.json();
         return ([
             {
                 "id": 1,
-                "timestamp": 1742457401,
+                "timestamp": 1742655200, // 开始时间
+                "windowTitle": "Visual Studio Code - DopamineWeb",
+                "processName": "Code"
+            },
+            {
+                "id": 1,
+                "timestamp": 1742660200, // 开始时间
+                "windowTitle": "Visual Studio Code - DopamineWeb",
+                "processName": "Code"
+            },
+            {
+                "id": 2,
+                "timestamp": 1742665200,
+                "windowTitle": "React Documentation",
+                "processName": "Chrome"
+            },
+            {
+                "id": 3,
+                "timestamp": 1742670200,
+                "windowTitle": "TypeScript Handbook",
+                "processName": "Chrome"
+            },
+            {
+                "id": 4,
+                "timestamp": 1742675200,
+                "windowTitle": "<Stopped>",
+                "processName": "<Dopamine>"
+            },
+            // 3月22日数据
+            {
+                "id": 5,
+                "timestamp": 1742680200,
+                "windowTitle": "GitHub - Dopamine Project",
+                "processName": "Chrome"
+            },
+            {
+                "id": 6,
+                "timestamp": 1742685200,
+                "windowTitle": "Discord - Programming Help",
+                "processName": "Discord"
+            },
+            {
+                "id": 7,
+                "timestamp": 1742690200,
+                "windowTitle": "Stack Overflow - React Hooks",
+                "processName": "Chrome"
+            },
+            {
+                "id": 8,
+                "timestamp": 1742695200,
+                "windowTitle": "<Stopped>",
+                "processName": "<Dopamine>"
+            },
+            // 3月23日数据
+            {
+                "id": 9,
+                "timestamp": 1742700200,
                 "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
                 "processName": "explorer"
             },
             {
-                "id": 2,
-                "timestamp": 1742457431,
+                "id": 10,
+                "timestamp": 1742705200,
                 "windowTitle": "Identify - My Workspace",
                 "processName": "Postman"
             },
             {
-                "id": 3,
-                "timestamp": 1742457461,
+                "id": 11,
+                "timestamp": 1742710200,
                 "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - Folder Explorer",
                 "processName": "explorer"
             },
             {
-                "id": 4,
-                "timestamp": 1742457661,
+                "id": 12,
+                "timestamp": 1742717900,
                 "windowTitle": "GRE-333",
                 "processName": "Discord"
             },
             {
-                "id": 4,
-                "timestamp": 1742457681,
+                "id": 13,
+                "timestamp": 1742725100,
                 "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
                 "processName": "explorer"
             },
             {
-                "id": 5,
-                "timestamp": 1742457751,
+                "id": 14,
+                "timestamp": 1742732300,
                 "windowTitle": "<Stopped>",
                 "processName": "<Dopamine>"
             },
             {
-                "id": 6,
-                "timestamp": 1742475461,
-                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-windows - File Explorer",
+                "id": 15,
+                "timestamp": 1742740000,
+                "windowTitle": "D:\\Projects\\Dopamine\\DopamineWin\\bin\\Release\\net8.0-win - File Explorer",
                 "processName": "explorer"
             },
             {
-                "id": 7,
-                "timestamp": 1742475495,
+                "id": 16,
+                "timestamp": 1742747200,
                 "windowTitle": "<Stopped>",
                 "processName": "<Dopamine>"
             },
@@ -167,8 +223,8 @@ class ActivityService {
         const timeSessions: TimeSession[] = [];
         timeSessions.push(
             {
-             "time": moment(new Date(titles[0].timestamp*1000)).format("YYYY-MM-DDTHH:mm"), 
-             "activities": [] 
+                "time": moment(new Date(titles[0].timestamp * 1000)).format("YYYY-MM-DDTHH:mm"),
+                "activities": []
             }
         );
         for (let i = 1; i < titles.length; i++) {
@@ -178,7 +234,7 @@ class ActivityService {
             const prevDate = new Date(prevTitle.timestamp * 1000);
             const timeDiff = date.getTime() - prevDate.getTime();
             const currentSession = timeSessions[timeSessions.length - 1];
-       
+
             if (currentSession.activities.length === 0) {
                 const titleCategory = this.categorizeTitles(prevTitle.windowTitle, prevTitle.processName);
                 currentSession.activities.push({
@@ -231,51 +287,18 @@ class ActivityService {
                     currentSession.activities.push(newGroup);
                     return newGroup;
                 })();
-
                 processGroup.behavior.push(activity);
-
-                const time = moment(date).format("YYYY-MM-DDTHH:mm");
-                timeSessions.push({ "time": time, "activities": [] });
+                if (i !== titles.length - 1) {
+                    const time = moment(date).format("YYYY-MM-DDTHH:mm");
+                    timeSessions.push({ "time": time, "activities": [] });
+                }
             }
         }
         return timeSessions;
     }
 
-
-
-    getCategorySummary(data: GroupedData | { [hour: string]: ProcessGroup[] } | ProcessGroup[]): ProcessSummary {
-        const summary: ProcessSummary = {};
-
-        const processValue = (value: GroupedData | { [hour: string]: ProcessGroup[] } | ProcessGroup[]) => {
-            if (Array.isArray(value)) {
-                value.forEach(group => {
-                    if ('summary' in group) {
-                        Object.entries(group.summary).forEach(([category, duration]) => {
-                            summary[category] = (summary[category] || 0) + duration;
-                        });
-                    }
-                });
-            } else if (typeof value === 'object' && value !== null) {
-                Object.values(value).forEach(v => processValue(v));
-            }
-        };
-
-        processValue(data);
-
-        summary.total = Object.entries(summary)
-            .filter(([key]) => key !== 'total')
-            .reduce((acc, [, duration]) => acc + duration, 0);
-
-        return summary;
-    }
-
-    async getActivitySummary(timeRange: 'day' | 'week' | 'month', date: Date): Promise<ProcessSummary> {
-        const groupedData = await this.getGroupedActivity(timeRange, date);
-        return this.getCategorySummary(groupedData);
-    }
-
     async getDayActivity(date: Date): Promise<TimeSession[]> {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = moment(date).format('YYYY-MM-DD');
 
         if (this.cache.has(dateStr)) {
             return this.cache.get(dateStr)!;
@@ -290,7 +313,7 @@ class ActivityService {
             Math.floor(startOfDay.getTime() / 1000),
             Math.floor(endOfDay.getTime() / 1000)
         );
-        if(titles.length ==0) return []
+        if (titles.length == 0) return []
         const activity = this.parsingStreamData(titles);
         this.cache.set(dateStr, activity);
 
@@ -298,27 +321,8 @@ class ActivityService {
     }
 
     async getActivities(timeRange: 'day' | 'week' | 'month', date: Date): Promise<TimeSession[][]> {
-        let startTime: Date, endTime: Date;
-
-        switch (timeRange) {
-            case 'day':
-                return [await this.getDayActivity(date)];
-
-            case 'week': {
-                startTime = moment(date).startOf('week').toDate();
-                endTime = moment(date).endOf('week').toDate();
-                break;
-            }
-
-            case 'month': {
-                startTime = moment(date).startOf('month').toDate();
-                endTime = moment(date).endOf('month').toDate();
-                break;
-            }
-
-            default:
-                throw new Error('Invalid time range specified');
-        }
+        const startTime = moment(date).startOf('month').toDate();
+        const endTime = moment(date).endOf('month').toDate();
 
         const titles = await this.fetchTitles(
             Math.floor(startTime.getTime() / 1000),
@@ -343,21 +347,24 @@ class ActivityService {
             this.cache.set(day, dayActivities);
             activities.push(dayActivities);
         });
-
         return activities;
     }
 
     private processStreamData(streamData: TimeSession[][]): GroupedData {
         const groupedData: GroupedData = {};
         streamData.forEach((daily) => {
+
             if (!daily || daily.length === 0) return;
-            groupedData[daily[0].time.split('T')[0]] = {};
             daily.forEach((session) => {
+                if (!groupedData[session.time.split('T')[0]]) {
+                    groupedData[session.time.split('T')[0]] = {};
+                }
+
                 if (!session.time) return;
                 const time = session.time.split('T')[1];
-                groupedData[daily[0].time.split('T')[0]][time] = [];
+                groupedData[session.time.split('T')[0]][time] = [];
                 session.activities.forEach((process) => {
-                    if (!groupedData[daily[0].time.split('T')[0]][time].find((group) => group.processName === process.processName)) {
+                    if (!groupedData[session.time.split('T')[0]][time].find((group) => group.processName === process.processName)) {
                         const mergedBehaviors: {
                             title: string;
                             duration: number;
@@ -387,14 +394,14 @@ class ActivityService {
                             summary[behavior.category] = summary[behavior.category] || 0;
                         });
 
-                        groupedData[daily[0].time.split('T')[0]][time].push({
+                        groupedData[session.time.split('T')[0]][time].push({
                             processName: process.processName,
                             behaviors: mergedBehaviors,
                             summary: summary
                         });
                     }
 
-                    const currentGroup = groupedData[daily[0].time.split('T')[0]][time].find(
+                    const currentGroup = groupedData[session.time.split('T')[0]][time].find(
                         (group) => group.processName === process.processName
                     )!;
 
@@ -423,33 +430,36 @@ class ActivityService {
         switch (timeRange) {
             case 'day':
                 return {
-                    groupKey: date.toISOString().split('T')[0],
+                    groupKey: moment(date).format('YYYY-MM-DD'), // Use date as key
                     format: (date: moment.Moment) => date.format('HH'),
                 };
             case 'week':
                 return {
-                    groupKey: moment(date).startOf('week').format('YYYY-[W]WW'),
+                    groupKey: moment(date).startOf('week').format('YYYY-[W]WW'), // Use week number as key
                     format: (date: moment.Moment) => date.format('DD'),
                 };
             case 'month':
                 return {
-                    groupKey: moment(date).startOf('month').format('YYYY-MM'),
+                    groupKey: moment(date).startOf('month').format('YYYY-MM'), // Use month as key
                     format: (date: moment.Moment) => `W${date.week()}`,
                 };
         }
     }
 
-    async getGroupedActivity(timeRange: 'day' | 'week' | 'month', date: Date): Promise<{ [date: string]: { [timeUnit: string]: ProcessGroup[] } }> {
-        const processedData = await this.getProcessedActivity(timeRange, date);
+    async getGroupedActivity(processedData: GroupedData, timeRange: 'day' | 'week' | 'month', date: Date): Promise<{ [date: string]: { [timeUnit: string]: ProcessGroup[] } }> {
         const { groupKey, format } = this.getTimeUnitConfig(timeRange, date);
         const groupedData: { [date: string]: { [timeUnit: string]: ProcessGroup[] } } = {
             [groupKey]: {}
         };
 
-        Object.entries(processedData).forEach(([dateStr, dailyData]) => {
-            Object.values(dailyData).forEach(sessionGroup => {
-                const timeUnit = format(moment(dateStr));
+        // for day view only get specific date
+        const filteredData = timeRange === 'day' 
+            ? Object.entries(processedData).filter(([dateStr]) => dateStr === groupKey)
+            : Object.entries(processedData);
 
+        filteredData.forEach(([dateStr, dailyData]) => {
+            Object.entries(dailyData).forEach(([timeStr, sessionGroup]) => {
+                const timeUnit = format(moment(dateStr + 'T' + timeStr));
                 if (!groupedData[groupKey][timeUnit]) {
                     groupedData[groupKey][timeUnit] = [];
                 }
@@ -487,8 +497,43 @@ class ActivityService {
         });
 
         return groupedData;
+
     }
 
+    getCategorySummary(data: GroupedData | { [hour: string]: ProcessGroup[] } | ProcessGroup[]): ProcessSummary {
+        const summary: ProcessSummary = {};
+
+        const processValue = (value: GroupedData | { [hour: string]: ProcessGroup[] } | ProcessGroup[]) => {
+            if (Array.isArray(value)) {
+                value.forEach(group => {
+                    if ('summary' in group) {
+                        Object.entries(group.summary).forEach(([category, duration]) => {
+                            summary[category] = (summary[category] || 0) + duration;
+                        });
+                    }
+                });
+            } else if (typeof value === 'object' && value !== null) {
+                Object.values(value).forEach(v => processValue(v));
+            }
+        };
+
+        processValue(data);
+
+        summary.total = Object.entries(summary)
+            .filter(([key]) => key !== 'total')
+            .reduce((acc, [, duration]) => acc + duration, 0);
+
+        return summary;
+    }
+    async getActivitySummary(groupData: GroupedData): Promise<{ [dateUnit: string]: ProcessSummary }> {
+        const summary: { [dateUnit: string]: ProcessSummary } = {};
+        Object.entries(groupData).forEach(([date, unitData]) => {
+            Object.values(unitData).forEach(sessionGroup => {
+                summary[date] = this.getCategorySummary(sessionGroup);
+            });
+        });
+        return summary;
+    }
 }
 
 export const activityService = ActivityService.getInstance();

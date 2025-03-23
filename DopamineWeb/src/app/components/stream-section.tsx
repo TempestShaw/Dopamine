@@ -1,7 +1,8 @@
+import moment from "moment";
 import { useActivity } from "../contexts/ActivityContext";
 import { formatDuration } from "@/lib/utils";
 export default function StreamSection() {
-    const { processedActivities } = useActivity();
+    const { processedActivities, selectedDate } = useActivity();
     const getActivityColor = (category: string) => {
         switch (category.toLowerCase()) {
             case 'work':
@@ -14,10 +15,9 @@ export default function StreamSection() {
                 return 'bg-gray-400/50';
         }
     };
-
     return (
         <div className="space-y-8">
-            {Object.entries(processedActivities).map(([date, timelines]) => (
+            {Object.entries(processedActivities).filter(([date]) => date === moment(selectedDate).format('YYYY-MM-DD')).map(([date, timelines]) => (
                 <div key={date} className="space-y-4">
                     <h3 className="text-lg text-base-content font-semibold">{date}</h3>
                     {Object.entries(timelines).map(([time, processes]) => {

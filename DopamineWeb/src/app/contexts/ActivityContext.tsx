@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { activityService } from '@/app/services/activityService';
 import { GroupedData, ProcessGroup } from '../types';
+import moment from 'moment';
 
 interface ExtendedActivityContextType {
     processedActivities: GroupedData;
@@ -34,12 +35,21 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         const fetchData = async () => {
             try {
                 setLoading(true);
+               
                 const processed = await activityService.getProcessedActivity(view, selectedDate);
                 setProcessedActivities(processed);
-
-                const grouped = await activityService.getGroupedActivity(view, selectedDate);
+                
+                const grouped = await activityService.getGroupedActivity(processed, view, selectedDate);
                 setGroupedActivities(grouped);
 
+                console.log({
+                    "processed": processed,
+                    "grouped": grouped,
+                    "view": view,
+                    "selectedDate": selectedDate,
+                    "locale": selectedDate.toDateString(),
+                    "momentDate": moment(selectedDate).format('YYYY-MM-DD')
+                })
                 setLoading(false);
             } catch (error) {
                 console.error('Error fetching activity data:', error);

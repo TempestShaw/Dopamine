@@ -36,6 +36,7 @@ export default function GroupSection() {
                                         const totalB = Object.values(b.summary).reduce((sum, val) => sum + val, 0);
                                         return totalB - totalA;
                                     });
+
                                     return (
                                         <div key={hour} className="space-y-4 border-l-2 border-base-300 pl-4">
                                             <h3 className="text-sm text-base-content/70 mb-2">
@@ -43,32 +44,49 @@ export default function GroupSection() {
                                             </h3>
                                             <div className="space-y-4 flex flex-col">
                                                 <div className="flex flex-row flex-wrap">
-                                                    {sortedProcesses.map((process, processIndex) => (
-                                                        <div key={processIndex} className="p-2">
-                                                            <div className="font-medium text-base-content">
-                                                                {process.processName}
-                                                                <span className="text-xs ml-2 text-base-content/50">
-                                                                    {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
-                                                                </span>
-                                                            </div>
-                                                            <div className="grid">
-                                                                {process.behaviors.map((behavior, behaviorIndex) => (
-                                                                    <div
-                                                                        key={behaviorIndex}
-                                                                        className={`p-2 rounded text-sm text-base-content`}
-                                                                    >
-                                                                        <div className={`${getActivityColor(behavior.category)} font-medium min-w-[300px]`}>
-                                                                            {behavior.title}
+                                                    {sortedProcesses.map((process, processIndex) => {
+                                                        if (process.processName === "<Dopamine>" &&
+                                                            process.behaviors.some(b => b.title === "<Stopped>")) {
+                                                            return null;
+                                                        }
+                                                        return (
+                                                            <div key={processIndex} className="p-2">
+                                                                <div className="font-medium text-base-content">
+                                                                    {process.processName}
+                                                                    <span className="text-xs ml-2 text-base-content/50">
+                                                                        {formatDuration(Object.values(process.summary).reduce((sum, val) => sum + val, 0))}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="grid">
+                                                                    {process.behaviors.map((behavior, behaviorIndex) => (
+                                                                        <div
+                                                                            key={behaviorIndex}
+                                                                            className={`p-2 rounded text-sm text-base-content`}
+                                                                        >
+                                                                            <div className={`${getActivityColor(behavior.category)} font-medium min-w-[300px]`}>
+                                                                                {behavior.title}
+                                                                            </div>
+                                                                            <div className="text-xs opacity-75">
+                                                                                {formatDuration(behavior.duration)}
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="text-xs opacity-75">
-                                                                            {formatDuration(behavior.duration)}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
+                                                                    ))}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        )
+
+                                                    })}
                                                 </div>
+                                                {processes.some(p => p.processName === "<Dopamine>" &&
+                                        p.behaviors.some(b => b.title === "<Stopped>")) && (
+                                            <div className="w-full">
+                                                <div className="border-t-2 border-base-300 relative">
+                                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-base-100 px-2 text-xs text-base-content/50">
+                                                        Stopped
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
                                             </div>
                                         </div>
                                     );
