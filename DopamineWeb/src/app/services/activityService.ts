@@ -79,17 +79,17 @@ class ActivityService {
     }
 
     private async fetchTitles(from: number, to: number): Promise<TitleData[]> {
-        // if (!this.pinCode) {
-        //     throw new Error('Not authenticated');
-        // }
+        if (!this.pinCode) {
+            throw new Error('Not authenticated');
+        }
 
-        // const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
-        //     headers: {
-        //         'Authorization': `Bearer ${this.pinCode}`
-        //     }
-        // });
-        // if (response.status === 403) throw new Error('Invalid pin code');
-        // return response.json();
+        const response = await fetch(`${this.baseUrl}/titles?from=${from}&to=${to}`, {
+            headers: {
+                'Authorization': `Bearer ${this.pinCode}`
+            }
+        });
+        if (response.status === 403) throw new Error('Invalid pin code');
+        return response.json();
         return ([
             {
                 "id": 1,
