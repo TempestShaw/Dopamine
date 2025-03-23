@@ -6,26 +6,27 @@ import { useEffect, useState } from 'react';
 import { activityService } from "@/app/services/activityService";
 
 export default function StreakCalendar() {
-    const { loading, changeDate, selectedDate } = useActivity();
+    const { loading, processedActivities , changeDate, selectedDate } = useActivity();
     const [activeView, setActiveView] = useState<'day' | 'month'>('day');
     const [activityData, setActivityData] = useState<{[key: string]: number}>({});
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const summary = await activityService.getActivitySummary(
-                    activeView, 
-                    selectedDate
-                );
-                const dateKey = selectedDate.toISOString().split('T')[0];
-                setActivityData({[dateKey]: summary.total/1000/60/60});
+                const TimeTotal: { [TimeUnit: string]:  number } = {};
+                const summary = await activityService.getActivitySummary(processedActivities);
+                Object.entries(summary).forEach(([key, summary]) => {
+                    TimeTotal[key] = summary.total;
+                });
+                setActivityData(TimeTotal);
+                console.log(TimeTotal)
             } catch (error) {
                 console.error('Error fetching activity data:', error);
             }
         };
         
         fetchData();
-    }, [activeView, selectedDate]);
+    }, [processedActivities, selectedDate]);
 
     if (loading) {
         return <div>Loading...</div>;

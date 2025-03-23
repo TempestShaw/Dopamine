@@ -1,3 +1,5 @@
+import moment from "moment";
+
 interface CalendarTileProps {
     date: Date;
     view: 'month' | 'year' | 'decade' | 'century';
@@ -6,11 +8,10 @@ interface CalendarTileProps {
 
 export default function CalendarTile({ date, view, activityData }: CalendarTileProps) {
     const getLevel = (date: Date) => {
-        const dateKey = date.toISOString().split('T')[0];
+        const dateKey = view == 'month' ? moment(date).format('YYYY-MM-DD') : moment(date).startOf('month').format('YYYY-MM') 
         const total = activityData[dateKey] || 0;
-        return getActivityLevel(total, getMaxValue(view));
+        return getActivityLevel(total/1000/60/60, getMaxValue(view));
     };
-
     const renderContent = () => {
         const level = getLevel(date);
         switch(view) {
@@ -29,7 +30,7 @@ export default function CalendarTile({ date, view, activityData }: CalendarTileP
                         `}
                     >
                         <div className="text-sm font-medium group-hover:scale-110 transition-all ">
-                            {date.getUTCDate()}
+                            {date.getDate()}
                         </div>
                     </div>
                 );
