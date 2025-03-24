@@ -436,12 +436,12 @@ class ActivityService {
             case 'week':
                 return {
                     groupKey: moment(date).startOf('week').format('YYYY-[W]WW'), // Use week number as key
-                    format: (date: moment.Moment) => date.format('DD'),
+                    format: (date: moment.Moment) => date.format('YYYY-MM-DD'),
                 };
             case 'month':
                 return {
                     groupKey: moment(date).startOf('month').format('YYYY-MM'), // Use month as key
-                    format: (date: moment.Moment) => `W${date.week()}`,
+                    format: (date: moment.Moment) => `${date.format('YYYY')}-W${date.week()}`,
                 };
         }
     }

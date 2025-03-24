@@ -2,7 +2,7 @@ import { useActivity } from "../contexts/ActivityContext";
 import { formatDuration } from "@/lib/utils";
 
 export default function GroupSection() {
-    const { groupedActivities } = useActivity();
+    const { groupedActivities, view } = useActivity();
     const getActivityColor = (category: string) => {
         switch (category.toLowerCase()) {
             case 'work':
@@ -30,7 +30,7 @@ export default function GroupSection() {
                                     const hourNumB = parseInt(hourB);
                                     return hourNumA - hourNumB;
                                 })
-                                .map(([hour, processes]) => {
+                                .map(([timeUnit, processes]) => {
                                     const sortedProcesses = [...processes].sort((a, b) => {
                                         const totalA = Object.values(a.summary).reduce((sum, val) => sum + val, 0);
                                         const totalB = Object.values(b.summary).reduce((sum, val) => sum + val, 0);
@@ -38,9 +38,9 @@ export default function GroupSection() {
                                     });
 
                                     return (
-                                        <div key={hour} className="space-y-4 border-l-2 border-base-300 pl-4">
+                                        <div key={timeUnit} className="space-y-4 border-l-2 border-base-300 pl-4">
                                             <h3 className="text-sm text-base-content/70 mb-2">
-                                                {`${hour.padStart(2, '0')}:00 - ${hour.padStart(2, '0')}:59`}
+{view === 'day' ? `${timeUnit.padStart(2, '0')}:00 - ${timeUnit.padStart(2, '0')}:59` : `${timeUnit}`}
                                             </h3>
                                             <div className="space-y-4 flex flex-col">
                                                 <div className="flex flex-row flex-wrap">
