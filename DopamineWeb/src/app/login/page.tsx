@@ -1,22 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import PairingSession from '../components/secondary/landing/pairing-section';
 import DownloadSection from '../components/secondary/landing/download-section';
 import { Cell, Pie, PieChart } from 'recharts';
 import { activityService } from '../services/activityService';
 export default function Login() {
+   
     const sudoData = [{
         name: "Work",
-        value: 4
+        value: 2
     },
     {
         name: "Social",
-        value: 1.5
+        value: 4
     },
     {
         name: "Gaming",
-        value: 2
+        value: 1
     },
     ]
     const colors = [
@@ -59,30 +61,49 @@ export default function Login() {
     }
 
 
-    const [hasDownloaded, setHasDownloaded] = useState(true);
+    const [hasDownloaded, setHasDownloaded] = useState(false);
+    const router = useRouter();
+
     useEffect(() => {
-        const checkDownloaded = async () => {
-            const response = await activityService.healthCheck();
-            setHasDownloaded(response);
+        const initializeLogin = async () => {
+            try {
+                const response = await activityService.healthCheck();
+                setHasDownloaded(response);
+                
+                if (response) {
+                    const pinCode = localStorage.getItem("dopaminePinCode");
+                    if (pinCode) {
+                        const isVerified = await activityService.verifyPinCode(pinCode);
+                        if (isVerified) {
+                            router.push("/");
+                            return;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Login initialization error:", error);
+                setHasDownloaded(false);
+            }
         };
-        checkDownloaded();
-    }, []);
+
+        initializeLogin();
+    }, [router]);
     return (
         <div className="min-h-screen flex items-center justify-center bg-base-100">
             <div className='flex flex-row m-16'>
                 <div className='flex flex-2/3 flex-col justify-evenly items-start'>
                     <div className='flex flex-col pl-4'>
-                        <h1 className='text-6xl mb-6'>
+                        <h1 className='text-6xl mb-6 text-base-content'>
                             Dopamine
                         </h1>
-                        <h2 className='text-2xl'>
+                        <h2 className='text-2xl text-base-content'>
                             Rediscover your time
                         </h2>
                     </div>
-                    {hasDownloaded ? (
-                        <PairingSession />
-                    ) : (
+                    {!hasDownloaded ? (
                         <DownloadSection />
+                    ) : (
+                        <PairingSession />
                     )}
 
                 </div>

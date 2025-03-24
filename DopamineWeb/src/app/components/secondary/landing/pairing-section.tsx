@@ -1,11 +1,12 @@
 'use client'
 import { activityService } from "@/app/services/activityService";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function PairingSession() {
     const [pinCode, setPinCode] = useState('');
     const [error, setError] = useState('');
+    const router = useRouter();
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -15,7 +16,7 @@ export default function PairingSession() {
             }
         } catch (err: unknown) {
             console.error('Pin code verification failed:', err);
-            setError('Invalid pin code');
+            setError(err instanceof Error ? err.message : 'An error occurred');
         }
     };
     return(
@@ -24,7 +25,6 @@ export default function PairingSession() {
     <form onSubmit={handleSubmit} className="space-x-4 flex flex-row">
         <div>
             <input
-                type="password"
                 value={pinCode}
                 onChange={(e) => setPinCode(e.target.value)}
                 placeholder="Enter pin code"
