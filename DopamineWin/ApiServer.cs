@@ -25,19 +25,28 @@ public class ApiServer : IDisposable, IAsyncDisposable
             options.AddDefaultPolicy(policy => { policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod(); });
         });
         _app = builder.Build();
-
-        _app.UseCors();
-        _app.Use(async (context, next) =>
+        
+        _app.Use(async (ctx, next) =>
         {
-            if (context.Request.Path.StartsWithSegments("/identify") ||
-                context.Request.Headers.TryGetValue("Authorization", out var value) &&
+            if (ctx.Request.Method.Equals("options", StringComparison.InvariantCultureIgnoreCase) && ctx.Request.Headers.ContainsKey("Access-Control-Request-Private-Network"))
+            {
+                ctx.Response.Headers.Append("Access-Control-Allow-Private-Network", "true");
+            }
+
+            await next();
+        });
+        _app.UseCors();
+        _app.Use(async (ctx, next) =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/identify") ||
+                ctx.Request.Headers.TryGetValue("Authorization", out var value) &&
                 value == $"Bearer {_settings.Settings.PairingCode}")
             {
                 await next();
             }
             else
             {
-                context.Response.StatusCode = 401;
+                ctx.Response.StatusCode = 401;
             }
         });
 
