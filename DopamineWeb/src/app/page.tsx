@@ -8,7 +8,6 @@ import Sidebar from "./components/sidebar";
 import PieChartComponent from './components/secondary/pie-chart';
 import StreakCalendar from './components/secondary/streakcalendar';
 import StreamSection from './components/stream-section';
-import { useActivity } from './contexts/ActivityContext';
 import GroupSection from './components/grouped-section';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -50,7 +49,6 @@ const data = {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('Stream');
-  const { loading } = useActivity();
   const router = useRouter();
 
   useEffect(() => {
@@ -58,19 +56,11 @@ export default function Home() {
       const isConnected = await activityService.isAuthenticated();
       const isHealthy = await activityService.healthCheck();
       if (!isConnected || !isHealthy) {
-        router.push("/login");
+        // router.push("/login");
       }
     };
     checkAuth();
   }, [router]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="loading loading-spinner loading-lg"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="">

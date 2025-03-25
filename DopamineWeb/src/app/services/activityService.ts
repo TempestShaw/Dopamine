@@ -5,6 +5,8 @@ import { GroupedData, ProcessGroup, ProcessSummary, TimeSession, TitleData } fro
 class ActivityService {
     private static instance: ActivityService;
     private cache: Map<string, TimeSession[]> = new Map();
+    private processedCache: Map<string, GroupedData> = new Map(); 
+    private lastProcessedMonth: string | null = null; 
     private baseUrl: string;
     private pinCode: string | null = null;
 
@@ -320,7 +322,7 @@ class ActivityService {
         return activity;
     }
 
-    async getActivities(timeRange: 'day' | 'week' | 'month', date: Date): Promise<TimeSession[][]> {
+    async getActivities(date: Date): Promise<TimeSession[][]> {
         const startTime = moment(date).startOf('month').toDate();
         const endTime = moment(date).endOf('month').toDate();
 
@@ -421,9 +423,20 @@ class ActivityService {
         return groupedData;
     }
 
-    async getProcessedActivity(timeRange: 'day' | 'week' | 'month', date: Date): Promise<GroupedData> {
-        const activities = await this.getActivities(timeRange, date);
-        return this.processStreamData(activities);
+    async getProcessedActivity(date: Date): Promise<GroupedData> {
+        const currentMonth = moment(date).format('YYYY-MM');
+        
+        if (this.lastProcessedMonth === currentMonth && this.processedCache.has(currentMonth)) {
+            return this.processedCache.get(currentMonth)!;
+        }
+
+        const activities = await this.getActivities(date);
+        const processedData = this.processStreamData(activities);
+        
+        this.processedCache.set(currentMonth, processedData);
+        this.lastProcessedMonth = currentMonth;
+
+        return processedData;
     }
 
     private getTimeUnitConfig(timeRange: 'day' | 'week' | 'month', date: Date) {

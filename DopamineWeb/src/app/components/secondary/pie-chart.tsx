@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
-import { useEffect, useState } from 'react';
+import { JSX } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
 
 type ChartData = {
@@ -7,12 +8,41 @@ type ChartData = {
   value: number;
 }[];
 
-export default function PieChartComponent({ data }: { data: ChartData }) {
-  const [isClient, setIsClient] = useState(false);
+interface PieChartProps {
+  data: ChartData;
+  width?: number;
+  height?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  label?: boolean;
+  labelLine?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  renderCustomLabel?: (props: any) => JSX.Element;
+}
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+export default function PieChartComponent({ 
+  data, 
+  width = 400, 
+  height = 500, 
+  innerRadius = 50,
+  outerRadius = 100,
+  label = true,
+  labelLine = true,
+  renderCustomLabel 
+}: PieChartProps) {
+
+  const getChartColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'work':
+        return '#3b82f6';  // blue-500
+      case 'study':
+        return '#22c55e';  // green-500
+      case 'social':
+        return '#a855f7';  // purple-500
+      default:
+        return '#9ca3af';  // gray-400
+    }
+  };
 
   const colors = [
     '#f0c8ca',
@@ -28,7 +58,7 @@ export default function PieChartComponent({ data }: { data: ChartData }) {
   ];
 
   // @ts-expect-error - Recharts label prop type is not fully typed
-  const renderLabel = (props) => {
+  const defaultRenderLabel = (props) => {
     const RADIAN = Math.PI / 180;
     const { cx, cy, midAngle, outerRadius } = props;
     const sin = Math.sin(-RADIAN * midAngle);
@@ -42,11 +72,6 @@ export default function PieChartComponent({ data }: { data: ChartData }) {
     const textAnchor = cos >= 0 ? 'start' : 'end';
     return (
       <g>
-        <path
-          d={`M${sx} ${sy} L${mx} ${my} L${ex} ${ey}`}
-          stroke={colors[props.index % colors.length]}
-          fill="none"
-        />
         <text x={cx} y={cy} dy={8} textAnchor="middle" fill='#000000'>
           {`Total: ${data.reduce((acc, curr) => acc + curr.value, 0)}`}
         </text>
@@ -71,15 +96,25 @@ export default function PieChartComponent({ data }: { data: ChartData }) {
     );
   };
 
-  if (!isClient) {
-    return null;
-  }
-
   return (
-    <PieChart width={400} height={500}>
-      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={100} label={renderLabel}>
+    <PieChart width={width} height={height}>
+      <Pie 
+        data={data} 
+        dataKey="value" 
+        nameKey="name" 
+        cx="50%" 
+        cy="50%" 
+        innerRadius={innerRadius} 
+        outerRadius={outerRadius}
+        labelLine={labelLine}
+        label={label ? (renderCustomLabel || defaultRenderLabel) : false}
+      >
         {data.map((entry, index) => (
-          <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+          <Cell 
+            key={`cell-${index}`} 
+            fill={getChartColor(entry.name)}
+            opacity={0.5}
+          />
         ))}
       </Pie>
     </PieChart>

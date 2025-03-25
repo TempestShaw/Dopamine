@@ -7,7 +7,6 @@ import moment from 'moment';
 interface ExtendedActivityContextType {
     processedActivities: GroupedData;
     groupedActivities: { [date: string]: { [time: string]: ProcessGroup[] } };
-    loading: boolean;
     view: 'day' | 'week' | 'month';
     selectedDate: Date;
     changeView: (newRange: 'day' | 'week' | 'month') => void;
@@ -17,7 +16,6 @@ interface ExtendedActivityContextType {
 const ActivityContext = createContext<ExtendedActivityContextType>({
     processedActivities: {},
     groupedActivities: {},
-    loading: true,
     view: 'day',
     selectedDate: new Date(),
     changeView: () => { },
@@ -29,14 +27,12 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [processedActivities, setProcessedActivities] = useState<GroupedData>({});
     const [groupedActivities, setGroupedActivities] = useState<{ [date: string]: { [time: string]: ProcessGroup[] } }>({});
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                setLoading(true);
                
-                const processed = await activityService.getProcessedActivity(view, selectedDate);
+                const processed = await activityService.getProcessedActivity(selectedDate);
                 setProcessedActivities(processed);
                 
                 const grouped = await activityService.getGroupedActivity(processed, view, selectedDate);
@@ -50,10 +46,8 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
                     "locale": selectedDate.toDateString(),
                     "momentDate": moment(selectedDate).format('YYYY-MM-DD')
                 })
-                setLoading(false);
             } catch (error) {
                 console.error('Error fetching activity data:', error);
-                setLoading(false);
             }
         };
 
@@ -72,7 +66,6 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         <ActivityContext.Provider value={{
             processedActivities,
             groupedActivities,
-            loading,
             view,
             selectedDate,
             changeView,

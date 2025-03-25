@@ -7,7 +7,7 @@ import { activityService } from "@/app/services/activityService";
 import moment from "moment";
 
 export default function StreakCalendar() {
-    const { loading, processedActivities , changeView, changeDate, selectedDate } = useActivity();
+    const { processedActivities , changeView, changeDate, selectedDate } = useActivity();
     const [activeView, setActiveView] = useState<'day' | 'month'>('day');
     const [activityData, setActivityData] = useState<{[key: string]: number}>({});
 
@@ -28,10 +28,6 @@ export default function StreakCalendar() {
         
         fetchData();
     }, [processedActivities, selectedDate]);
-
-    if (loading) {
-        return <div>Loading...</div>;
-    }
 
     const handleViewChange = (view: 'day' | 'month') => {
         setActiveView(view);

@@ -1,5 +1,7 @@
 import { useActivity } from "../contexts/ActivityContext";
 import { formatDuration } from "@/lib/utils";
+import PieChartComponent from "./secondary/pie-chart";
+import { activityService } from "../services/activityService";
 
 export default function GroupSection() {
     const { groupedActivities, view } = useActivity();
@@ -40,10 +42,55 @@ export default function GroupSection() {
                                     return (
                                         <div key={timeUnit} className="space-y-4 border-l-2 border-base-300 pl-4">
                                             <h3 className="text-sm text-base-content/70 mb-2">
-{view === 'day' ? `${timeUnit.padStart(2, '0')}:00 - ${timeUnit.padStart(2, '0')}:59` : `${timeUnit}`}
+                                                {view === 'day' ? `${timeUnit.padStart(2, '0')}:00 - ${timeUnit.padStart(2, '0')}:59` : `${timeUnit}`}
                                             </h3>
                                             <div className="space-y-4 flex flex-col">
+                                                
+                                               
                                                 <div className="flex flex-row flex-wrap">
+                                                <PieChartComponent
+                                                    data={Object.entries(activityService.getCategorySummary(processes))
+                                                        .filter(([key]) => key !== 'total')
+                                                        .map(([name, value]) => ({
+                                                            name,
+                                                            value: Number((Number(value) / 1000 / 60 / 60).toFixed(1))
+                                                        }))}
+                                                    width={200}
+                                                    height={100}
+                                                    innerRadius={20}
+                                                    outerRadius={40}
+                                                    label={true}
+                                                    labelLine={false}
+                                                    renderCustomLabel={({ cx, cy, midAngle, innerRadius, outerRadius, value, name }) => {
+                                                        const RADIAN = Math.PI / 180;
+                                                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                                                        return (
+                                                            <g>
+                                                                <text x={cx} y={cy} dy={8} className="text-xs" textAnchor="middle" fill="currentColor">
+                                                                    {`Total: ${Object.entries(activityService.getCategorySummary(processes))
+                                                                        .filter(([key]) => key !== 'total')
+                                                                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                                        .reduce((acc, [_, value]) => acc + Number((Number(value) / 1000 / 60 / 60).toFixed(1)), 0)}h`}
+                                                                </text>
+                                                                {value > 0 && (
+                                                                    <text
+                                                                        x={x}
+                                                                        y={y}
+                                                                        fill="currentColor"
+                                                                        textAnchor={x > cx ? 'start' : 'end'}
+                                                                        dominantBaseline="central"
+                                                                        className="text-xs"
+                                                                    >
+                                                                        {`${name} (${value}h)`}
+                                                                    </text>
+                                                                )}
+                                                            </g>
+                                                        );
+                                                    }}
+                                                />
                                                     {sortedProcesses.map((process, processIndex) => {
                                                         if (process.processName === "<Dopamine>" &&
                                                             process.behaviors.some(b => b.title === "<Stopped>")) {
@@ -78,15 +125,15 @@ export default function GroupSection() {
                                                     })}
                                                 </div>
                                                 {processes.some(p => p.processName === "<Dopamine>" &&
-                                        p.behaviors.some(b => b.title === "<Stopped>")) && (
-                                            <div className="w-full">
-                                                <div className="border-t-2 border-base-300 relative">
-                                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-base-100 px-2 text-xs text-base-content/50">
-                                                        Stopped
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
+                                                    p.behaviors.some(b => b.title === "<Stopped>")) && (
+                                                        <div className="w-full">
+                                                            <div className="border-t-2 border-base-300 relative">
+                                                                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-base-100 px-2 text-xs text-base-content/50">
+                                                                    Stopped
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                             </div>
                                         </div>
                                     );

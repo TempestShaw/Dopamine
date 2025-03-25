@@ -1,12 +1,18 @@
 'use client'
 import ThemeToggler from "./secondary/themeToggler"
+import Image from "next/image"
+
 export default function Header() {
     return (
         <div className="flex bg-base-200 justify-between items-center p-4">
             <div className="flex items-center gap-2 font-bold">
-                 <span className="text-xl bg-clip-text text-transparent bg-gradient-to-r from-[#5fb05a] to-[#cadc51]">
-                    Dopamine
-                </span>
+                <Image 
+                    src="/assets/DopamineLogo.svg" 
+                    alt="Dopamine Logo" 
+                    width={120} 
+                    height={30}
+                    className="dark:invert"
+                />
             </div>
             <div className="flex gap-4 items-center">
                 <div className="avatar">
