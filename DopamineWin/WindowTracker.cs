@@ -1,8 +1,14 @@
-﻿using DopamineWin.Models;
+using System.Diagnostics;
+using DopamineWin.Models;
 
 namespace DopamineWin;
 
-public class WindowTracker : IDisposable, IAsyncDisposable
+/// <summary>
+/// Records the foreground app and window title whenever it changes. Time only counts while the user
+/// is present: tracking suspends (writing a marker row) on lock, sleep and log-off, and after
+/// IdleTimeout seconds without input. Same rules as the macOS agent.
+/// </summary>
+public sealed class WindowTracker : IDisposable
 {
     private const string DopamineProcess = "<Dopamine>";
     private const string StoppedTitle = "<Stopped>";
@@ -10,116 +16,162 @@ public class WindowTracker : IDisposable, IAsyncDisposable
 
     private readonly DatabaseService _database;
     private readonly SettingsService _settings;
-    private readonly ILogger<WindowTracker>? _logger;
+    private readonly object _gate = new();
+    private readonly HashSet<string> _appsCaptured = [];
+    private readonly Timer _timer;
 
-    private CancellationTokenSource? _trackingReference;
-    private string? _currentWindowTitle;
-    private string? _currentProcessName;
+    private string? _currentTitle;
+    private string? _currentProcess;
     private DateTimeOffset _currentSince;
-    private readonly HashSet<string> _iconsCaptured = new();
+    private bool _userPaused;
+    private bool _systemSuspended;
+    private bool _idle;
 
-    public bool IsTracking => _trackingReference != null;
-
-    /// <summary>True while tracking is on but the user has been away longer than the idle timeout.</summary>
-    public bool IsIdle { get; private set; }
-
-    public WindowTracker(DatabaseService database, SettingsService settings, ILogger<WindowTracker>? logger = null)
+    public WindowTracker(DatabaseService database, SettingsService settings)
     {
         _database = database;
         _settings = settings;
-        _logger = logger;
+        _timer = new Timer(_ => Poll(), null, Timeout.Infinite, Timeout.Infinite);
+        _settings.Changed += Reschedule;
     }
 
-    public void StartTracking()
+    public bool IsPaused
     {
-        if (_trackingReference != null) return;
-
-        _trackingReference = new CancellationTokenSource();
-        _logger?.LogInformation("Window tracking started");
-
-        var token = _trackingReference.Token;
-        Task.Factory.StartNew(async () =>
+        get
         {
-            while (!token.IsCancellationRequested)
-            {
-                try
-                {
-                    Poll();
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogError(ex, "Failed to get active window title");
-                }
+            lock (_gate) return _userPaused;
+        }
+    }
 
-                try
-                {
-                    await Task.Delay(_settings.Settings.TrackingInterval, token);
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
-                }
-            }
-        }, token, TaskCreationOptions.LongRunning, TaskScheduler.Current);
+    public bool IsIdle
+    {
+        get
+        {
+            lock (_gate) return _idle;
+        }
+    }
+
+    public void Start()
+    {
+        Reschedule();
+        Log.Info("Tracking started");
+    }
+
+    private void Reschedule()
+    {
+        var interval = _settings.Settings.TrackingInterval;
+        _timer.Change(0, interval);
+    }
+
+    /// <summary>Pause or resume from the tray menu.</summary>
+    public void SetUserPaused(bool paused)
+    {
+        lock (_gate)
+        {
+            if (paused == _userPaused) return;
+            _userPaused = paused;
+            if (paused) WriteMarker(StoppedTitle);
+        }
+
+        if (!paused) Poll();
+    }
+
+    /// <summary>Lock, sleep and log-off suspend tracking; unlock and wake resume it.</summary>
+    public void SetSystemSuspended(bool suspended)
+    {
+        lock (_gate)
+        {
+            if (suspended == _systemSuspended) return;
+            _systemSuspended = suspended;
+            if (suspended) WriteMarker(StoppedTitle);
+            Log.Info(suspended ? "Suspended (lock/sleep)" : "Resumed");
+        }
+
+        if (!suspended) Poll();
+    }
+
+    /// <summary>Writes a final marker so the last window doesn't keep counting after exit.</summary>
+    public void Shutdown()
+    {
+        _timer.Change(Timeout.Infinite, Timeout.Infinite);
+        lock (_gate) WriteMarker(StoppedTitle);
+    }
+
+    private void WriteMarker(string title)
+    {
+        if (_currentProcess == null) return;
+        _database.InsertActivity(title, DopamineProcess);
+        _currentTitle = null;
+        _currentProcess = null;
     }
 
     private void Poll()
     {
+        try
+        {
+            lock (_gate) PollLocked();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Poll failed", ex);
+        }
+    }
+
+    private void PollLocked()
+    {
+        if (_userPaused || _systemSuspended) return;
+
         var idleTimeout = _settings.Settings.IdleTimeout;
         if (idleTimeout > 0)
         {
             var idle = NativeMethods.GetIdleTime();
             if (idle.TotalSeconds >= idleTimeout)
             {
-                if (!IsIdle)
+                if (!_idle)
                 {
-                    IsIdle = true;
-                    if (_currentProcessName != null)
+                    _idle = true;
+                    if (_currentProcess != null)
                     {
                         // Backdate the marker to when input actually stopped (but not before the current row).
                         var since = DateTimeOffset.Now - idle;
                         _database.InsertActivity(IdleTitle, DopamineProcess, since > _currentSince ? since : _currentSince);
-                        ResetCurrent();
+                        _currentTitle = null;
+                        _currentProcess = null;
                     }
 
-                    _logger?.LogInformation("User idle");
+                    Log.Info("Idle");
                 }
 
                 return;
             }
 
-            IsIdle = false;
+            _idle = false;
         }
 
-        var activeWindow = NativeMethods.GetActiveWindowTitle();
-        var processName = NativeMethods.GetActiveProcessName();
+        var window = NativeMethods.GetForegroundWindowInfo();
+        if (window.ProcessId == 0) return;
+        var path = NativeMethods.GetProcessPath(window.ProcessId);
+        var process = NativeMethods.GetProcessName(window.ProcessId, path);
+        if (string.IsNullOrWhiteSpace(window.Title) && string.IsNullOrWhiteSpace(process)) return;
+        if (window.Title == _currentTitle && process == _currentProcess) return;
 
-        _logger?.LogDebug("Window: {ActiveWindow}, Process: {ProcessName}", activeWindow, processName);
+        _database.InsertActivity(window.Title, process);
+        _currentTitle = window.Title;
+        _currentProcess = process;
+        _currentSince = DateTimeOffset.Now;
 
-        if ((!string.IsNullOrWhiteSpace(activeWindow) || !string.IsNullOrWhiteSpace(processName)) &&
-            (activeWindow != _currentWindowTitle || processName != _currentProcessName))
-        {
-            _database.InsertActivity(activeWindow, processName);
-
-            _currentWindowTitle = activeWindow;
-            _currentProcessName = processName;
-            _currentSince = DateTimeOffset.Now;
-
-            CaptureIcon(processName);
-        }
+        CaptureApp(process, path);
     }
 
     /// <summary>Stores each app's icon and metadata once per launch for the dashboard and tray.</summary>
-    private void CaptureIcon(string processName)
+    private void CaptureApp(string process, string? path)
     {
         // UWP apps all run inside ApplicationFrameHost, whose icon would be misleading.
-        if (string.IsNullOrEmpty(processName) || processName == "ApplicationFrameHost" || !_iconsCaptured.Add(processName)) return;
+        if (path == null || process == "ApplicationFrameHost" || !_appsCaptured.Add(process)) return;
         try
         {
-            var path = NativeMethods.GetActiveProcessPath();
-            if (path == null) return;
-            var version = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
-            _database.SaveApp(processName, new StoredApp(
+            var version = FileVersionInfo.GetVersionInfo(path);
+            _database.SaveApp(process, new StoredApp(
                 NativeMethods.ExtractIconPng(path),
                 null,
                 string.IsNullOrWhiteSpace(version.FileDescription) ? version.ProductName : version.FileDescription,
@@ -128,39 +180,12 @@ public class WindowTracker : IDisposable, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger?.LogDebug(ex, "Could not capture icon for {ProcessName}", processName);
+            Log.Error($"Could not capture app info for {process}", ex);
         }
-    }
-
-    private void ResetCurrent()
-    {
-        // Forces the next poll to record the foreground window again.
-        _currentWindowTitle = null;
-        _currentProcessName = null;
-    }
-
-    public void StopTracking()
-    {
-        if (_trackingReference == null) return;
-
-        _trackingReference.Cancel();
-        _trackingReference.Dispose();
-        _trackingReference = null;
-
-        _database.InsertActivity(StoppedTitle, DopamineProcess);
-        ResetCurrent();
-        IsIdle = false;
-
-        _logger?.LogInformation("Window tracking stopped");
     }
 
     public void Dispose()
     {
-        _database.Dispose();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _database.DisposeAsync();
+        _timer.Dispose();
     }
 }

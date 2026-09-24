@@ -1,115 +1,86 @@
-﻿using DopamineWin.Models;
-using Microsoft.Data.Sqlite;
+using DopamineWin.Models;
+using DopamineWin.Native;
 
 namespace DopamineWin;
 
-public class DatabaseService : IDisposable, IAsyncDisposable
+/// <summary>
+/// The activity log and per-app info, in the same schema as the macOS agent. The tracker writes
+/// while API requests read, so every call takes the same lock.
+/// </summary>
+public sealed class DatabaseService : IDisposable
 {
-    public string FilePath { get; init; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dopamine.db");
+    private readonly object _gate = new();
+    private readonly Sqlite _db;
+    private readonly Sqlite.Statement _insert;
 
-    private readonly ILogger<DatabaseService>? _logger;
-    private readonly SqliteConnection _connection;
-
-    // The tracker thread writes while API requests read; a single SqliteConnection is not thread-safe.
-    private readonly object _lock = new();
-
-    public DatabaseService(ILogger<DatabaseService>? logger = null)
+    public DatabaseService()
     {
-        _logger = logger;
-        _connection = new SqliteConnection($"Data Source={FilePath}");
-        _connection.Open();
-        InitializeDatabase();
-    }
-
-    private void InitializeDatabase()
-    {
-        var command = _connection.CreateCommand();
-        command.CommandText = @"
-                PRAGMA journal_mode=WAL;
-                CREATE TABLE IF NOT EXISTS WindowActivities (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Timestamp INTEGER NOT NULL,
-                    WindowTitle TEXT,
-                    ProcessName TEXT
-                );
-                CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp);
-                CREATE TABLE IF NOT EXISTS AppInfo (
-                    ProcessName TEXT PRIMARY KEY,
-                    Png BLOB,
-                    Kind TEXT,
-                    Description TEXT,
-                    Publisher TEXT,
-                    Path TEXT,
-                    UpdatedAt INTEGER NOT NULL
-                );";
-        command.ExecuteNonQuery();
-
-        _logger?.LogInformation("Database initialized");
+        _db = new Sqlite(AppInfo.DataFile("dopamine.db"));
+        _db.Execute("""
+            PRAGMA journal_mode=WAL;
+            CREATE TABLE IF NOT EXISTS WindowActivities (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Timestamp INTEGER NOT NULL,
+                WindowTitle TEXT,
+                ProcessName TEXT
+            );
+            CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp);
+            CREATE TABLE IF NOT EXISTS AppInfo (
+                ProcessName TEXT PRIMARY KEY,
+                Png BLOB,
+                Kind TEXT,
+                Description TEXT,
+                Publisher TEXT,
+                Path TEXT,
+                UpdatedAt INTEGER NOT NULL
+            );
+            """);
+        _insert = _db.Prepare("INSERT INTO WindowActivities (Timestamp, WindowTitle, ProcessName) VALUES (?1, ?2, ?3)");
     }
 
     public void InsertActivity(string windowTitle, string processName, DateTimeOffset? at = null)
     {
-        lock (_lock)
+        lock (_gate)
         {
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                INSERT INTO WindowActivities (Timestamp, WindowTitle, ProcessName)
-                VALUES ($Timestamp, $WindowTitle, $ProcessName)";
-            command.Parameters.AddWithValue("$Timestamp", (at ?? DateTimeOffset.Now).ToUnixTimeSeconds());
-            command.Parameters.AddWithValue("$WindowTitle", windowTitle);
-            command.Parameters.AddWithValue("$ProcessName", processName);
-            command.ExecuteNonQuery();
+            _insert.Reset();
+            _insert.Bind(1, (at ?? DateTimeOffset.Now).ToUnixTimeSeconds()).Bind(2, windowTitle).Bind(3, processName).Run();
         }
-
-        _logger?.LogDebug("Activity inserted");
     }
 
+    /// <summary>Rows with <c>from &lt;= Timestamp &lt;= to</c>, oldest first.</summary>
     public List<WindowActivity> GetActivities(long from, long to)
     {
-        var activities = new List<WindowActivity>();
-        lock (_lock)
+        var rows = new List<WindowActivity>();
+        lock (_gate)
         {
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                SELECT Id, Timestamp, WindowTitle, ProcessName FROM WindowActivities
-                WHERE Timestamp >= $Start AND Timestamp <= $End
-                ORDER BY Timestamp, Id";
-            command.Parameters.AddWithValue("$Start", from);
-            command.Parameters.AddWithValue("$End", to);
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
+            using var query = _db.Prepare(
+                "SELECT Id, Timestamp, WindowTitle, ProcessName FROM WindowActivities WHERE Timestamp >= ?1 AND Timestamp <= ?2 ORDER BY Timestamp, Id");
+            query.Bind(1, from).Bind(2, to);
+            while (query.Step())
             {
-                activities.Add(new WindowActivity
+                rows.Add(new WindowActivity
                 {
-                    Id = reader.GetInt32(0),
-                    Timestamp = reader.GetInt64(1),
-                    WindowTitle = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                    ProcessName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3)
+                    Id = (int)query.Int64(0),
+                    Timestamp = query.Int64(1),
+                    WindowTitle = query.Text(2) ?? string.Empty,
+                    ProcessName = query.Text(3) ?? string.Empty,
                 });
             }
         }
 
-        _logger?.LogDebug("Retrieved {Count} activities", activities.Count);
-        return activities;
+        return rows;
     }
 
     public void SaveApp(string processName, StoredApp app)
     {
-        lock (_lock)
+        lock (_gate)
         {
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
+            using var upsert = _db.Prepare("""
                 INSERT OR REPLACE INTO AppInfo (ProcessName, Png, Kind, Description, Publisher, Path, UpdatedAt)
-                VALUES ($ProcessName, $Png, $Kind, $Description, $Publisher, $Path, $UpdatedAt)";
-            command.Parameters.AddWithValue("$ProcessName", processName);
-            command.Parameters.AddWithValue("$Png", (object?)app.Png ?? DBNull.Value);
-            command.Parameters.AddWithValue("$Kind", (object?)app.Kind ?? DBNull.Value);
-            command.Parameters.AddWithValue("$Description", (object?)app.Description ?? DBNull.Value);
-            command.Parameters.AddWithValue("$Publisher", (object?)app.Publisher ?? DBNull.Value);
-            command.Parameters.AddWithValue("$Path", (object?)app.Path ?? DBNull.Value);
-            command.Parameters.AddWithValue("$UpdatedAt", DateTimeOffset.Now.ToUnixTimeSeconds());
-            command.ExecuteNonQuery();
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                """);
+            upsert.Bind(1, processName).Bind(2, app.Png).Bind(3, app.Kind).Bind(4, app.Description).Bind(5, app.Publisher)
+                .Bind(6, app.Path).Bind(7, DateTimeOffset.Now.ToUnixTimeSeconds()).Run();
         }
     }
 
@@ -117,18 +88,15 @@ public class DatabaseService : IDisposable, IAsyncDisposable
     public Dictionary<string, StoredApp> GetApps(IEnumerable<string> processNames)
     {
         var apps = new Dictionary<string, StoredApp>();
-        lock (_lock)
+        lock (_gate)
         {
-            using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT Png, Kind, Description, Publisher, Path FROM AppInfo WHERE ProcessName = $ProcessName";
-            var parameter = command.Parameters.Add("$ProcessName", SqliteType.Text);
+            using var query = _db.Prepare("SELECT Png, Kind, Description, Publisher, Path FROM AppInfo WHERE ProcessName = ?1");
             foreach (var name in processNames.Distinct())
             {
-                parameter.Value = name;
-                using var reader = command.ExecuteReader();
-                if (!reader.Read()) continue;
-                string? Text(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
-                apps[name] = new StoredApp(reader.IsDBNull(0) ? null : (byte[])reader[0], Text(1), Text(2), Text(3), Text(4));
+                query.Reset();
+                query.Bind(1, name);
+                if (query.Step())
+                    apps[name] = new StoredApp(query.Blob(0), query.Text(1), query.Text(2), query.Text(3), query.Text(4));
             }
         }
 
@@ -137,11 +105,10 @@ public class DatabaseService : IDisposable, IAsyncDisposable
 
     public void Dispose()
     {
-        _connection.Dispose();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _connection.DisposeAsync();
+        lock (_gate)
+        {
+            _insert.Dispose();
+            _db.Dispose();
+        }
     }
 }

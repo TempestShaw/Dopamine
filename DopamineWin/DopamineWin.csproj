@@ -1,23 +1,33 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Native AOT build: compiles to a single native exe with no .NET runtime to install.
+    The agent uses only Win32 (tray, window tracking), winsqlite3.dll (bundled with Windows 10+)
+    and a small built-in HTTP server, so it needs no WinForms or ASP.NET Core.
+  -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.0.1</Version>
+    <Version>0.0.2</Version>
+    <ApplicationIcon>assets\dopamine.ico</ApplicationIcon>
+
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>IL2026;IL2104;IL3050;IL3053</WarningsAsErrors>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
-  </ItemGroup>
-
-  <!-- Bundle the web dashboard (run `bun run build` in ../DopamineWeb first) so it is served at http://localhost:26535/. -->
+  <!-- The dashboard (run `bun run build` in ../DopamineWeb first) is embedded in the exe. -->
   <ItemGroup Condition="Exists('..\DopamineWeb\out\index.html')">
-    <Content Include="..\DopamineWeb\out\**\*" LinkBase="wwwroot" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="..\DopamineWeb\out\**\*" LogicalName="web/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -66,9 +66,49 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
-      # Self-contained single exe: users need no .NET runtimes installed.
-      - run: dotnet publish DopamineWin.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
-      - run: Compress-Archive -Path publish/* -DestinationPath Dopamine-win.zip
+      # Native AOT: one native exe with the dashboard embedded; no .NET runtime needed.
+      - run: dotnet publish DopamineWin.csproj -c Release -o publish
+      - name: Smoke test the built exe
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path publish/DopamineWin.exe
+          "Exe size: {0:N1} MB" -f ((Get-Item $exe).Length / 1MB)
+          $proc = Start-Process -FilePath $exe -PassThru
+          $base = "http://127.0.0.1:26535"
+          $info = $null
+          for ($i = 0; $i -lt 30 -and -not $info; $i++) {
+            try { $info = Invoke-RestMethod "$base/identify" } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $info -or $info.name -ne "dopamine-win") { throw "identify failed" }
+          "identify: $($info.name) $($info.version)"
+
+          $cfg = Get-Content "$env:LOCALAPPDATA\Dopamine\config.json" -Raw | ConvertFrom-Json
+          $auth = @{ Authorization = "Bearer $($cfg.pairingCode)" }
+
+          $denied = Invoke-WebRequest "$base/titles?from=0&to=1" -SkipHttpErrorCheck
+          if ($denied.StatusCode -ne 401) { throw "expected 401 without the pairing code, got $($denied.StatusCode)" }
+
+          Invoke-WebRequest "$base/pair" -Headers $auth | Out-Null
+          Start-Sleep -Seconds 6   # let the tracker record at least one poll
+          $titles = Invoke-RestMethod "$base/titles?from=0&to=9999999999" -Headers $auth
+          "titles: $(@($titles).Count) rows"
+          $apps = Invoke-RestMethod "$base/apps?names=pwsh" -Headers $auth
+          "apps: $(($apps | ConvertTo-Json -Depth 3 -Compress).Length) bytes"
+
+          $put = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"idleTimeout":120,"categoryOverrides":{"Code":"study","Bad":"nope"}}'
+          if ($put.idleTimeout -ne 120) { throw "settings update failed" }
+          if ($put.categoryOverrides.Code -ne "study" -or $put.categoryOverrides.Bad) { throw "category overrides not validated" }
+
+          $page = Invoke-WebRequest "$base/"
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<html") { throw "dashboard not served" }
+          $js = ([regex]::Match($page.Content, '/_next/static/[^"]+\.js')).Value
+          if ($js) { (Invoke-WebRequest "$base$js").Headers["Content-Type"] }
+
+          $p = Get-Process -Id $proc.Id
+          "Memory: working set {0:N1} MB, private {1:N1} MB" -f ($p.WorkingSet64 / 1MB), ($p.PrivateMemorySize64 / 1MB)
+          Stop-Process -Id $proc.Id
+          Get-Content "$env:LOCALAPPDATA\Dopamine\dopamine.log" -ErrorAction SilentlyContinue
+      - run: Compress-Archive -Path publish/DopamineWin.exe -DestinationPath Dopamine-win.zip
         shell: pwsh
       - uses: actions/upload-artifact@v5
         with:

@@ -1,64 +1,87 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Security.Cryptography;
+using System.Text.Json;
 using DopamineWin.Models;
 
 namespace DopamineWin;
 
-public class SettingsService
+public sealed class SettingsService
 {
-    private readonly ILogger<SettingsService>? _logger;
+    private readonly object _gate = new();
+    private readonly string _path = AppInfo.DataFile("config.json");
+    private StoredSettings _settings;
 
-    public string FilePath { get; init; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
-    public StoredSettings Settings { get; private set; }
+    /// <summary>Raised after settings change (e.g. a new tracking interval from the dashboard).</summary>
+    public event Action? Changed;
 
-    private readonly JsonSerializerOptions _jsonOptions = new()
+    public SettingsService()
     {
-        Converters =
-        {
-            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
-        },
-        WriteIndented = true
-    };
-
-    public SettingsService(ILogger<SettingsService>? logger)
-    {
-        _logger = logger;
-        StoredSettings? loadedSettings = null;
+        StoredSettings? loaded = null;
         try
         {
-            if (File.Exists(FilePath))
-            {
-                var json = File.ReadAllText(FilePath);
-                loadedSettings = JsonSerializer.Deserialize<StoredSettings>(json, _jsonOptions);
-            }
+            if (File.Exists(_path)) loaded = JsonSerializer.Deserialize(File.ReadAllText(_path), Json.Default.StoredSettings);
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to load configuration file");
+            Log.Error("Failed to read config.json", ex);
         }
 
-        if (loadedSettings == null)
+        if (loaded == null || string.IsNullOrWhiteSpace(loaded.PairingCode))
         {
-            loadedSettings = StoredSettings.CreateDefault();
-            Settings = loadedSettings;
-            SaveSettings();
+            loaded ??= new StoredSettings();
+            loaded.PairingCode = GeneratePairingCode(6);
+            _settings = loaded;
+            Save();
         }
         else
         {
-            Settings = loadedSettings;
+            _settings = loaded;
         }
     }
 
-    public void SaveSettings()
+    public StoredSettings Settings
+    {
+        get
+        {
+            lock (_gate) return _settings;
+        }
+    }
+
+    public PublicSettings Update(SettingsPatch patch)
+    {
+        PublicSettings result;
+        lock (_gate)
+        {
+            _settings.Apply(patch);
+            result = _settings.ToPublic();
+        }
+
+        Save();
+        Changed?.Invoke();
+        return result;
+    }
+
+    private void Save()
     {
         try
         {
-            var json = JsonSerializer.Serialize(Settings, _jsonOptions);
-            File.WriteAllText(FilePath, json);
+            string json;
+            lock (_gate) json = JsonSerializer.Serialize(_settings, Json.Default.StoredSettings);
+            Directory.CreateDirectory(AppInfo.DataDirectory);
+            var temp = _path + ".tmp";
+            File.WriteAllText(temp, json);
+            File.Move(temp, _path, overwrite: true);
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to save configuration file");
+            Log.Error("Failed to save config.json", ex);
         }
+    }
+
+    private static string GeneratePairingCode(int length)
+    {
+        const string allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var chars = new char[length];
+        for (var i = 0; i < length; i++) chars[i] = allowed[RandomNumberGenerator.GetInt32(allowed.Length)];
+        return new string(chars);
     }
 }
