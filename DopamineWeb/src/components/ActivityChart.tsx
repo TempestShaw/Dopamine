@@ -3,11 +3,9 @@
 import { useMemo, useState } from "react";
 import { Bucket, Segment } from "@/lib/analytics";
 import { CATEGORIES, CATEGORY_META } from "@/lib/categories";
-import { HOUR, Range, View, clock, formatDuration, formatHoursShort, sameDay } from "@/lib/time";
+import { useT } from "@/lib/i18n";
+import { HOUR, Range, View, clock, formatDuration, formatHoursShort, hourLabel, longDay, sameDay, weekdayShort } from "@/lib/time";
 import { AppAvatar, CategoryDot, Section } from "./ui";
-
-const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" });
-const longDay = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" });
 
 /** Picks a round axis maximum (15m, 30m, 1h … or 2h, 4h, 8h …). */
 function niceMax(v: number, view: View): number {
@@ -19,16 +17,17 @@ export function ActivityChart({ view, buckets, segments, range, now, onPickDay }
   const [hover, setHover] = useState<number | null>(null);
   const max = useMemo(() => niceMax(Math.max(1, ...buckets.map((b) => b.total)), view), [buckets, view]);
   const hovered = hover === null ? null : buckets[hover];
+  const t = useT();
 
   const label = (b: Bucket, i: number) => {
-    if (view === "day") return i % 6 === 0 ? clock(b.start).replace(":00", "") : "";
-    if (view === "week") return weekday.format(b.start);
+    if (view === "day") return i % 6 === 0 ? hourLabel(new Date(b.start).getHours()) : "";
+    if (view === "week") return weekdayShort(b.start);
     const d = new Date(b.start).getDate();
     return d === 1 || d % 5 === 0 ? String(d) : "";
   };
 
   return (
-    <Section title={view === "day" ? "Timeline" : "Day by day"} action={<Legend />}>
+    <Section title={view === "day" ? t.chart.timeline : t.chart.dayByDay} action={<Legend />}>
       {view === "day" && <DayRibbon segments={segments} range={range} />}
 
       <div className="relative">
@@ -52,7 +51,7 @@ export function ActivityChart({ view, buckets, segments, range, now, onPickDay }
                 onMouseEnter={() => setHover(i)}
                 onFocus={() => setHover(i)}
                 onClick={() => onPickDay(new Date(b.start))}
-                aria-label={`${view === "day" ? clock(b.start) : longDay.format(b.start)}: ${formatDuration(b.total)}`}
+                aria-label={`${view === "day" ? clock(b.start) : longDay(b.start)}: ${formatDuration(b.total)}`}
                 className={`relative flex h-full flex-1 flex-col justify-end ${view === "day" ? "cursor-default" : "cursor-pointer"}`}
               >
                 <div
@@ -80,7 +79,7 @@ export function ActivityChart({ view, buckets, segments, range, now, onPickDay }
         <div className="mt-4 flex min-h-7 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-graphite">
           {hovered ? (
             <>
-              <span className="serif text-lg text-ink italic">{view === "day" ? `${clock(hovered.start)} – ${clock(hovered.end)}` : longDay.format(hovered.start)}</span>
+              <span className="serif text-lg text-ink italic">{view === "day" ? `${clock(hovered.start)} – ${clock(hovered.end)}` : longDay(hovered.start)}</span>
               <span className="num font-medium text-ink">{formatDuration(hovered.total)}</span>
               {CATEGORIES.filter((c) => hovered.byCategory[c] > 0).map((c) => (
                 <span key={c} className="num inline-flex items-center gap-1.5">
@@ -89,7 +88,7 @@ export function ActivityChart({ view, buckets, segments, range, now, onPickDay }
               ))}
             </>
           ) : (
-            <span className="hand text-lg text-faint">{view === "day" ? "hover a bar to see the hour" : "hover for details · click a day to open it"}</span>
+            <span className="hand text-lg text-faint">{view === "day" ? t.chart.hoverHour : t.chart.hoverDay}</span>
           )}
         </div>
       </div>
@@ -98,12 +97,13 @@ export function ActivityChart({ view, buckets, segments, range, now, onPickDay }
 }
 
 function Legend() {
+  const t = useT();
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       {CATEGORIES.map((c) => (
         <span key={c} className="inline-flex items-center gap-1.5 text-[13px] text-graphite">
           <CategoryDot category={c} />
-          {CATEGORY_META[c].label}
+          {t.categories[c]}
         </span>
       ))}
     </div>
@@ -164,7 +164,7 @@ function DayRibbon({ segments, range }: { segments: Segment[]; range: Range }) {
       <div className="mt-1.5 flex justify-between text-[11px] text-faint">
         {[0, 6, 12, 18, 24].map((h) => (
           <span key={h} className="num">
-            {h === 24 ? "" : clock(new Date(2000, 0, 1, h).getTime()).replace(":00", "")}
+            {h === 24 ? "" : hourLabel(h)}
           </span>
         ))}
       </div>

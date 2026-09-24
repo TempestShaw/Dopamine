@@ -2,9 +2,9 @@
 
 import { AGENT_PROCESS, RawEvent } from "./analytics";
 import { AppInfo, DataSource, Preferences, preferencesFromSettings, settingsFromPreferences } from "./source";
+import { addDays, startOfDay } from "./time";
 
 const PREFS_KEY = "dopamine.demo.preferences";
-import { addDays, startOfDay } from "./time";
 
 type Activity = [process: string, titles: string[], weight: number, minMinutes: number, maxMinutes: number];
 
@@ -17,6 +17,8 @@ const FOCUS: Activity[] = [
   ["Slack", ["#dev — Acme", "#general — Acme"], 2, 2, 8],
   ["Zoom", ["Zoom Meeting — Standup"], 1, 15, 30],
   ["Figma", ["Dopamine — Dashboard v2"], 1, 10, 35],
+  // Hidden by default, like the real agents' own windows: shows up under "1 app hidden".
+  ["Dopamine", ["Dopamine"], 1, 1, 3],
 ];
 
 const DISTRACT: Activity[] = [
@@ -99,6 +101,7 @@ const GLYPHS: Record<string, [from: string, to: string, glyph: string]> = {
   Discord: ["#818cf8", "#4338ca", '<path d="M17 21h22a3 3 0 013 3v12a3 3 0 01-3 3H27l-7 5v-5h-3a3 3 0 01-3-3V24a3 3 0 013-3z" fill="#fff"/><path d="M45 28h2a3 3 0 013 3v10a3 3 0 01-3 3h-2v4l-6-4h-7" stroke="#fff" stroke-width="3" fill="none" stroke-linejoin="round"/>'],
   Spotify: ["#4ade80", "#15803d", '<path d="M27 42V21l17-4v21" stroke="#fff" stroke-width="3.5" fill="none" stroke-linejoin="round"/><circle cx="23" cy="42" r="5" fill="#fff"/><circle cx="40" cy="38" r="5" fill="#fff"/>'],
   WeChat: ["#86efac", "#16a34a", '<ellipse cx="28" cy="29" rx="12" ry="10" fill="#fff"/><ellipse cx="39" cy="38" rx="10" ry="8" fill="#fff" stroke="#16a34a" stroke-width="2"/><circle cx="24" cy="27" r="1.8" fill="#16a34a"/><circle cx="32" cy="27" r="1.8" fill="#16a34a"/>'],
+  Dopamine: ["#fbf8f1", "#efe8da", '<circle cx="27" cy="27" r="10" fill="#e8799f"/><circle cx="38" cy="28" r="9" fill="#ffd23f" opacity=".9"/><circle cx="30" cy="38" r="9.5" fill="#2f6bff" opacity=".9"/><circle cx="40" cy="39" r="6" fill="#4fb58a" opacity=".9"/>'],
   Finder: ["#93c5fd", "#3b82f6", '<path d="M15 23a3 3 0 013-3h9l3 4h16a3 3 0 013 3v15a3 3 0 01-3 3H18a3 3 0 01-3-3z" fill="#fff"/>'],
 };
 
@@ -125,9 +128,9 @@ export class DemoSource implements DataSource {
   // Sample data has no agent, so preferences are kept in this browser. Nothing is ever shared.
   async loadPreferences(): Promise<Preferences> {
     try {
-      return preferencesFromSettings(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"));
+      return preferencesFromSettings(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"), "demo");
     } catch {
-      return preferencesFromSettings({});
+      return preferencesFromSettings({}, "demo");
     }
   }
 

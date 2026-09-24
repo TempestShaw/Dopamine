@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { EventStore } from "@/lib/source";
+import { useT } from "@/lib/i18n";
 import { IconContext } from "@/lib/icons";
 import { useDashboard } from "@/lib/useDashboard";
 import { View, rangeFor, sameDay, shiftAnchor, startOfDay } from "@/lib/time";
@@ -19,7 +20,8 @@ const NO_ICONS: Record<string, string> = {};
 export function Dashboard({ store, onDisconnect }: { store: EventStore; onDisconnect: () => void }) {
   const [view, setView] = useState<View>("day");
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
-  const { data, loading, error, now, overrides, setOverride, sharing } = useDashboard(store, view, anchor, onDisconnect);
+  const t = useT();
+  const { data, loading, error, now, overrides, setOverride, hidden, setHidden, sharing } = useDashboard(store, view, anchor, onDisconnect);
 
   const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
   const isCurrent = range.start <= now && now < range.end;
@@ -58,9 +60,9 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
       <main className="mx-auto max-w-[1180px] px-4 pt-8 sm:px-8">
         {error && (
           <div className="sketch mb-8 flex items-center justify-between gap-3 px-4 py-3 text-[15px]">
-            <span className="marker">{error}</span>
+            <span className="marker">{t.errors[error]}</span>
             <button type="button" onClick={() => setAnchor(new Date(anchor))} className="inline-flex items-center gap-1.5 font-medium hover:underline">
-              <Refresh className="size-3.5" /> Retry
+              <Refresh className="size-3.5" /> {t.retry}
             </button>
           </div>
         )}
@@ -75,7 +77,17 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
               <div className="min-w-0 space-y-12">
                 <ActivityChart view={view} buckets={data.buckets} segments={data.segments} range={range} now={now} onPickDay={openDay} />
                 <Rule />
-                <ActivityLists apps={data.summary.apps} sessions={data.sessions} total={data.summary.total} view={view} overrides={overrides} onOverride={setOverride} sharing={sharing} />
+                <ActivityLists
+                  apps={data.summary.apps}
+                  sessions={data.sessions}
+                  total={data.summary.total}
+                  view={view}
+                  overrides={overrides}
+                  onOverride={setOverride}
+                  sharing={sharing}
+                  hidden={hidden}
+                  onHide={setHidden}
+                />
               </div>
               <aside className="space-y-12 lg:border-l lg:border-dashed lg:border-line lg:pl-10">
                 <CategoryBreakdown totals={data.summary.byCategory} total={data.summary.total} />
@@ -87,10 +99,10 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
         )}
 
         <footer className="hand mt-16 flex flex-col items-center gap-1 text-center text-lg text-faint">
-          <span>{sharing.state === "on" ? "your activity stays on this computer; only app categories you pick are shared" : "everything stays on this computer"}</span>
+          <span>{sharing.state === "on" ? t.footer.sharing : t.footer.local}</span>
           {sharing.available && sharing.state !== "ask" && (
             <button type="button" onClick={() => sharing.set(sharing.state === "on" ? "off" : "on")} className="text-base underline decoration-line underline-offset-4 hover:text-graphite">
-              {sharing.state === "on" ? "stop sharing category choices" : "share category choices to help others"}
+              {sharing.state === "on" ? t.footer.stop : t.footer.start}
             </button>
           )}
         </footer>

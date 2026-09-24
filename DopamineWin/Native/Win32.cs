@@ -195,6 +195,7 @@ internal static unsafe class Win32
 
     // kernel32 -------------------------------------------------------------------------------
     [DllImport("kernel32.dll")] public static extern IntPtr GetModuleHandleW(char* name);
+    [DllImport("kernel32.dll")] public static extern ushort GetUserDefaultUILanguage();
     [DllImport("kernel32.dll")] public static extern IntPtr OpenProcess(uint access, int inherit, uint processId);
     [DllImport("kernel32.dll")] public static extern int QueryFullProcessImageNameW(IntPtr process, uint flags, char* name, uint* size);
     [DllImport("kernel32.dll")] public static extern int CloseHandle(IntPtr handle);

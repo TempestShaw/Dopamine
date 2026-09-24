@@ -86,8 +86,9 @@
   --color-good: var(--good);
   --color-warn: var(--warn);
   --font-sans: "Figtree", ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-serif: "Instrument Serif", "Iowan Old Style", Georgia, "Songti SC", serif;
-  --font-hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+  --font-serif: "Instrument Serif", "Iowan Old Style", Georgia, "Songti SC", "Noto Serif CJK SC", SimSun, serif;
+  /* Chinese has no handwriting face in Caveat; Kaiti (brush script) keeps the sketchbook feel. */
+  --font-hand: "Caveat", "Bradley Hand", "Segoe Print", "Kaiti SC", STKaiti, KaiTi, cursive;
 }
 
 html {
@@ -109,6 +110,14 @@ body {
   min-height: 100vh;
 }
 
+:lang(zh) h1.serif {
+  line-height: 1.12;
+}
+
+:lang(zh-TW) body {
+  font-family: "Figtree", ui-sans-serif, -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+
 
 h1,
 h2,
@@ -120,6 +129,17 @@ h3 {
 @layer components {
   .num {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Chinese: Traditional forms from TC/Ming faces, and never a slanted fake italic. */
+  :lang(zh) {
+    font-synthesis-style: none;
+  }
+  :lang(zh-TW) .serif {
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, "Songti TC", "Noto Serif CJK TC", PMingLiU, serif;
+  }
+  :lang(zh-TW) .hand {
+    font-family: "Caveat", "Bradley Hand", "Segoe Print", "Kaiti TC", BiauKai, DFKai-SB, cursive;
   }
 
   .serif {

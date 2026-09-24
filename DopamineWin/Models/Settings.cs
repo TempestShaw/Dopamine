@@ -21,6 +21,14 @@ public sealed class StoredSettings
     /// <summary>Random id sent with shared choices so one install counts once. Empty until sharing is on.</summary>
     public string InstallId { get; set; } = string.Empty;
 
+    /// <summary>Process names left out of every figure. Null until the user changes it, meaning <see cref="DefaultHidden"/>.</summary>
+    public List<string>? HiddenApps { get; set; }
+
+    /// <summary>Dopamine's own tray menu doesn't count as screen time unless the user asks.</summary>
+    public static readonly string[] DefaultHidden = ["DopamineWin"];
+
+    public IReadOnlyList<string> Hidden => HiddenApps ?? [.. DefaultHidden];
+
     private static readonly HashSet<string> Categories = ["work", "study", "social", "entertainment", "other"];
     private static readonly HashSet<string> SharingStates = ["ask", "on", "off"];
 
@@ -32,6 +40,8 @@ public sealed class StoredSettings
             CategoryOverrides = patch.CategoryOverrides.Where(p => Categories.Contains(p.Value)).ToDictionary(p => p.Key, p => p.Value);
         if (patch.CommunitySharing != null && SharingStates.Contains(patch.CommunitySharing)) CommunitySharing = patch.CommunitySharing;
         if (patch.InstallId != null && Guid.TryParse(patch.InstallId, out _)) InstallId = patch.InstallId;
+        if (patch.HiddenApps != null)
+            HiddenApps = patch.HiddenApps.Where(p => !string.IsNullOrEmpty(p) && p.Length <= 256).Take(500).ToList();
     }
 
     /// <summary>The part a paired dashboard may read (everything but the pairing code).</summary>
@@ -42,6 +52,7 @@ public sealed class StoredSettings
         CategoryOverrides = CategoryOverrides,
         CommunitySharing = CommunitySharing,
         InstallId = string.IsNullOrEmpty(InstallId) ? null : InstallId,
+        HiddenApps = [.. Hidden],
     };
 }
 
@@ -53,6 +64,7 @@ public sealed class SettingsPatch
     public Dictionary<string, string>? CategoryOverrides { get; set; }
     public string? CommunitySharing { get; set; }
     public string? InstallId { get; set; }
+    public List<string>? HiddenApps { get; set; }
 }
 
 public sealed class PublicSettings
@@ -62,6 +74,7 @@ public sealed class PublicSettings
     public Dictionary<string, string> CategoryOverrides { get; set; } = new();
     public string CommunitySharing { get; set; } = "ask";
     public string? InstallId { get; set; }
+    public List<string> HiddenApps { get; set; } = [];
 }
 
 /// <summary>GET /identify: lets the dashboard find the agent and learn its settings.</summary>

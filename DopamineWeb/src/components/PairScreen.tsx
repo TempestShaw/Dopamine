@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 import { AgentInfo, defaultAgentUrl, identify, platformOf, verifyCode } from "@/lib/source";
-import { ThemeToggle } from "./Header";
+import { LanguagePicker, ThemeToggle } from "./Header";
 import { Apple, Logo, Rule, Stroke, Windows } from "./ui";
 
 const RELEASES = "https://github.com/TempestShaw/Dopamine/releases/latest";
@@ -38,6 +39,7 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
   const [busy, setBusy] = useState(false);
   const [editUrl, setEditUrl] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   const probe = async (target: string) => {
     setStatus("probing");
@@ -64,14 +66,15 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
     const ok = await verifyCode(url, code);
     setBusy(false);
     if (ok) onPaired(url, code, info);
-    else setError("That code didn't match. Open the Dopamine menu to see the current one.");
+    else setError(t.pair.wrong);
   };
 
   const platform = info ? platformOf(info) : null;
 
   return (
     <div className="relative flex min-h-screen flex-col px-4">
-      <div className="absolute top-5 right-5">
+      <div className="absolute top-5 right-5 flex items-center gap-1">
+        <LanguagePicker />
         <ThemeToggle />
       </div>
 
@@ -80,12 +83,12 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
           <Palette />
           <Logo className="relative size-12" />
           <h1 className="serif relative mt-6 text-[56px] leading-[0.95]">
-            Rediscover
+            {t.pair.title[0]}
             <br />
-            <span className="italic">your time.</span>
+            <span className="italic">{t.pair.title[1]}</span>
           </h1>
           <p className="relative mt-5 max-w-[36ch] text-[15px] leading-relaxed text-graphite">
-            Dopamine notes which window is in front, keeps it on your computer, and shows you where the hours went.
+            {t.pair.intro}
           </p>
         </div>
 
@@ -95,16 +98,21 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
             <div className="min-w-0 flex-1">
               {status === "found" && info ? (
                 <>
-                  Found <b className="font-semibold">Dopamine for {platform === "mac" ? "macOS" : "Windows"}</b> <span className="text-faint">v{info.version}</span>
+                  {t.pair.found(
+                    <b key="os" className="font-semibold">
+                      {t.pair.agentName(platform === "mac")}
+                    </b>,
+                    info.version,
+                  )}
                 </>
               ) : status === "missing" ? (
-                <span className="text-graphite">No Dopamine agent running on this computer</span>
+                <span className="text-graphite">{t.pair.missing}</span>
               ) : (
-                <span className="text-graphite">Looking for Dopamine…</span>
+                <span className="text-graphite">{t.pair.looking}</span>
               )}
             </div>
             <button type="button" onClick={() => setEditUrl((v) => !v)} className="hand text-lg text-faint hover:text-graphite">
-              {editUrl ? "done" : "address"}
+              {editUrl ? t.pair.done : t.pair.address}
             </button>
           </div>
 
@@ -123,7 +131,7 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
                 className="min-w-0 flex-1 border-b-[1.5px] border-line bg-transparent px-1 py-1.5 font-mono text-[13px] outline-none focus:border-ink"
                 spellCheck={false}
               />
-              <button className="px-2 text-[14px] font-medium hover:underline">Check</button>
+              <button className="px-2 text-[14px] font-medium hover:underline">{t.pair.check}</button>
             </form>
           )}
 
@@ -132,9 +140,9 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
           {status === "found" ? (
             <form onSubmit={submit}>
               <label htmlFor="code" className="label">
-                Pairing code
+                {t.pair.code}
               </label>
-              <p className="mt-1 text-[13px] text-graphite">It&apos;s in the Dopamine {platform === "mac" ? "menu bar" : "tray"} menu.</p>
+              <p className="mt-1 text-[13px] text-graphite">{t.pair.where(platform === "mac")}</p>
               <div className="relative mt-4" onClick={() => input.current?.focus()}>
                 <input
                   id="code"
@@ -146,7 +154,7 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
                   }}
                   autoComplete="one-time-code"
                   className="absolute inset-0 opacity-0"
-                  aria-label="Pairing code"
+                  aria-label={t.pair.code}
                 />
                 <div className="grid grid-cols-6 gap-3" aria-hidden>
                   {Array.from({ length: CODE_LEN }, (_, i) => (
@@ -166,12 +174,12 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
                 disabled={code.length !== CODE_LEN || busy}
                 className="dab mt-6 w-full bg-ink py-3 text-[15px] font-semibold text-paper transition-opacity hover:opacity-90 disabled:opacity-30"
               >
-                {busy ? "Connecting…" : "Connect"}
+                {busy ? t.pair.connecting : t.pair.connect}
               </button>
             </form>
           ) : (
             <div className="space-y-4">
-              <p className="text-[14px] text-graphite">Install the agent, then come back. This page connects on its own.</p>
+              <p className="text-[14px] text-graphite">{t.pair.install}</p>
               <div className="flex gap-6">
                 <a href={RELEASES} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[15px] font-medium underline decoration-line underline-offset-4 hover:decoration-ink">
                   <Apple /> macOS
@@ -186,7 +194,11 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
 
         <div className="mt-8 text-center">
           <button type="button" onClick={onDemo} className="hand text-2xl text-graphite hover:text-ink">
-            or look around with <span className="marker">sample data</span> →
+            {t.pair.demo(
+              <span key="sample" className="marker">
+                {t.pair.sample}
+              </span>,
+            )}
           </button>
         </div>
       </main>

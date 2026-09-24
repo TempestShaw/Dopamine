@@ -19,7 +19,8 @@ import {
 import { Category, Overrides, makeClassifier } from "./categories";
 import { Sharing, communityAvailable, fetchCommunityCategories, isShareable, newInstallId, shareChoice } from "./community";
 import { Insight, buildInsights } from "./insights";
-import { AuthError, EventStore, Preferences } from "./source";
+import { useI18n } from "./i18n";
+import { AuthError, EventStore, Preferences, defaultHidden, hiddenKey } from "./source";
 import { Range, View, previousAnchor, rangeFor, startOfMonth, addMonths } from "./time";
 
 export interface DashboardData {
@@ -38,16 +39,20 @@ export interface DashboardData {
 
 const LIVE_REFRESH_MS = 30_000;
 
+/** Keys into the `errors` strings of i18n.ts. */
+export type DashboardError = "save" | "unreachable" | "lost";
+
 export function useDashboard(store: EventStore, view: View, anchor: Date, onAuthError: () => void) {
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<DashboardError | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [prefs, setPrefs] = useState<Preferences>({ overrides: {}, sharing: "ask" });
+  const [prefs, setPrefs] = useState<Preferences>(() => ({ overrides: {}, sharing: "ask", hidden: defaultHidden(store.source.platform) }));
   const [community, setCommunity] = useState<Overrides>({});
   /** A choice waiting for the user to decide whether to share it (asked once, on the first choice). */
   const [pendingShare, setPendingShare] = useState<{ process: string; category: Category } | null>(null);
   const overrides = prefs.overrides;
+  const { locale } = useI18n();
   const authRef = useRef(onAuthError);
   authRef.current = onAuthError;
 
@@ -69,7 +74,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
 
   const savePrefs = (change: Partial<Preferences>) => {
     setPrefs((prev) => ({ ...prev, ...change }));
-    store.source.savePreferences(change).catch(() => setError("Couldn't save that setting."));
+    store.source.savePreferences(change).catch(() => setError("save"));
   };
 
   const share = (installId: string | undefined, process: string, category: Category | null) => {
@@ -86,6 +91,13 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     if (!canShare || !isShareable(process)) return;
     if (prefs.sharing === "on") share(prefs.installId, process, category);
     else if (prefs.sharing === "ask" && category) setPendingShare({ process, category });
+  };
+
+  /** Leaves an app out of every figure, or brings it back. */
+  const setHidden = (process: string, hide: boolean) => {
+    const key = hiddenKey(process);
+    const rest = prefs.hidden.filter((p) => hiddenKey(p) !== key);
+    savePrefs({ hidden: hide ? [...rest, process] : rest });
   };
 
   /** The user's answer to the sharing prompt (also used by the footer switch). */
@@ -114,7 +126,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
       .catch((e) => {
         if (cancelled) return;
         if (e instanceof AuthError) authRef.current();
-        else setError("Couldn't reach the Dopamine agent. Is it running?");
+        else setError("unreachable");
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -137,7 +149,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
         setError(null);
       } catch (e) {
         if (e instanceof AuthError) authRef.current();
-        else setError("Lost connection to the Dopamine agent.");
+        else setError("lost");
       }
     };
     const id = setInterval(tick, LIVE_REFRESH_MS);
@@ -155,22 +167,29 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     [store, overrides, community, version],
   );
 
+  const hiddenSet = useMemo(() => new Set(prefs.hidden.map(hiddenKey)), [prefs.hidden]);
+
   const data = useMemo<DashboardData | null>(() => {
     if (version === 0) return null;
-    const segments = buildSegments(store.slice(range), range, now, classify);
+    // Hidden apps drop out after segmenting, so their time is not handed to the window before them.
+    const build = (r: Range) => {
+      const segs = buildSegments(store.slice(r), r, now, classify);
+      return hiddenSet.size ? segs.filter((s) => !hiddenSet.has(hiddenKey(s.process))) : segs;
+    };
+    const segments = build(range);
     const summary = summarize(segments, range);
     // While a period is still running, compare against the same elapsed span of the previous one
     // (today until 4pm vs yesterday until 4pm), not the whole previous period.
     const elapsed = now - range.start;
     const prev = elapsed > 0 && elapsed < range.end - range.start ? { start: prevRange.start, end: Math.min(prevRange.end, prevRange.start + elapsed) } : prevRange;
-    const prevSegs = buildSegments(store.slice(prev), prev, now, classify);
+    const prevSegs = build(prev);
     const previous = prevSegs.length ? summarize(prevSegs, prev) : null;
     const profile = hourOfDayProfile(segments);
-    const monthSegs = buildSegments(store.slice(monthRange), monthRange, now, classify);
+    const monthSegs = build(monthRange);
     const icons: Record<string, string> = {};
-    for (const a of summary.apps) {
-      const icon = store.app(a.process)?.icon;
-      if (icon) icons[a.process] = icon;
+    for (const p of [...summary.apps.map((a) => a.process), ...prefs.hidden]) {
+      const icon = store.app(p)?.icon;
+      if (icon) icons[p] = icon;
     }
     return {
       range,
@@ -184,8 +203,9 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
       insights: buildInsights(view, summary, previous, profile),
       icons,
     };
-    // `version` bumps whenever the store's contents change.
-  }, [store, version, view, range, prevRange, monthRange, now, classify]);
+    // `version` bumps whenever the store's contents change; `locale` changes how insights format figures.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, version, view, range, prevRange, monthRange, now, classify, hiddenSet, prefs.hidden, locale]);
 
   return {
     data,
@@ -194,6 +214,8 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     now,
     overrides,
     setOverride,
+    hidden: prefs.hidden,
+    setHidden,
     sharing: { available: canShare, state: prefs.sharing, pending: pendingShare, set: setSharing, isDemo: platform === "demo" },
   };
 }

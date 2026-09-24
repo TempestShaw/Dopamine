@@ -32,6 +32,13 @@ struct StoredSettings: Codable, Equatable {
     var communitySharing: String = "ask"
     /// Random id sent with shared choices so one install counts once. Empty until sharing is turned on.
     var installId: String = ""
+    /// Process names left out of every figure. nil until the user changes it, meaning `defaultHidden`.
+    var hiddenApps: [String]?
+
+    /// Dopamine's own popover and windows don't count as screen time unless the user asks.
+    static let defaultHidden = ["Dopamine"]
+
+    var hidden: [String] { hiddenApps ?? StoredSettings.defaultHidden }
 
     init(pairingCode: String) {
         self.pairingCode = pairingCode
@@ -46,6 +53,7 @@ struct StoredSettings: Codable, Equatable {
         categoryOverrides = try c.decodeIfPresent([String: String].self, forKey: .categoryOverrides) ?? [:]
         communitySharing = try c.decodeIfPresent(String.self, forKey: .communitySharing) ?? "ask"
         installId = try c.decodeIfPresent(String.self, forKey: .installId) ?? ""
+        hiddenApps = try c.decodeIfPresent([String].self, forKey: .hiddenApps)
     }
 
     static func generatePairingCode(length: Int = 6) -> String {
@@ -62,6 +70,7 @@ struct ConfigurableSettings: Codable {
     var categoryOverrides: [String: String]?
     var communitySharing: String?
     var installId: String?
+    var hiddenApps: [String]?
 
     static let schemas: [[String: Any]] = [
         [

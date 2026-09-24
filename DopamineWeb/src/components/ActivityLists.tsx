@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { AppStat, Session } from "@/lib/analytics";
-import { CATEGORIES, CATEGORY_META, Category, Overrides } from "@/lib/categories";
+import { CATEGORIES, CATEGORY_META, Category, Overrides, displayApp } from "@/lib/categories";
 import { Sharing, votePayload } from "@/lib/community";
+import { useT } from "@/lib/i18n";
 import { MINUTE, View, clock, formatDuration, shortDate } from "@/lib/time";
-import { AppAvatar, CategoryDot, ChevronDown, EmptyState, Section, Segmented } from "./ui";
+import { AppAvatar, CategoryDot, ChevronDown, EmptyState, EyeOff, Section, Segmented } from "./ui";
 
 type Tab = "apps" | "sessions";
 
@@ -17,31 +18,39 @@ export interface SharingState {
   isDemo: boolean;
 }
 
-type OverrideProps = { overrides: Overrides; onOverride: (process: string, category: Category | null) => void; sharing: SharingState };
+type OverrideProps = {
+  overrides: Overrides;
+  onOverride: (process: string, category: Category | null) => void;
+  sharing: SharingState;
+  hidden: string[];
+  onHide: (process: string, hide: boolean) => void;
+};
 
-export function ActivityLists({ apps, sessions, total, view, overrides, onOverride, sharing }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
+export function ActivityLists({ apps, sessions, total, view, ...props }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
   const [tab, setTab] = useState<Tab>("apps");
+  const t = useT();
   return (
     <Section
-      title={tab === "apps" ? "Apps & windows" : "Sessions"}
+      title={tab === "apps" ? t.lists.apps : t.lists.sessions}
       action={
         <Segmented<Tab>
           size="sm"
           value={tab}
           onChange={setTab}
           options={[
-            { value: "apps", label: "Apps" },
-            { value: "sessions", label: "Sessions" },
+            { value: "apps", label: t.lists.tabApps },
+            { value: "sessions", label: t.lists.tabSessions },
           ]}
         />
       }
     >
-      {tab === "apps" ? <AppList apps={apps} total={total} overrides={overrides} onOverride={onOverride} sharing={sharing} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
+      {tab === "apps" ? <AppList apps={apps} total={total} {...props} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
     </Section>
   );
 }
 
-function AppList({ apps, total, overrides, onOverride, sharing }: { apps: AppStat[]; total: number } & OverrideProps) {
+function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }: { apps: AppStat[]; total: number } & OverrideProps) {
+  const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   // Details are rendered the first time an app is opened and kept, so closing can animate too.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
@@ -51,7 +60,13 @@ function AppList({ apps, total, overrides, onOverride, sharing }: { apps: AppSta
     prepare(app);
     setOpen((cur) => (cur === app ? null : app));
   };
-  if (apps.length === 0) return <EmptyState>nothing tracked in this period</EmptyState>;
+  if (apps.length === 0)
+    return (
+      <div>
+        <EmptyState>{t.lists.empty}</EmptyState>
+        <HiddenApps hidden={hidden} onHide={onHide} />
+      </div>
+    );
   const top = apps[0].total;
 
   return (
@@ -108,9 +123,18 @@ function AppList({ apps, total, overrides, onOverride, sharing }: { apps: AppSta
                             <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
                           </li>
                         ))}
-                        {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
+                        {a.titles.length > 8 && <li className="hand text-base text-faint">{t.lists.moreWindows(a.titles.length - 8)}</li>}
                       </ul>
                       <CategoryPicker app={a.app} current={overrides[a.process]} onPick={(c) => onOverride(a.process, c)} tabIndex={expanded ? 0 : -1} />
+                      <button
+                        type="button"
+                        tabIndex={expanded ? 0 : -1}
+                        onClick={() => onHide(a.process, true)}
+                        title={t.hide.hint}
+                        className="hand mt-2 inline-flex items-center gap-1.5 text-base text-faint hover:text-graphite"
+                      >
+                        <EyeOff className="size-3.5" /> {t.hide.button}
+                      </button>
                       {sharing.pending?.process === a.process && <SharePrompt app={a.app} process={a.process} category={sharing.pending.category} sharing={sharing} />}
                     </div>
                   )}
@@ -122,8 +146,37 @@ function AppList({ apps, total, overrides, onOverride, sharing }: { apps: AppSta
       </ul>
       {apps.length > limit && (
         <button type="button" onClick={() => setLimit((l) => l + 12)} className="hand mt-3 text-xl text-graphite underline decoration-line underline-offset-4 hover:text-ink">
-          show {Math.min(12, apps.length - limit)} more
+          {t.lists.showN(Math.min(12, apps.length - limit))}
         </button>
+      )}
+      <HiddenApps hidden={hidden} onHide={onHide} />
+    </div>
+  );
+}
+
+/** "2 apps hidden · manage": the way back for anything hidden, Dopamine itself included. */
+function HiddenApps({ hidden, onHide }: { hidden: string[]; onHide: (process: string, hide: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const t = useT();
+  if (hidden.length === 0) return null;
+  return (
+    <div className="mt-4 text-[13px]">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="hand inline-flex items-center gap-1.5 text-lg text-faint hover:text-graphite">
+        <EyeOff className="size-3.5" />
+        {t.hide.count(hidden.length)} · <span className="underline decoration-line underline-offset-4">{open ? t.hide.done : t.hide.manage}</span>
+      </button>
+      {open && (
+        <ul className="fade-in mt-2 flex flex-wrap gap-2">
+          {hidden.map((p) => (
+            <li key={p} className="dab inline-flex items-center gap-2 bg-wash py-1 pr-3 pl-1.5">
+              <AppAvatar app={displayApp(p)} process={p} category="other" size="sm" />
+              <span className="font-medium">{displayApp(p)}</span>
+              <button type="button" onClick={() => onHide(p, false)} className="hand ml-1 text-base text-graphite underline decoration-line underline-offset-4 hover:text-ink">
+                {t.hide.unhide}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -134,9 +187,10 @@ function AppList({ apps, total, overrides, onOverride, sharing }: { apps: AppSta
  * (an unfamiliar game, a tool used for study). The choice applies to every window of the app.
  */
 function CategoryPicker({ app, current, onPick, tabIndex }: { app: string; current?: Category; onPick: (c: Category | null) => void; tabIndex: number }) {
+  const t = useT();
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1.5 text-[13px]">
-      <span className="hand mr-1.5 text-base text-faint">{app} counts as</span>
+      <span className="hand mr-1.5 text-base text-faint">{t.lists.countsAs(app)}</span>
       {CATEGORIES.map((c) => {
         const active = current === c;
         return (
@@ -149,16 +203,16 @@ function CategoryPicker({ app, current, onPick, tabIndex }: { app: string; curre
             className={`dab inline-flex items-center gap-1.5 px-2.5 py-0.5 transition-colors ${active ? "bg-wash font-medium text-ink" : "text-graphite hover:bg-wash hover:text-ink"}`}
           >
             <CategoryDot category={c} className="size-2" />
-            {CATEGORY_META[c].label}
+            {t.categories[c]}
           </button>
         );
       })}
       {current ? (
         <button type="button" tabIndex={tabIndex} onClick={() => onPick(null)} className="hand ml-1 text-base text-faint underline decoration-line underline-offset-4 hover:text-graphite">
-          back to automatic
+          {t.lists.backToAuto}
         </button>
       ) : (
-        <span className="hand ml-1 text-base text-faint">(automatic)</span>
+        <span className="hand ml-1 text-base text-faint">{t.lists.automatic}</span>
       )}
     </div>
   );
@@ -171,28 +225,33 @@ const SOURCE_URL = "https://github.com/TempestShaw/Dopamine/blob/main/DopamineWe
  * the promise "only the category is shared" can be checked, and links to the code that sends it.
  */
 function SharePrompt({ app, process, category, sharing }: { app: string; process: string; category: Category; sharing: SharingState }) {
-  const payload = votePayload("<random id for this install>", process, "mac", category);
+  const t = useT();
+  const payload = votePayload(t.share.installId, process, "mac", category);
   return (
     <div className="sketch fade-in mt-4 px-4 py-3.5 text-[13px]">
       <p className="text-[14px] leading-snug">
-        Share this choice so Dopamine recognises <b className="font-semibold">{app}</b> for other people too?
+        {t.share.ask(
+          <b key="app" className="font-semibold">
+            {app}
+          </b>,
+        )}
       </p>
-      <p className="mt-1.5 text-graphite">This is everything that would be sent, now and for later choices. No window titles, no times, no usage:</p>
+      <p className="mt-1.5 text-graphite">{t.share.everything}</p>
       <pre className="mt-2 rounded-md bg-wash whitespace-pre-wrap break-all px-3 py-2 font-mono text-[12px] leading-relaxed text-ink">
         {JSON.stringify({ ...payload, p_platform: "mac | windows" }, null, 1).replace(/\n\s*/g, " ")}
       </pre>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <button type="button" onClick={() => sharing.set("on")} className="dab bg-ink px-3.5 py-1.5 font-semibold text-paper hover:opacity-90">
-          Share anonymously
+          {t.share.yes}
         </button>
         <button type="button" onClick={() => sharing.set("off")} className="font-medium text-graphite underline decoration-line underline-offset-4 hover:text-ink">
-          Keep it on this computer
+          {t.share.no}
         </button>
         <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="hand ml-auto text-base text-faint hover:text-graphite">
-          read the code →
+          {t.share.code}
         </a>
       </div>
-      {sharing.isDemo && <p className="hand mt-2 text-base text-faint">sample data: nothing is sent either way</p>}
+      {sharing.isDemo && <p className="hand mt-2 text-base text-faint">{t.share.demo}</p>}
     </div>
   );
 }
@@ -202,7 +261,8 @@ function SessionList({ sessions, showDate }: { sessions: Session[]; showDate: bo
   const [limit, setLimit] = useState(40);
   const visible = showShort ? sessions : sessions.filter((s) => s.active >= MINUTE);
   const hidden = sessions.length - visible.length;
-  if (sessions.length === 0) return <EmptyState>nothing tracked in this period</EmptyState>;
+  const t = useT();
+  if (sessions.length === 0) return <EmptyState>{t.lists.empty}</EmptyState>;
 
   let lastDate = "";
   return (
@@ -242,12 +302,12 @@ function SessionList({ sessions, showDate }: { sessions: Session[]; showDate: bo
       <div className="hand mt-3 flex flex-wrap items-center gap-5 text-lg">
         {visible.length > limit && (
           <button type="button" onClick={() => setLimit((l) => l + 60)} className="text-graphite underline decoration-line underline-offset-4 hover:text-ink">
-            show more
+            {t.lists.showMore}
           </button>
         )}
         {hidden > 0 && !showShort && (
           <button type="button" onClick={() => setShowShort(true)} className="text-faint hover:text-graphite">
-            {hidden} sessions under a minute hidden
+            {t.lists.shortHidden(hidden)}
           </button>
         )}
       </div>

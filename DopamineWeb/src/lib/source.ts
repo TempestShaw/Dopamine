@@ -39,12 +39,29 @@ export interface Preferences {
   sharing: Sharing;
   /** Random id sent with shared choices so one install counts once. Created when sharing is turned on. */
   installId?: string;
+  /** Process names left out of every figure (Dopamine itself by default). */
+  hidden: string[];
+}
+
+/** Hidden until the user says otherwise: Dopamine's own windows (the agents send the same default). */
+export function defaultHidden(platform: Platform): string[] {
+  return [platform === "windows" ? "DopamineWin" : "Dopamine"];
+}
+
+/** "DopamineWin.exe" and "dopaminewin" are the same app. */
+export function hiddenKey(process: string): string {
+  return process.replace(/\.(exe|app)$/i, "").toLowerCase();
 }
 
 /** Agent settings JSON ⇄ Preferences. */
-export function preferencesFromSettings(s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string }): Preferences {
+export function preferencesFromSettings(
+  s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string; hiddenApps?: unknown },
+  platform: Platform,
+): Preferences {
   const sharing = s.communitySharing === "on" || s.communitySharing === "off" ? s.communitySharing : "ask";
-  return { overrides: sanitizeOverrides(s.categoryOverrides), sharing, installId: s.installId || undefined };
+  // Agents from before hiding existed send no list at all; an empty list means "hide nothing".
+  const hidden = Array.isArray(s.hiddenApps) ? s.hiddenApps.filter((p): p is string => typeof p === "string" && p.length > 0) : defaultHidden(platform);
+  return { overrides: sanitizeOverrides(s.categoryOverrides), sharing, installId: s.installId || undefined, hidden };
 }
 
 export function settingsFromPreferences(p: Partial<Preferences>) {
@@ -52,6 +69,7 @@ export function settingsFromPreferences(p: Partial<Preferences>) {
     ...(p.overrides && { categoryOverrides: p.overrides }),
     ...(p.sharing && { communitySharing: p.sharing }),
     ...(p.installId && { installId: p.installId }),
+    ...(p.hidden && { hiddenApps: p.hidden }),
   };
 }
 
@@ -135,7 +153,7 @@ export class AgentSource implements DataSource {
 
   async loadPreferences(): Promise<Preferences> {
     const res = await fetchWithTimeout(`${this.baseUrl}/settings`, { headers: { Authorization: `Bearer ${this.code}` } });
-    return preferencesFromSettings(res.ok ? await res.json() : {});
+    return preferencesFromSettings(res.ok ? await res.json() : {}, this.platform);
   }
 
   async savePreferences(change: Partial<Preferences>): Promise<void> {

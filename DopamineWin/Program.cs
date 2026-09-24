@@ -32,7 +32,10 @@ public static class Program
         catch (Exception ex)
         {
             Log.Error("Could not open the database", ex);
-            Win32.MessageBox($"Dopamine couldn't open its database in {AppInfo.DataDirectory}.\n\n{ex.Message}", "Dopamine");
+            Win32.MessageBox(Strings.T(
+                $"Dopamine couldn't open its database in {AppInfo.DataDirectory}.",
+                $"Dopamine 无法打开位于 {AppInfo.DataDirectory} 的数据库。",
+                $"Dopamine 無法開啟位於 {AppInfo.DataDirectory} 的資料庫。") + $"\n\n{ex.Message}", "Dopamine");
             return 1;
         }
 
@@ -46,7 +49,10 @@ public static class Program
         catch (Exception ex)
         {
             Log.Error("Could not start the local API", ex);
-            Win32.MessageBox($"Dopamine couldn't listen on port {ApiServer.Port}. Is something else using it?\n\n{ex.Message}", "Dopamine");
+            Win32.MessageBox(Strings.T(
+                $"Dopamine couldn't listen on port {ApiServer.Port}. Is something else using it?",
+                $"Dopamine 无法监听端口 {ApiServer.Port}，是不是被其他程序占用了？",
+                $"Dopamine 無法監聽連接埠 {ApiServer.Port}，是不是被其他程式佔用了？") + $"\n\n{ex.Message}", "Dopamine");
             return 1;
         }
 

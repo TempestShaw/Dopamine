@@ -25,6 +25,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Dopamine"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 if [[ -d "$WEB/out" ]]; then cp -R "$WEB/out" "$APP/Contents/Resources/web"; fi
 
 # Ad-hoc signature so macOS will run it locally. macOS ties the Accessibility permission to the

@@ -98,6 +98,10 @@ jobs:
           $put = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"idleTimeout":120,"categoryOverrides":{"Code":"study","Bad":"nope"}}'
           if ($put.idleTimeout -ne 120) { throw "settings update failed" }
           if ($put.categoryOverrides.Code -ne "study" -or $put.categoryOverrides.Bad) { throw "category overrides not validated" }
+          $before = Invoke-RestMethod "$base/settings" -Headers $auth
+          if (@($before.hiddenApps) -notcontains "DopamineWin") { throw "Dopamine itself should be hidden by default" }
+          $hid = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"hiddenApps":["Steam",""]}'
+          if ((@($hid.hiddenApps) -join ",") -ne "Steam") { throw "hidden apps not saved: $(@($hid.hiddenApps) -join ',')" }
 
           $page = Invoke-WebRequest "$base/"
           if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<html") { throw "dashboard not served" }

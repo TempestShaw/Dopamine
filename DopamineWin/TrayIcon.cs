@@ -191,14 +191,15 @@ public sealed unsafe class TrayIcon
         {
             var settings = _settings.Settings;
             Add(menu, $"Dopamine {AppInfo.Version}", 0, MF_GRAYED);
-            Add(menu, $"Pairing code: {settings.PairingCode}", 0, MF_GRAYED);
+            Add(menu, $"{Strings.T("Pairing code", "配对码", "配對碼")}: {settings.PairingCode}", 0, MF_GRAYED);
             Separator(menu);
 
             try
             {
-                var today = TodaySummary.Compute(_database);
-                var state = _tracker.IsPaused ? " (paused)" : _tracker.IsIdle ? " (idle)" : "";
-                Add(menu, $"Today: {TodaySummary.Format(today.Total)}{state}", 0, MF_GRAYED);
+                var today = TodaySummary.Compute(_database, settings.Hidden);
+                var state = _tracker.IsPaused ? Strings.T(" (paused)", "（已暂停）", "（已暫停）")
+                    : _tracker.IsIdle ? Strings.T(" (idle)", "（闲置）", "（閒置）") : "";
+                Add(menu, $"{Strings.T("Today", "今天", "今天")}: {TodaySummary.Format(today.Total)}{state}", 0, MF_GRAYED);
                 foreach (var (process, duration) in today.TopApps)
                     Add(menu, $"      {process}   {TodaySummary.Format(duration)}", 0, MF_GRAYED);
             }
@@ -207,11 +208,11 @@ public sealed unsafe class TrayIcon
                 Log.Error("Could not compute today's summary", ex);
             }
 
-            Add(menu, "Open Dashboard", CmdOpen, MF_STRING);
+            Add(menu, Strings.T("Open Dashboard", "打开仪表板", "打開儀表板"), CmdOpen, MF_STRING);
             SetMenuDefaultItem(menu, CmdOpen, 0);
             Separator(menu);
-            Add(menu, _tracker.IsPaused ? "Resume Tracking" : "Pause Tracking", CmdToggle, MF_STRING);
-            Add(menu, "Exit", CmdExit, MF_STRING);
+            Add(menu, _tracker.IsPaused ? Strings.T("Resume Tracking", "继续记录", "繼續記錄") : Strings.T("Pause Tracking", "暂停记录", "暫停記錄"), CmdToggle, MF_STRING);
+            Add(menu, Strings.T("Exit", "退出", "結束"), CmdExit, MF_STRING);
 
             POINT pt;
             GetCursorPos(&pt);

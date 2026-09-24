@@ -8,11 +8,11 @@ enum Category: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .work: return "Work"
-        case .study: return "Study"
-        case .social: return "Social"
-        case .entertainment: return "Entertainment"
-        case .other: return "Other"
+        case .work: return L("Work", "工作", "工作")
+        case .study: return L("Study", "学习", "學習")
+        case .social: return L("Social", "社交", "社交")
+        case .entertainment: return L("Entertainment", "娱乐", "娛樂")
+        case .other: return L("Other", "其他", "其他")
         }
     }
 
@@ -138,12 +138,19 @@ struct DaySummary {
     /// window. Matches MIN_DWELL on the web and TodaySummary.MinDwell on Windows.
     static let minDwell: TimeInterval = 5
 
+    /// "Dopamine.app" and "dopamine" are the same app when matching the hidden list.
+    static func hiddenKey(_ process: String) -> String {
+        process.replacingOccurrences(of: #"\.(exe|app)$"#, with: "", options: [.regularExpression, .caseInsensitive]).lowercased()
+    }
+
     /// Mirrors buildSegments + summarize on the web: each row lasts until the next one;
     /// marker rows end a segment; brief glances are merged back; everything is clipped to [start, end).
+    /// Hidden apps are dropped after that, so their time isn't handed to the window before them.
     static func compute(
-        rows: [WindowActivity], start: Date, end: Date, now: Date = Date(),
+        rows: [WindowActivity], start: Date, end: Date, now: Date = Date(), hidden: [String] = [],
         classify: (_ title: String, _ process: String) -> Category = { Category.of(title: $0, app: $1) }
     ) -> DaySummary {
+        let hiddenKeys = Set(hidden.map(hiddenKey))
         let nowSec = now.timeIntervalSince1970
 
         // First pass on unclipped times: drop glances, extending the window that was in front before.
@@ -165,7 +172,7 @@ struct DaySummary {
         var perApp: [String: [Category: TimeInterval]] = [:]
         let lo = start.timeIntervalSince1970
         let hi = min(end, now).timeIntervalSince1970
-        for item in kept {
+        for item in kept where !hiddenKeys.contains(hiddenKey(item.row.processName)) {
             let d = min(item.end, hi) - max(item.start, lo)
             guard d > 0 else { continue }
             let category = classify(item.row.windowTitle, item.row.processName)
@@ -185,11 +192,19 @@ struct DaySummary {
     }
 }
 
-func formatDuration(_ seconds: TimeInterval) -> String {
+/// "3h 12m", "3小时12分", "3小時12分": same units as the dashboard.
+func formatDuration(_ seconds: TimeInterval, lang: Lang = Lang.current) -> String {
+    let (h, m, mOnly, s, sep): (String, String, String, String, String) = {
+        switch lang {
+        case .en: return ("h", "m", "m", "s", " ")
+        case .zhHans: return ("小时", "分", "分钟", "秒", "")
+        case .zhHant: return ("小時", "分", "分鐘", "秒", "")
+        }
+    }()
     let minutes = Int(seconds / 60)
-    if minutes < 1 { return seconds >= 1 ? "\(Int(seconds))s" : "0m" }
-    let h = minutes / 60
-    let m = minutes % 60
-    if h == 0 { return "\(m)m" }
-    return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+    if minutes < 1 { return seconds >= 1 ? "\(Int(seconds))\(s)" : "0\(mOnly)" }
+    let hours = minutes / 60
+    let rest = minutes % 60
+    if hours == 0 { return "\(rest)\(mOnly)" }
+    return rest == 0 ? "\(hours)\(h)" : "\(hours)\(h)\(sep)\(rest)\(m)"
 }

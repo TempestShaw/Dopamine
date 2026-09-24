@@ -1,6 +1,8 @@
-import { ReactNode } from "react";
+import { Fragment, ReactNode } from "react";
 import { Category, CATEGORY_META } from "@/lib/categories";
+import { useI18n } from "@/lib/i18n";
 import { useIcon } from "@/lib/icons";
+import { durationParts, formatDuration } from "@/lib/time";
 
 type IconProps = { className?: string };
 const svg = (path: ReactNode) =>
@@ -23,6 +25,7 @@ export const Sun = svg(
 );
 export const Moon = svg(<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />);
 export const Logout = svg(<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />);
+export const EyeOff = svg(<path d="M10.7 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.2 3.1M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.5 9.5 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />);
 export const Refresh = svg(<path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" />);
 export const Windows = svg(<path d="M3 5.5 10 4.5V11H3zM11 4.3 21 3v8H11zM3 12h7v6.5L3 17.5zM11 12h10v9l-10-1.4z" fill="currentColor" stroke="none" />);
 export const Apple = svg(
@@ -169,4 +172,23 @@ export function IconButton({ label, onClick, children }: { label: string; onClic
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return <div className="hand grid min-h-28 place-items-center px-4 text-center text-xl text-faint">{children}</div>;
+}
+
+/**
+ * A duration for large figures. Chinese units (小时, 分钟) are whole words, so they are set
+ * smaller than the numbers, the way a hand-written note would.
+ */
+export function Duration({ ms }: { ms: number }) {
+  const { locale } = useI18n();
+  if (locale === "en") return <>{formatDuration(ms)}</>;
+  return (
+    <>
+      {durationParts(ms).map(([n, unit], i) => (
+        <Fragment key={i}>
+          {n}
+          <span className="mx-[0.08em] text-[0.48em] tracking-wide">{unit}</span>
+        </Fragment>
+      ))}
+    </>
+  );
 }

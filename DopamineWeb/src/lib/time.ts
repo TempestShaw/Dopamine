@@ -1,4 +1,5 @@
 // Small, dependency-free date helpers. All functions work in the viewer's local time zone.
+import { DICTS, type Locale } from "./i18n";
 
 export type View = "day" | "week" | "month";
 
@@ -84,10 +85,36 @@ export function daysIn(range: Range): Date[] {
   return days;
 }
 
-const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
-const fmtMonth = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
-const fmtShort = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-const fmtClock = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+// Dates follow the interface language (see i18n.ts); English keeps the browser's own English
+// variant so en-GB still gets a 24-hour clock.
+let intlLocale: string | undefined;
+let units = DICTS.en.duration;
+let fmtDay: Intl.DateTimeFormat;
+let fmtMonth: Intl.DateTimeFormat;
+let fmtShort: Intl.DateTimeFormat;
+let fmtClock: Intl.DateTimeFormat;
+let fmtHour: Intl.DateTimeFormat;
+let fmtWeekday: Intl.DateTimeFormat;
+let fmtNarrowWeekday: Intl.DateTimeFormat;
+let fmtLongDay: Intl.DateTimeFormat;
+let fmtMonthName: Intl.DateTimeFormat;
+
+export function setTimeLocale(locale: Locale) {
+  const browser = typeof navigator === "undefined" ? undefined : navigator.language;
+  intlLocale = locale === "en" ? (browser?.toLowerCase().startsWith("en") ? browser : "en") : locale;
+  units = DICTS[locale].duration;
+  const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(intlLocale, o);
+  fmtDay = f({ weekday: "short", month: "short", day: "numeric" });
+  fmtMonth = f({ month: "long", year: "numeric" });
+  fmtShort = f({ month: "short", day: "numeric" });
+  fmtClock = f({ hour: "numeric", minute: "2-digit" });
+  fmtHour = f({ hour: "numeric" });
+  fmtWeekday = f({ weekday: "short" });
+  fmtNarrowWeekday = f({ weekday: "narrow" });
+  fmtLongDay = f({ weekday: "long", month: "short", day: "numeric" });
+  fmtMonthName = f({ month: "long" });
+}
+setTimeLocale("en");
 
 export function periodLabel(view: View, anchor: Date): string {
   if (view === "day") return fmtDay.format(anchor);
@@ -100,21 +127,51 @@ export function clock(ms: number): string {
   return fmtClock.format(ms);
 }
 
-export function shortDate(d: Date): string {
+/** "4 PM", "16", "下午4时": an hour of the day for axis labels. */
+export function hourLabel(h: number): string {
+  return fmtHour.format(new Date(2000, 0, 1, h));
+}
+
+export function shortDate(d: Date | number): string {
   return fmtShort.format(d);
 }
 
-/** "3h 12m", "45m", "30s". */
-export function formatDuration(ms: number): string {
+export function weekdayShort(d: Date | number): string {
+  return fmtWeekday.format(d);
+}
+
+export function longDay(d: Date | number): string {
+  return fmtLongDay.format(d);
+}
+
+export function monthName(d: Date | number): string {
+  return fmtMonthName.format(d);
+}
+
+/** Single-letter weekday names starting on Monday ("M T W …", "一 二 三 …"). */
+export function weekdayInitials(): string[] {
+  // 2024-01-01 was a Monday.
+  return Array.from({ length: 7 }, (_, i) => fmtNarrowWeekday.format(new Date(2024, 0, 1 + i)));
+}
+
+/** Number and unit pairs, so large figures can set the unit smaller: [[3, "h"], [12, "m"]]. */
+export function durationParts(ms: number): [number, string][] {
   const totalMin = Math.floor(ms / MINUTE);
   if (totalMin < 1) {
     const s = Math.round(ms / 1000);
-    return s > 0 ? `${s}s` : "0m";
+    return s > 0 ? [[s, units.s]] : [[0, units.mOnly]];
   }
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  if (h === 0) return `${m}m`;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  if (h === 0) return [[m, units.mOnly]];
+  return m === 0 ? [[h, units.h]] : [[h, units.h], [m, units.m]];
+}
+
+/** "3h 12m", "45m", "30s" (or "3小时12分", "45分钟" …). */
+export function formatDuration(ms: number): string {
+  return durationParts(ms)
+    .map(([n, u]) => `${n}${u}`)
+    .join(units.sep);
 }
 
 /** Compact variant for axis labels: "3h", "45m". */
