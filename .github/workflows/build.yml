@@ -61,7 +61,8 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
-      - run: dotnet publish DopamineWin.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -o publish
+      # Self-contained single exe: users need no .NET runtimes installed.
+      - run: dotnet publish DopamineWin.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
       - run: Compress-Archive -Path publish/* -DestinationPath Dopamine-win.zip
         shell: pwsh
       - uses: actions/upload-artifact@v5
@@ -74,11 +75,15 @@ jobs:
     needs: [mac, windows]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
+          pattern: Dopamine-*
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          name: Dopamine ${{ github.ref_name }}
+          body_path: docs/release-notes/${{ github.ref_name }}.md
           files: |
             Dopamine-mac.zip
             Dopamine-win.zip
