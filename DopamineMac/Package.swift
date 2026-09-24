@@ -1,24 +1,20 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.7
 import PackageDescription
 
 let package = Package(
     name: "DopamineMac",
     platforms: [.macOS(.v12)],
     products: [
-        .executable(
-            name: "DopamineMac",
-            targets: ["DopamineMac"]
-        ),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .executable(name: "DopamineMac", targets: ["DopamineMac"]),
     ],
     targets: [
         .executableTarget(
             name: "DopamineMac",
-            dependencies: [
-                .product(name: "Logging", package: "swift-log"),
-            ]
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
+        .testTarget(
+            name: "DopamineMacTests",
+            dependencies: ["DopamineMac"]
         ),
     ]
 )

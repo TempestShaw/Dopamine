@@ -1,278 +1,252 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
-@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-@plugin "daisyui";
-@plugin "daisyui/theme" {
-  name: "nord";
-  default: true;
-  prefersdark: false;
-  color-scheme: "light";
-  --color-base-100: oklch(95.127% 0.007 260.731);
-  --color-base-200: oklch(93.299% 0.01 261.788);
-  --color-base-300: oklch(89.925% 0.016 262.749);
-  --color-base-content: oklch(32.437% 0.022 264.182);
-  --color-primary: oklch(59.435% 0.077 254.027);
-  --color-primary-content: oklch(11.887% 0.015 254.027);
-  --color-secondary: oklch(69.651% 0.059 248.687);
-  --color-secondary-content: oklch(13.93% 0.011 248.687);
-  --color-accent: oklch(77.464% 0.062 217.469);
-  --color-accent-content: oklch(15.492% 0.012 217.469);
-  --color-neutral: oklch(45.229% 0.035 264.131);
-  --color-neutral-content: oklch(89.925% 0.016 262.749);
-  --color-info: oklch(69.207% 0.062 332.664);
-  --color-info-content: oklch(13.841% 0.012 332.664);
-  --color-success: oklch(76.827% 0.074 131.063);
-  --color-success-content: oklch(15.365% 0.014 131.063);
-  --color-warning: oklch(85.486% 0.089 84.093);
-  --color-warning-content: oklch(17.097% 0.017 84.093);
-  --color-error: oklch(60.61% 0.12 15.341);
-  --color-error-content: oklch(12.122% 0.024 15.341);
-  --radius-selector: 1rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 0;
-  --noise: 0;
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Sketchbook + dopamine palette.
+ * Paper and graphite for structure; saturated "dopamine" paints for data only.
+ */
+:root {
+  color-scheme: light;
+  --paper: #f4f1ea;
+  --paper-2: #ebe6db;
+  --ink: #221f1b;
+  --graphite: #6a645b;
+  --faint: #a19a8e;
+  --line: rgba(34, 31, 27, 0.2);
+  --wash: rgba(34, 31, 27, 0.06);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .32 0 0 0 0 .28 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  --highlight: #ffd23f; /* lemon highlighter */
+  --heat: #f7c948; /* calendar dabs */
+  --good: #13a86b;
+  --warn: #f06a1f;
+
+  --cat-work: #2f6bff; /* cobalt */
+  --cat-study: #4fb58a; /* soft mint */
+  --cat-social: #e8799f; /* dusty pink */
+  --cat-entertainment: #eea062; /* apricot */
+  --cat-other: #b3a6dc; /* muted lilac */
 }
 
-@plugin "tailwindcss-animate";
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161512;
+    --paper-2: #211f1b;
+    --ink: #f1ece2;
+    --graphite: #aaa295;
+    --faint: #6f695f;
+    --line: rgba(241, 236, 226, 0.18);
+    --wash: rgba(241, 236, 226, 0.06);
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .92 0 0 0 0 .86 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23n)'/%3E%3C/svg%3E");
+    --highlight: #ffd84f;
+    --heat: #b8994a;
+    --good: #3ddc97;
+    --warn: #ff9a4a;
+    --cat-work: #5b8cff;
+    --cat-study: #6cc79f;
+    --cat-social: #ec91b2;
+    --cat-entertainment: #f2b27a;
+    --cat-other: #c1b6e4;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161512;
+  --paper-2: #211f1b;
+  --ink: #f1ece2;
+  --graphite: #aaa295;
+  --faint: #6f695f;
+  --line: rgba(241, 236, 226, 0.18);
+  --wash: rgba(241, 236, 226, 0.06);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .92 0 0 0 0 .86 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23n)'/%3E%3C/svg%3E");
+  --highlight: #ffd84f;
+  --heat: #b8994a;
+  --good: #3ddc97;
+  --warn: #ff9a4a;
+  --cat-work: #5b8cff;
+  --cat-study: #6cc79f;
+  --cat-social: #ec91b2;
+  --cat-entertainment: #f2b27a;
+  --cat-other: #c1b6e4;
+}
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-graphite: var(--graphite);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-wash: var(--wash);
+  --color-highlight: var(--highlight);
+  --color-heat: var(--heat);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --font-sans: "Figtree", ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Instrument Serif", "Iowan Old Style", Georgia, "Songti SC", serif;
+  --font-hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
 }
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+html {
+  background: var(--paper);
+  color: var(--ink);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Paper grain is part of the background (a cached image), not an overlay, so nothing has to be
+   re-blended when content moves. */
+body {
+  background: var(--paper) var(--grain);
+  color: var(--ink);
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Layered so that utility classes always win over these defaults. */
+@layer components {
+  .num {
+    font-variant-numeric: tabular-nums;
   }
-  body {
-    @apply bg-background text-foreground;
+
+  .serif {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .hand {
+    font-family: var(--font-hand);
+  }
+
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--graphite);
+  }
+
+  /* Highlighter swash behind a word. */
+  .marker {
+    background: linear-gradient(
+      100deg,
+      transparent 2%,
+      color-mix(in srgb, var(--highlight) 80%, transparent) 4%,
+      color-mix(in srgb, var(--highlight) 65%, transparent) 94%,
+      transparent 97%
+    );
+    background-size: 100% 42%;
+    background-position: 0 88%;
+    background-repeat: no-repeat;
+    padding-inline: 0.12em;
+  }
+
+  /*
+   * Painted marks: pigment streaks come from a pre-rendered texture used as a mask. It is decoded
+   * once and cached, unlike SVG filters, which re-run per pixel on every repaint and made
+   * animations stutter.
+   */
+  .paint {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.5 .035' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -.5 1.12'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23s)'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.5 .035' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -.5 1.12'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23s)'/%3E%3C/svg%3E");
+    -webkit-mask-size: 160px 160px;
+    mask-size: 160px 160px;
+  }
+
+  /* A slightly irregular hand-drawn frame. */
+  .sketch {
+    position: relative;
+  }
+  .sketch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1.4px solid var(--line);
+    border-radius: 14px 9px 16px 8px / 8px 15px 9px 14px;
+    pointer-events: none;
+  }
+
+  .dab {
+    border-radius: 48% 52% 45% 55% / 55% 44% 56% 45%;
+  }
+
+  /* A slightly wavering graphite line, drawn once as a repeating image. */
+  .rule {
+    height: 4px;
+    background: var(--line);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='4'%3E%3Cpath d='M0 2C40 .9 80 3.1 120 2S200 .9 240 2' stroke='black' stroke-width='1.4' fill='none'/%3E%3C/svg%3E") repeat-x 0 0 / 240px 4px;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='4'%3E%3Cpath d='M0 2C40 .9 80 3.1 120 2S200 .9 240 2' stroke='black' stroke-width='1.4' fill='none'/%3E%3C/svg%3E") repeat-x 0 0 / 240px 4px;
+  }
+
+  :focus-visible {
+    outline: 2px dashed var(--ink);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0.001;
+      transform: translateY(3px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .fade-in {
+    animation: fade-in 220ms ease-out both;
+  }
+
+  /* Bars are brushed on from the baseline. */
+  @keyframes brush-up {
+    from {
+      transform: scaleY(0.04);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+  .brush-up {
+    transform-origin: bottom;
+    animation: brush-up 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  @keyframes pulse-soft {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  .skeleton {
+    background: var(--wash);
+    border-radius: 12px 8px 14px 9px / 9px 13px 8px 12px;
+    animation: pulse-soft 1.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in,
+    .brush-up,
+    .skeleton {
+      animation: none;
+    }
   }
 }
-
-.react-calendar,
-.react-calendar *,
-.react-calendar *:before,
-.react-calendar *:after {
-  -moz-box-sizing: border-box;
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box;
-}
-.react-calendar button {
-  margin: ;
-  border: 0;
-  outline: none;
-}
-.react-calendar button:enabled:hover {
-  cursor: pointer;
-}
-.react-calendar__navigation {
-  padding-top: 1rem;
-  justify-self: center;
-  height: 44px;
-  margin-bottom: 1em;
-}
-.react-calendar__navigation button {
-  min-width: 44px;
-  background: none;
-}
-.react-calendar__navigation button:enabled:hover,
-.react-calendar__navigation button:enabled:focus {
-  background-color: #e6e6e6;
-}
-.react-calendar__navigation button[disabled] {
-  background-color: #f0f0f0;
-}
-.react-calendar__month-view__weekdays {
-  text-align: center;
-  text-transform: uppercase;
-  font-weight: bold;
-  font-size: 0.75em;
-}
-.react-calendar__month-view__weekdays__weekday {
-  padding: 0.5em;
-}
-.react-calendar__month-view__weekNumbers  {
-  font-weight: bold;
-}
-.react-calendar__month-view__weekNumbers .react-calendar__tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color:rgb(65, 177, 140);
-  font-size: 0.75em;
-  padding: 11px calc(0.72em / 0.75);
-}
-
-.react-calendar__month-view__days__day--weekend {
-  color: #db4040;
-}
-.react-calendar__month-view__days__day--neighboringMonth {
-  color: #757575;
-}
-.react-calendar__year-view .react-calendar__tile{
-  padding: 0.1em 0.1em;
-  transition: all 0.2s ease-in-out;
-}
-.react-calendar__tile:hover {
-  transform: scale(1.1);
-}
-.react-calendar__tile:disabled {
-  background-color: #f0f0f0;
-}
-/* .react-calendar__tile:enabled:hover,
-.react-calendar__tile:enabled:focus {
-  background-color: #e6e6e6;
-} */
-
-/* .react-calendar__tile--now:enabled:hover,
-.react-calendar__tile--now:enabled:focus {
-  background: #ffffa9;
-} */
-.react-calendar__tile--hasActive {
-  background: #76baff;
-}
-.react-calendar__tile--hasActive:enabled:hover,
-.react-calendar__tile--hasActive:enabled:focus {
-  background: #a9d4ff;
-}
-.react-calendar__tile--active {
-  background: #006edc;
-  color: white;
-}
-.react-calendar--selectRange .react-calendar__tile--hover {
-  background-color: #e6e6e6;
-}
-.react-calendar__month-view__days__day > abbr {
-  display: none;
-}
-.react-calendar__year-view__months__month > abbr {
-  display: none;
-}
-.react-calendar__year-view__months__month > abbr {
-  display: none;
-}
-.react-calendar__decade-view__years__year {
-  position: relative;
-}
-
-.react-calendar__navigation {
-  display: flex;
-  width: 100%;
-}
-.react-calendar__navigation__label {
-  font-weight: bold;
-}
-
-.react-calendar__navigation__arrow {
-  flex-grow: 0.333;
-}
-

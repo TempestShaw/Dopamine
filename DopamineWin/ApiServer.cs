@@ -15,7 +15,12 @@ public class ApiServer : IDisposable, IAsyncDisposable
         _database = database;
         _settings = settings;
 
-        var builder = WebApplication.CreateBuilder(args);
+        // Content root next to the exe so wwwroot (the bundled dashboard) is found regardless of the working directory.
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory
+        });
         builder.Services.ConfigureHttpJsonOptions(options =>
         {
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
@@ -36,6 +41,15 @@ public class ApiServer : IDisposable, IAsyncDisposable
             await next();
         });
         _app.UseCors();
+
+        // The dashboard (DopamineWeb's static export, copied to wwwroot at build time) is public;
+        // the data behind it still requires the pairing code.
+        if (Directory.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot")))
+        {
+            _app.UseDefaultFiles();
+            _app.UseStaticFiles();
+        }
+
         _app.Use(async (ctx, next) =>
         {
             if (ctx.Request.Path.StartsWithSegments("/identify") ||
@@ -56,6 +70,20 @@ public class ApiServer : IDisposable, IAsyncDisposable
 
         _app.MapGet("/titles", database.GetActivities);
 
+        // Names are newline-separated; returns { processName: { icon, kind, description, publisher, path } }.
+        _app.MapGet("/apps", (string? names) =>
+        {
+            var requested = (names ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(200);
+            return database.GetApps(requested).ToDictionary(p => p.Key, p => new
+            {
+                icon = p.Value.Png == null ? null : "data:image/png;base64," + Convert.ToBase64String(p.Value.Png),
+                kind = p.Value.Kind,
+                description = p.Value.Description,
+                publisher = p.Value.Publisher,
+                path = p.Value.Path
+            });
+        });
+
         _app.MapGet("/settings", () => _settings.Settings.GetConfigurableSettings());
 
         _app.MapPut("/settings", (ConfigurableSettings.Partial newSettings) =>
@@ -66,9 +94,13 @@ public class ApiServer : IDisposable, IAsyncDisposable
         });
     }
 
+    public const int Port = 26535;
+
+    public static string DashboardUrl(string pairingCode) => $"http://localhost:{Port}/#pair={pairingCode}";
+
     public Task RunAsync()
     {
-        return _app.RunAsync("http://localhost:26535/");
+        return _app.RunAsync($"http://localhost:{Port}/");
     }
 
     public void Dispose()

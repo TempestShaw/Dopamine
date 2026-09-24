@@ -14,7 +14,11 @@ public class StoredSettings : ConfigurableSettings
     {
         return new ConfigurableSettings
         {
-            TrackingInterval = TrackingInterval
+            TrackingInterval = TrackingInterval,
+            IdleTimeout = IdleTimeout,
+            CategoryOverrides = CategoryOverrides,
+            CommunitySharing = CommunitySharing,
+            InstallId = InstallId
         };
     }
     
