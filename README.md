@@ -57,6 +57,8 @@ The dashboard opens at [localhost:26535](http://localhost:26535) and pairs itsel
 - **Honest numbers.** Windows you glance at for under five seconds don't count, a crashed session can't inflate a day, and the current day is compared with yesterday up to the same time.
 - **See the detail.** The timeline shows exactly when each window was in front. Open any app to see its windows and tabs, with the app's real icon.
 - **Categories that fit you.** Work, study, social, entertainment and other are detected automatically, and one click changes an app's category for good.
+- **Only what you want counted.** Hide any app from the numbers; Dopamine's own windows are hidden from the start.
+- **Speaks your language.** English, 简体中文 and 繁體中文, in the dashboard and the menu bar or tray.
 - **Light on your machine.** A native menu bar or tray agent, a local SQLite file, and a dashboard with no charting libraries that holds 60 fps.
 
 ## What you get
