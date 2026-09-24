@@ -10,6 +10,9 @@ public class DatabaseService : IDisposable, IAsyncDisposable
     private readonly ILogger<DatabaseService>? _logger;
     private readonly SqliteConnection _connection;
 
+    // The tracker thread writes while API requests read; a single SqliteConnection is not thread-safe.
+    private readonly object _lock = new();
+
     public DatabaseService(ILogger<DatabaseService>? logger = null)
     {
         _logger = logger;
@@ -22,55 +25,64 @@ public class DatabaseService : IDisposable, IAsyncDisposable
     {
         var command = _connection.CreateCommand();
         command.CommandText = @"
+                PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS WindowActivities (
                     Id INTEGER PRIMARY KEY AUTOINCREMENT,
                     Timestamp INTEGER NOT NULL,
                     WindowTitle TEXT,
                     ProcessName TEXT
-                )";
+                );
+                CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp);";
         command.ExecuteNonQuery();
 
         _logger?.LogInformation("Database initialized");
     }
 
-    public void InsertActivity(string windowTitle, string processName)
+    public void InsertActivity(string windowTitle, string processName, DateTimeOffset? at = null)
     {
-        var command = _connection.CreateCommand();
-        command.CommandText = @"
+        lock (_lock)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
                 INSERT INTO WindowActivities (Timestamp, WindowTitle, ProcessName)
                 VALUES ($Timestamp, $WindowTitle, $ProcessName)";
-        command.Parameters.AddWithValue("$Timestamp", DateTimeOffset.Now.ToUnixTimeSeconds());
-        command.Parameters.AddWithValue("$WindowTitle", windowTitle);
-        command.Parameters.AddWithValue("$ProcessName", processName);
-        command.ExecuteNonQuery();
-
-        _logger?.LogInformation("Activity inserted");
-    }
-
-    public IEnumerable<WindowActivity> GetActivities(long from, long to)
-    {
-        var command = _connection.CreateCommand();
-        command.CommandText = @"
-                SELECT * FROM WindowActivities
-                WHERE Timestamp >= $Start AND Timestamp <= $End
-                ORDER BY Timestamp";
-        command.Parameters.AddWithValue("$Start", from);
-        command.Parameters.AddWithValue("$End", to);
-
-        using var reader = command.ExecuteReader();
-
-        while (reader.Read())
-        {
-            yield return new WindowActivity
-            {
-                Id = reader.GetInt32(0),
-                Timestamp = reader.GetInt64(1),
-                WindowTitle = reader.GetString(2),
-                ProcessName = reader.GetString(3)
-            };
+            command.Parameters.AddWithValue("$Timestamp", (at ?? DateTimeOffset.Now).ToUnixTimeSeconds());
+            command.Parameters.AddWithValue("$WindowTitle", windowTitle);
+            command.Parameters.AddWithValue("$ProcessName", processName);
+            command.ExecuteNonQuery();
         }
 
-        _logger?.LogInformation("Retrieved activities");
+        _logger?.LogDebug("Activity inserted");
+    }
+
+    public List<WindowActivity> GetActivities(long from, long to)
+    {
+        var activities = new List<WindowActivity>();
+        lock (_lock)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, Timestamp, WindowTitle, ProcessName FROM WindowActivities
+                WHERE Timestamp >= $Start AND Timestamp <= $End
+                ORDER BY Timestamp, Id";
+            command.Parameters.AddWithValue("$Start", from);
+            command.Parameters.AddWithValue("$End", to);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                activities.Add(new WindowActivity
+                {
+                    Id = reader.GetInt32(0),
+                    Timestamp = reader.GetInt64(1),
+                    WindowTitle = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                    ProcessName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3)
+                });
+            }
+        }
+
+        _logger?.LogDebug("Retrieved {Count} activities", activities.Count);
+        return activities;
     }
 
     public void Dispose()

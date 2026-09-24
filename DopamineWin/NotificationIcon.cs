@@ -8,15 +8,19 @@ public class NotificationIcon : ApplicationContext
     private readonly ILogger<NotificationIcon>? _logger;
     private readonly WindowTracker _windowTracker;
     private readonly SettingsService _settings;
+    private readonly DatabaseService _database;
     private readonly NotifyIcon _trayIcon;
     private readonly ToolStripItem _trackingToggle;
+    private readonly ToolStripLabel _todayLabel;
+    private readonly ToolStripLabel[] _topAppLabels;
 
-    public NotificationIcon(WindowTracker windowTracker, SettingsService settings,
+    public NotificationIcon(WindowTracker windowTracker, SettingsService settings, DatabaseService database,
         ILogger<NotificationIcon>? logger = null)
     {
         _logger = logger;
         _windowTracker = windowTracker;
         _settings = settings;
+        _database = database;
 
         _trayIcon = new NotifyIcon
         {
@@ -40,6 +44,19 @@ public class NotificationIcon : ApplicationContext
             }
         );
         _trayIcon.ContextMenuStrip.Items.Add("-");
+
+        _todayLabel = new ToolStripLabel("Today: –") { Font = new Font(SystemFonts.MenuFont ?? Control.DefaultFont, FontStyle.Bold) };
+        _trayIcon.ContextMenuStrip.Items.Add(_todayLabel);
+        _topAppLabels = Enumerable.Range(0, 3)
+            .Select(_ => new ToolStripLabel { ForeColor = Color.Gray, Visible = false })
+            .ToArray();
+        foreach (var label in _topAppLabels) _trayIcon.ContextMenuStrip.Items.Add(label);
+        _trayIcon.ContextMenuStrip.Items.Add("Open Dashboard", null, (_, _) => OpenDashboard());
+        _trayIcon.ContextMenuStrip.Items.Add("-");
+        _trayIcon.ContextMenuStrip.Opening += (_, _) => UpdateSummary();
+        _trayIcon.DoubleClick += (_, _) => OpenDashboard();
+        _trayIcon.Text = "Dopamine";
+
         _trackingToggle = _trayIcon.ContextMenuStrip.Items.Add("Stop Tracking", null, (sender, args) =>
         {
             if (_windowTracker.IsTracking)
@@ -81,6 +98,43 @@ public class NotificationIcon : ApplicationContext
         };
 
         _windowTracker.StartTracking();
+    }
+
+    private void OpenDashboard()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = ApiServer.DashboardUrl(_settings.Settings.PairingCode),
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to open dashboard");
+        }
+    }
+
+    private void UpdateSummary()
+    {
+        try
+        {
+            var summary = TodaySummary.Compute(_database);
+            var state = !_windowTracker.IsTracking ? " (paused)" : _windowTracker.IsIdle ? " (idle)" : "";
+            _todayLabel.Text = $"Today: {TodaySummary.Format(summary.Total)}{state}";
+            for (var i = 0; i < _topAppLabels.Length; i++)
+            {
+                var visible = i < summary.TopApps.Count;
+                _topAppLabels[i].Visible = visible;
+                if (visible)
+                    _topAppLabels[i].Text = $"   {summary.TopApps[i].Process}  {TodaySummary.Format(summary.TopApps[i].Duration)}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to compute today's summary");
+        }
     }
 
     private void UpdateToolStrip()

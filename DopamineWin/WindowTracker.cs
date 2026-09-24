@@ -4,6 +4,7 @@ public class WindowTracker : IDisposable, IAsyncDisposable
 {
     private const string DopamineProcess = "<Dopamine>";
     private const string StoppedTitle = "<Stopped>";
+    private const string IdleTitle = "<Idle>";
 
     private readonly DatabaseService _database;
     private readonly SettingsService _settings;
@@ -12,8 +13,12 @@ public class WindowTracker : IDisposable, IAsyncDisposable
     private CancellationTokenSource? _trackingReference;
     private string? _currentWindowTitle;
     private string? _currentProcessName;
+    private DateTimeOffset _currentSince;
 
     public bool IsTracking => _trackingReference != null;
+
+    /// <summary>True while tracking is on but the user has been away longer than the idle timeout.</summary>
+    public bool IsIdle { get; private set; }
 
     public WindowTracker(DatabaseService database, SettingsService settings, ILogger<WindowTracker>? logger = null)
     {
@@ -36,30 +41,74 @@ public class WindowTracker : IDisposable, IAsyncDisposable
             {
                 try
                 {
-                    var activeWindow = NativeMethods.GetActiveWindowTitle();
-                    var processName = NativeMethods.GetActiveProcessName();
-
-                    _logger?.LogDebug("Window: {ActiveWindow}, Process: {ProcessName}", activeWindow, processName);
-
-                    if ((!string.IsNullOrWhiteSpace(activeWindow) || !string.IsNullOrWhiteSpace(processName)) &&
-                        (activeWindow != _currentWindowTitle || processName != _currentProcessName))
-                    {
-                        // Record the previous window session
-                        _database.InsertActivity(activeWindow, processName);
-
-                        // Update current window info
-                        _currentWindowTitle = activeWindow;
-                        _currentProcessName = processName;
-                    }
+                    Poll();
                 }
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get active window title");
                 }
 
-                await Task.Delay(_settings.Settings.TrackingInterval, token);
+                try
+                {
+                    await Task.Delay(_settings.Settings.TrackingInterval, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
             }
         }, token, TaskCreationOptions.LongRunning, TaskScheduler.Current);
+    }
+
+    private void Poll()
+    {
+        var idleTimeout = _settings.Settings.IdleTimeout;
+        if (idleTimeout > 0)
+        {
+            var idle = NativeMethods.GetIdleTime();
+            if (idle.TotalSeconds >= idleTimeout)
+            {
+                if (!IsIdle)
+                {
+                    IsIdle = true;
+                    if (_currentProcessName != null)
+                    {
+                        // Backdate the marker to when input actually stopped (but not before the current row).
+                        var since = DateTimeOffset.Now - idle;
+                        _database.InsertActivity(IdleTitle, DopamineProcess, since > _currentSince ? since : _currentSince);
+                        ResetCurrent();
+                    }
+
+                    _logger?.LogInformation("User idle");
+                }
+
+                return;
+            }
+
+            IsIdle = false;
+        }
+
+        var activeWindow = NativeMethods.GetActiveWindowTitle();
+        var processName = NativeMethods.GetActiveProcessName();
+
+        _logger?.LogDebug("Window: {ActiveWindow}, Process: {ProcessName}", activeWindow, processName);
+
+        if ((!string.IsNullOrWhiteSpace(activeWindow) || !string.IsNullOrWhiteSpace(processName)) &&
+            (activeWindow != _currentWindowTitle || processName != _currentProcessName))
+        {
+            _database.InsertActivity(activeWindow, processName);
+
+            _currentWindowTitle = activeWindow;
+            _currentProcessName = processName;
+            _currentSince = DateTimeOffset.Now;
+        }
+    }
+
+    private void ResetCurrent()
+    {
+        // Forces the next poll to record the foreground window again.
+        _currentWindowTitle = null;
+        _currentProcessName = null;
     }
 
     public void StopTracking()
@@ -71,6 +120,8 @@ public class WindowTracker : IDisposable, IAsyncDisposable
         _trackingReference = null;
 
         _database.InsertActivity(StoppedTitle, DopamineProcess);
+        ResetCurrent();
+        IsIdle = false;
 
         _logger?.LogInformation("Window tracking stopped");
     }

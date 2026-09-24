@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: DopamineWeb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test src
+      - run: bun run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: DopamineWeb/out
+
+  mac:
+    needs: web
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: DopamineMac
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: DopamineWeb/out
+      - run: swift test
+      - run: SKIP_WEB=1 ./scripts/bundle.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dopamine-mac
+          path: DopamineMac/dist/Dopamine-mac.zip
+
+  windows:
+    needs: web
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: DopamineWin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: DopamineWeb/out
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet publish DopamineWin.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -o publish
+      - run: Compress-Archive -Path publish/* -DestinationPath Dopamine-win.zip
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dopamine-win
+          path: DopamineWin/Dopamine-win.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Dopamine-mac.zip
+            Dopamine-win.zip

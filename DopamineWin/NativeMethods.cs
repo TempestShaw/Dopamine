@@ -15,6 +15,26 @@ public static partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LastInputInfo
+    {
+        public uint cbSize;
+        public uint dwTime;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetLastInputInfo(ref LastInputInfo plii);
+
+    /// <summary>Time since the last keyboard or mouse input in this session.</summary>
+    public static TimeSpan GetIdleTime()
+    {
+        var info = new LastInputInfo { cbSize = (uint)Marshal.SizeOf<LastInputInfo>() };
+        if (!GetLastInputInfo(ref info)) return TimeSpan.Zero;
+        // Both values are 32-bit tick counts; unchecked subtraction handles wrap-around.
+        var idleMs = unchecked((uint)Environment.TickCount - info.dwTime);
+        return TimeSpan.FromMilliseconds(idleMs);
+    }
+
     public static string GetActiveWindowTitle()
     {
         const int nChars = 256;

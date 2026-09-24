@@ -15,7 +15,12 @@ public class ApiServer : IDisposable, IAsyncDisposable
         _database = database;
         _settings = settings;
 
-        var builder = WebApplication.CreateBuilder(args);
+        // Content root next to the exe so wwwroot (the bundled dashboard) is found regardless of the working directory.
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory
+        });
         builder.Services.ConfigureHttpJsonOptions(options =>
         {
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
@@ -36,6 +41,15 @@ public class ApiServer : IDisposable, IAsyncDisposable
             await next();
         });
         _app.UseCors();
+
+        // The dashboard (DopamineWeb's static export, copied to wwwroot at build time) is public;
+        // the data behind it still requires the pairing code.
+        if (Directory.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot")))
+        {
+            _app.UseDefaultFiles();
+            _app.UseStaticFiles();
+        }
+
         _app.Use(async (ctx, next) =>
         {
             if (ctx.Request.Path.StartsWithSegments("/identify") ||
@@ -66,9 +80,13 @@ public class ApiServer : IDisposable, IAsyncDisposable
         });
     }
 
+    public const int Port = 26535;
+
+    public static string DashboardUrl(string pairingCode) => $"http://localhost:{Port}/#pair={pairingCode}";
+
     public Task RunAsync()
     {
-        return _app.RunAsync("http://localhost:26535/");
+        return _app.RunAsync($"http://localhost:{Port}/");
     }
 
     public void Dispose()
