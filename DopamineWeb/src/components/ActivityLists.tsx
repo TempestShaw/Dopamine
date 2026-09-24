@@ -64,22 +64,29 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
                   </div>
                 </div>
                 <span className="hand num w-10 shrink-0 text-right text-lg leading-none text-faint">{Math.round((a.total / total) * 100)}%</span>
-                <ChevronDown className={`size-4 shrink-0 text-faint transition-transform ${expanded ? "rotate-180" : ""}`} />
+                <ChevronDown className={`size-4 shrink-0 text-faint transition-transform duration-150 ease-out ${expanded ? "rotate-180" : ""}`} />
               </button>
-              {expanded && (
-                <ul className="fade-in mb-3 ml-[3.25rem] space-y-1.5 pr-8">
-                  {a.titles.slice(0, 8).map((t) => (
-                    <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
-                      <CategoryDot category={t.category} className="size-2" />
-                      <span className="min-w-0 flex-1 truncate text-graphite" title={t.title}>
-                        {t.title}
-                      </span>
-                      <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
-                    </li>
-                  ))}
-                  {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
-                </ul>
-              )}
+              {/* Height animates 0fr → 1fr so the list slides open quickly instead of popping in. */}
+              <div
+                className="grid transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none"
+                style={{ gridTemplateRows: expanded ? "1fr" : "0fr", opacity: expanded ? 1 : 0 }}
+                aria-hidden={!expanded}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <ul className={`mb-3 ml-[3.25rem] space-y-1.5 pr-8 transition-transform duration-150 ease-out motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1"}`}>
+                      {a.titles.slice(0, 8).map((t) => (
+                        <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
+                          <CategoryDot category={t.category} className="size-2" />
+                          <span className="min-w-0 flex-1 truncate text-graphite" title={t.title}>
+                            {t.title}
+                          </span>
+                          <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
+                        </li>
+                      ))}
+                      {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
+                    </ul>
+                </div>
+              </div>
             </li>
           );
         })}

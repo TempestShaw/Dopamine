@@ -19,20 +19,41 @@ public record TodaySummary(TimeSpan Total, IReadOnlyList<(string Process, TimeSp
         return Compute(rows, start.ToUnixTimeSeconds(), now.ToUnixTimeSeconds());
     }
 
+    /// <summary>
+    /// Windows in front for less than this many seconds are accidental; their time stays with the
+    /// previous window. Matches MIN_DWELL on the web and DaySummary.minDwell on macOS.
+    /// </summary>
+    public const long MinDwell = 5;
+
     public static TodaySummary Compute(IReadOnlyList<WindowActivity> rows, long from, long now)
     {
-        var perApp = new Dictionary<string, long>();
-        long total = 0;
+        // First pass on unclipped times: drop glances, extending the window that was in front before.
+        var kept = new List<(string Process, long Start, long End)>();
         for (var i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
             if (row.ProcessName == "<Dopamine>") continue;
-            var next = i + 1 < rows.Count ? rows[i + 1].Timestamp : now;
+            var hasNext = i + 1 < rows.Count;
+            var next = hasNext ? rows[i + 1].Timestamp : now;
             var end = Math.Min(Math.Min(next, row.Timestamp + (long)MaxSegment.TotalSeconds), now);
-            var seconds = end - Math.Max(row.Timestamp, from);
+            if (end <= row.Timestamp) continue;
+            if (hasNext && end - row.Timestamp < MinDwell)
+            {
+                if (kept.Count > 0 && kept[^1].End == row.Timestamp) kept[^1] = kept[^1] with { End = end };
+                continue;
+            }
+
+            kept.Add((row.ProcessName, row.Timestamp, end));
+        }
+
+        var perApp = new Dictionary<string, long>();
+        long total = 0;
+        foreach (var (process, start, end) in kept)
+        {
+            var seconds = end - Math.Max(start, from);
             if (seconds <= 0) continue;
             total += seconds;
-            perApp[row.ProcessName] = perApp.GetValueOrDefault(row.ProcessName) + seconds;
+            perApp[process] = perApp.GetValueOrDefault(process) + seconds;
         }
 
         var top = perApp.OrderByDescending(p => p.Value).Take(3)

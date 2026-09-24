@@ -60,12 +60,20 @@ function categoryOf(title: string, process: string): Category {
 }
 
 /**
+ * Windows in front for less than this are treated as accidental (a stray click, alt-tabbing past
+ * something); their time stays with the window that was in front before. Keep in sync with
+ * DaySummary.minDwell (macOS) and TodaySummary.MinDwell (Windows).
+ */
+export const MIN_DWELL = 5_000;
+
+/**
  * Converts events (sorted by timestamp) into segments clipped to `range`.
  * Pass events that start a little before the range so the window that was active at
  * `range.start` is known; the caller's EventStore takes care of that.
  */
-export function buildSegments(events: RawEvent[], range: Range, now: number, maxSegment = MAX_SEGMENT): Segment[] {
-  const out: Segment[] = [];
+export function buildSegments(events: RawEvent[], range: Range, now: number, maxSegment = MAX_SEGMENT, minDwell = MIN_DWELL): Segment[] {
+  // First pass on unclipped times, so a brief glance is recognised even at a range edge.
+  const kept: { start: number; end: number; e: RawEvent }[] = [];
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
     if (e.processName === AGENT_PROCESS) continue;
@@ -74,6 +82,19 @@ export function buildSegments(events: RawEvent[], range: Range, now: number, max
     const next = events[i + 1];
     let end = next ? next.timestamp * 1000 : now;
     end = Math.min(end, start + maxSegment, now);
+    if (end <= start) continue;
+
+    // The window currently in front (no next event yet) always counts; it may just have opened.
+    if (next && end - start < minDwell) {
+      const prev = kept[kept.length - 1];
+      if (prev && prev.end === start) prev.end = end;
+      continue;
+    }
+    kept.push({ start, end, e });
+  }
+
+  const out: Segment[] = [];
+  for (const { start, end, e } of kept) {
     const s = Math.max(start, range.start);
     const en = Math.min(end, range.end);
     if (en <= s) continue;

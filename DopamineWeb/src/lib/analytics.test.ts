@@ -32,6 +32,24 @@ describe("buildSegments", () => {
     expect(segs[1].end - segs[1].start).toBe(Math.min(MAX_SEGMENT, 3_600_000));
   });
 
+  test("glances under 5 seconds are given back to the previous window", () => {
+    const t = at(9);
+    const segs = buildSegments(
+      [ev(t, "Code", "a.ts"), ev(t + 600, "Discord", "ping"), ev(t + 603, "Code", "a.ts"), ev(t + 1200, AGENT_PROCESS, "<Stopped>")],
+      range,
+      later,
+    );
+    expect(segs.map((s) => [s.app, (s.end - s.start) / 1000])).toEqual([
+      ["VS Code", 603],
+      ["VS Code", 597],
+    ]);
+  });
+
+  test("a window that just came to front counts even if brief", () => {
+    const segs = buildSegments([ev(at(9), "Code"), ev(at(9, 10), "Discord")], range, at(9, 10) * 1000 + 2000);
+    expect(segs.map((s) => s.app)).toEqual(["VS Code", "Discord"]);
+  });
+
   test("the open-ended last event runs until now", () => {
     const segs = buildSegments([ev(at(9), "Code")], range, at(9, 20) * 1000);
     expect(segs[0].end - segs[0].start).toBe(20 * MINUTE);

@@ -58,6 +58,18 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(s.focus, 600)
     }
 
+    func testBriefGlancesGoToPreviousWindow() {
+        let rows = [
+            WindowActivity(id: 1, timestamp: 1000, windowTitle: "main.swift", processName: "Xcode"),
+            WindowActivity(id: 2, timestamp: 1600, windowTitle: "chat", processName: "Discord"),
+            WindowActivity(id: 3, timestamp: 1603, windowTitle: "main.swift", processName: "Xcode"),
+            WindowActivity(id: 4, timestamp: 2000, windowTitle: Marker.stopped, processName: Marker.process),
+        ]
+        let s = DaySummary.compute(rows: rows, start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 10_000), now: Date(timeIntervalSince1970: 5000))
+        XCTAssertEqual(s.apps.map(\.app), ["Xcode"])
+        XCTAssertEqual(s.total, 1000)
+    }
+
     func testCategories() {
         XCTAssertEqual(Category.of(title: "Bilibili", app: "Google Chrome"), .entertainment)
         XCTAssertEqual(Category.of(title: "", app: "Xcode"), .work)

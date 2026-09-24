@@ -52,24 +52,41 @@ struct DaySummary {
     /// Longest a single row may count for, matching MAX_SEGMENT on the web.
     static let maxSegment: TimeInterval = 2 * 3600
 
+    /// Windows in front for less than this are accidental; their time stays with the previous
+    /// window. Matches MIN_DWELL on the web and TodaySummary.MinDwell on Windows.
+    static let minDwell: TimeInterval = 5
+
     /// Mirrors buildSegments + summarize on the web: each row lasts until the next one;
-    /// marker rows end a segment; everything is clipped to [start, end).
+    /// marker rows end a segment; brief glances are merged back; everything is clipped to [start, end).
     static func compute(rows: [WindowActivity], start: Date, end: Date, now: Date = Date()) -> DaySummary {
+        let nowSec = now.timeIntervalSince1970
+
+        // First pass on unclipped times: drop glances, extending the window that was in front before.
+        var kept: [(row: WindowActivity, start: TimeInterval, end: TimeInterval)] = []
+        for (i, row) in rows.enumerated() where row.processName != Marker.process {
+            let s = TimeInterval(row.timestamp)
+            let hasNext = i + 1 < rows.count
+            let next = hasNext ? TimeInterval(rows[i + 1].timestamp) : nowSec
+            let e = min(next, s + maxSegment, nowSec)
+            guard e > s else { continue }
+            if hasNext && e - s < minDwell {
+                if let last = kept.last, last.end == s { kept[kept.count - 1].end = e }
+                continue
+            }
+            kept.append((row, s, e))
+        }
+
         var summary = DaySummary()
         var perApp: [String: [Category: TimeInterval]] = [:]
         let lo = start.timeIntervalSince1970
         let hi = min(end, now).timeIntervalSince1970
-
-        for (i, row) in rows.enumerated() where row.processName != Marker.process {
-            let s = TimeInterval(row.timestamp)
-            let next = i + 1 < rows.count ? TimeInterval(rows[i + 1].timestamp) : now.timeIntervalSince1970
-            let e = min(next, s + maxSegment, now.timeIntervalSince1970)
-            let d = min(e, hi) - max(s, lo)
+        for item in kept {
+            let d = min(item.end, hi) - max(item.start, lo)
             guard d > 0 else { continue }
-            let category = Category.of(title: row.windowTitle, app: row.processName)
+            let category = Category.of(title: item.row.windowTitle, app: item.row.processName)
             summary.total += d
             summary.byCategory[category, default: 0] += d
-            perApp[row.processName, default: [:]][category, default: 0] += d
+            perApp[item.row.processName, default: [:]][category, default: 0] += d
         }
 
         summary.apps = perApp.map { app, cats in
