@@ -27,7 +27,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test src
       - run: bun run build
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: web
           path: DopamineWeb/out
@@ -40,13 +40,13 @@ jobs:
         working-directory: DopamineMac
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: web
           path: DopamineWeb/out
       - run: swift test
       - run: SKIP_WEB=1 ./scripts/bundle.sh
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: Dopamine-mac
           path: DopamineMac/dist/Dopamine-mac.zip
@@ -59,7 +59,7 @@ jobs:
         working-directory: DopamineWin
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: web
           path: DopamineWeb/out
@@ -110,7 +110,7 @@ jobs:
           Get-Content "$env:LOCALAPPDATA\Dopamine\dopamine.log" -ErrorAction SilentlyContinue
       - run: Compress-Archive -Path publish/DopamineWin.exe -DestinationPath Dopamine-win.zip
         shell: pwsh
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: Dopamine-win
           path: DopamineWin/Dopamine-win.zip
@@ -128,7 +128,7 @@ jobs:
         run: |
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like v1.2.3, got '$VERSION'"; exit 1; }
           test -f "docs/release-notes/$VERSION.md" || { echo "Missing docs/release-notes/$VERSION.md"; exit 1; }
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: Dopamine-*
           merge-multiple: true
