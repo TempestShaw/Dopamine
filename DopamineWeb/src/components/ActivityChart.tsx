@@ -114,23 +114,51 @@ function Legend() {
 function DayRibbon({ segments, range }: { segments: Segment[]; range: Range }) {
   const [tip, setTip] = useState<{ seg: Segment; x: number } | null>(null);
   const span = range.end - range.start;
+
+  // A real day can hold a thousand window switches. Paint touching segments of the same category
+  // as one run (far fewer DOM nodes) and find the hovered segment by position instead of giving
+  // every sliver its own mouse handler.
+  const runs = useMemo(() => {
+    const out: { start: number; end: number; category: Segment["category"] }[] = [];
+    for (const s of segments) {
+      const last = out[out.length - 1];
+      if (last && last.category === s.category && s.start - last.end < 30_000) last.end = s.end;
+      else out.push({ start: s.start, end: s.end, category: s.category });
+    }
+    return out;
+  }, [segments]);
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const t = range.start + ((e.clientX - box.left) / box.width) * span;
+    let lo = 0;
+    let hi = segments.length - 1;
+    let found: Segment | null = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (segments[mid].end <= t) lo = mid + 1;
+      else if (segments[mid].start > t) hi = mid - 1;
+      else {
+        found = segments[mid];
+        break;
+      }
+    }
+    if (found?.start === tip?.seg.start) return;
+    setTip(found && { seg: found, x: ((found.start + found.end) / 2 - range.start) / span * 100 });
+  };
+
   return (
     <div className="relative mb-8">
-      <div className="relative h-9" onMouseLeave={() => setTip(null)}>
-        <div className="rule absolute inset-x-0 top-1/2" />
+      <div className="relative h-9 cursor-crosshair" onMouseMove={onMove} onMouseLeave={() => setTip(null)}>
+        <div className="rule absolute inset-x-0 top-1/2 -translate-y-1/2" />
         <div className="paint absolute inset-0">
-          {segments.map((s, i) => {
-            const left = ((s.start - range.start) / span) * 100;
-            const width = ((s.end - s.start) / span) * 100;
-            return (
-              <div
-                key={i}
-                className="absolute inset-y-0"
-                style={{ left: `${left}%`, width: `max(${width}%, 1.5px)`, background: CATEGORY_META[s.category].color }}
-                onMouseEnter={() => setTip({ seg: s, x: left + width / 2 })}
-              />
-            );
-          })}
+          {runs.map((r) => (
+            <div
+              key={r.start}
+              className="absolute inset-y-0"
+              style={{ left: `${((r.start - range.start) / span) * 100}%`, width: `max(${((r.end - r.start) / span) * 100}%, 1.5px)`, background: CATEGORY_META[r.category].color }}
+            />
+          ))}
         </div>
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] text-faint">
@@ -141,16 +169,16 @@ function DayRibbon({ segments, range }: { segments: Segment[]; range: Range }) {
         ))}
       </div>
       {tip && (
-        <div
-          className="sketch pointer-events-none absolute top-12 z-20 max-w-72 -translate-x-1/2 bg-paper px-3.5 py-2.5 text-[13px] shadow-[0_6px_24px_-12px_rgba(0,0,0,0.35)]"
-          style={{ left: `clamp(8rem, ${tip.x}%, calc(100% - 8rem))` }}
-        >
-          <div className="flex items-center gap-1.5 font-semibold">
-            <AppAvatar app={tip.seg.app} process={tip.seg.process} category={tip.seg.category} size="sm" /> {tip.seg.app}
-          </div>
-          <div className="truncate text-graphite">{tip.seg.title}</div>
-          <div className="num mt-0.5 text-faint">
-            {clock(tip.seg.start)} – {clock(tip.seg.end)} · {formatDuration(tip.seg.end - tip.seg.start)}
+        // Floats over the chart below; it never takes up space in the layout.
+        <div className="pointer-events-none absolute top-12 z-30 w-max max-w-72 -translate-x-1/2" style={{ left: `clamp(8rem, ${tip.x}%, calc(100% - 8rem))` }}>
+          <div className="sketch bg-paper px-3.5 py-2.5 text-[13px] shadow-[0_8px_28px_-12px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center gap-1.5 font-semibold">
+              <AppAvatar app={tip.seg.app} process={tip.seg.process} category={tip.seg.category} size="sm" /> {tip.seg.app}
+            </div>
+            <div className="truncate text-graphite">{tip.seg.title}</div>
+            <div className="num mt-0.5 text-faint">
+              {clock(tip.seg.start)} – {clock(tip.seg.end)} · {formatDuration(tip.seg.end - tip.seg.start)}
+            </div>
           </div>
         </div>
       )}

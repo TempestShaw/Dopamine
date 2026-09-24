@@ -28,8 +28,14 @@ await $`rm -f ${cssFile}`;
 
 const theme = `try{var t=localStorage.getItem("dopamine.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
+const fonts =
+  "https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Figtree:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap";
+
 const html = `<title>Dopamine</title>
 <meta name="description" content="Dopamine screen-time dashboard with sample data">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="${fonts}">
 <style>${css}</style>
 <div id="root"></div>
 <script>${theme}</script>

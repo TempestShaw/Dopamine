@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dashboard } from "@/components/Dashboard";
 import { PairScreen } from "@/components/PairScreen";
-import { Logo, PaintFilters } from "@/components/ui";
+import { Logo } from "@/components/ui";
 import { DemoSource } from "@/lib/demo";
 import { AgentInfo, AgentSource, EventStore, clearPairing, defaultAgentUrl, identify, loadPairing, savePairing, verifyCode } from "@/lib/source";
 
@@ -56,7 +56,6 @@ export default function Home() {
 
   return (
     <>
-      <PaintFilters />
       {state.kind === "booting" ? (
         <div className="grid min-h-screen place-items-center">
           <Logo className="size-12 animate-pulse" />

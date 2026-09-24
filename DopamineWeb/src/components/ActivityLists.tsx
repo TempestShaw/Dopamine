@@ -32,7 +32,14 @@ export function ActivityLists({ apps, sessions, total, view }: { apps: AppStat[]
 
 function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
   const [open, setOpen] = useState<string | null>(null);
+  // Details are rendered the first time an app is opened and kept, so closing can animate too.
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const [limit, setLimit] = useState(8);
+  const prepare = (app: string) => setOpened((prev) => (prev.has(app) ? prev : new Set(prev).add(app)));
+  const toggle = (app: string) => {
+    prepare(app);
+    setOpen((cur) => (cur === app ? null : app));
+  };
   if (apps.length === 0) return <EmptyState>nothing tracked in this period</EmptyState>;
   const top = apps[0].total;
 
@@ -45,7 +52,10 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
             <li key={a.app} className="border-b border-dashed border-line last:border-b-0">
               <button
                 type="button"
-                onClick={() => setOpen(expanded ? null : a.app)}
+                onClick={() => toggle(a.app)}
+                // Render the details on hover so the click only has to animate.
+                onPointerEnter={() => prepare(a.app)}
+                onFocus={() => prepare(a.app)}
                 aria-expanded={expanded}
                 className="group flex w-full items-center gap-4 py-3 text-left"
               >
@@ -64,16 +74,17 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
                   </div>
                 </div>
                 <span className="hand num w-10 shrink-0 text-right text-lg leading-none text-faint">{Math.round((a.total / total) * 100)}%</span>
-                <ChevronDown className={`size-4 shrink-0 text-faint transition-transform duration-150 ease-out ${expanded ? "rotate-180" : ""}`} />
+                <ChevronDown className={`size-4 shrink-0 text-faint transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${expanded ? "rotate-180" : ""}`} />
               </button>
               {/* Height animates 0fr → 1fr so the list slides open quickly instead of popping in. */}
               <div
-                className="grid transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none"
+                className="grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
                 style={{ gridTemplateRows: expanded ? "1fr" : "0fr", opacity: expanded ? 1 : 0 }}
                 aria-hidden={!expanded}
               >
                 <div className="min-h-0 overflow-hidden">
-                  <ul className={`mb-3 ml-[3.25rem] space-y-1.5 pr-8 transition-transform duration-150 ease-out motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1"}`}>
+                  {opened.has(a.app) && (
+                  <ul className={`mb-3 ml-[3.25rem] space-y-1.5 pr-8 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1.5"}`}>
                       {a.titles.slice(0, 8).map((t) => (
                         <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
                           <CategoryDot category={t.category} className="size-2" />
@@ -85,6 +96,7 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
                       ))}
                       {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
                     </ul>
+                  )}
                 </div>
               </div>
             </li>

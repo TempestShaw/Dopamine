@@ -81,7 +81,7 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
                 />
               )}
               {isSel && (
-                <span className="pencil absolute inset-0 border-[1.6px] border-ink" style={{ borderRadius: SHAPES[(i + 2) % SHAPES.length] }} />
+                <span className="absolute inset-0 border-[1.6px] border-ink" style={{ borderRadius: SHAPES[(i + 2) % SHAPES.length] }} />
               )}
               <span className="relative">{d.getDate()}</span>
               {isToday && <span className="dab absolute bottom-1 left-1/2 size-1 -translate-x-1/2 bg-current" />}

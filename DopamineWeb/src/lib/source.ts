@@ -192,14 +192,16 @@ export class EventStore {
   }
 
   private merge(incoming: RawEvent[]) {
-    let added = false;
+    let outOfOrder = false;
     for (const e of incoming) {
       if (this.ids.has(e.id)) continue;
       this.ids.add(e.id);
+      const last = this.events[this.events.length - 1];
+      if (last && (e.timestamp < last.timestamp || (e.timestamp === last.timestamp && e.id < last.id))) outOfOrder = true;
       this.events.push(e);
-      added = true;
     }
-    if (added) this.events.sort((a, b) => a.timestamp - b.timestamp || a.id - b.id);
+    // Live refreshes only ever append newer rows, so the full sort is only needed for backfills.
+    if (outOfOrder) this.events.sort((a, b) => a.timestamp - b.timestamp || a.id - b.id);
   }
 }
 

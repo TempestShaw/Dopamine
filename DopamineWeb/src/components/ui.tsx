@@ -33,30 +33,6 @@ export const Apple = svg(
   />,
 );
 
-/**
- * SVG filters shared by every painted mark: `paint` roughens edges and adds pigment streaks,
- * `pencil` makes straight lines wobble like graphite on paper. Rendered once per page.
- */
-export function PaintFilters() {
-  return (
-    <svg width="0" height="0" className="absolute" aria-hidden focusable="false">
-      <defs>
-        <filter id="dopamine-paint" x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="7" result="edge" />
-          <feDisplacementMap in="SourceGraphic" in2="edge" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="rough" />
-          <feTurbulence type="fractalNoise" baseFrequency="0.5 0.035" numOctaves="2" seed="3" result="streaks" />
-          <feColorMatrix in="streaks" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.5 1.12" result="streakAlpha" />
-          <feComposite in="rough" in2="streakAlpha" operator="in" />
-        </filter>
-        <filter id="dopamine-pencil" x="-2%" y="-20%" width="104%" height="140%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" seed="11" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </defs>
-    </svg>
-  );
-}
-
 /** Overlapping paint dabs in the dopamine palette. */
 export function Logo({ className = "size-8" }: IconProps) {
   return (
@@ -128,7 +104,7 @@ export function AppAvatar({ app, process, category, size = "md" }: { app: string
 export function Stroke({ color = "var(--highlight)", className = "" }: { color?: string; className?: string }) {
   return (
     <svg viewBox="0 0 120 8" preserveAspectRatio="none" className={`pointer-events-none ${className}`} aria-hidden>
-      <path d="M2 5.2C22 2.6 48 6.4 70 4.1S104 3 118 4.6" stroke={color} strokeWidth="3.4" strokeLinecap="round" fill="none" className="pencil" />
+      <path d="M2 5.2C22 2.6 48 6.4 70 4.1S104 3 118 4.6" stroke={color} strokeWidth="3.4" strokeLinecap="round" fill="none" />
     </svg>
   );
 }
