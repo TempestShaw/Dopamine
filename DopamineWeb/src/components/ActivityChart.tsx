@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Bucket, Segment } from "@/lib/analytics";
 import { CATEGORIES, CATEGORY_META } from "@/lib/categories";
 import { HOUR, Range, View, clock, formatDuration, formatHoursShort, sameDay } from "@/lib/time";
-import { CategoryDot, Section } from "./ui";
+import { AppAvatar, CategoryDot, Section } from "./ui";
 
 const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" });
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" });
@@ -146,7 +146,7 @@ function DayRibbon({ segments, range }: { segments: Segment[]; range: Range }) {
           style={{ left: `clamp(8rem, ${tip.x}%, calc(100% - 8rem))` }}
         >
           <div className="flex items-center gap-1.5 font-semibold">
-            <CategoryDot category={tip.seg.category} className="size-2" /> {tip.seg.app}
+            <AppAvatar app={tip.seg.app} process={tip.seg.process} category={tip.seg.category} size="sm" /> {tip.seg.app}
           </div>
           <div className="truncate text-graphite">{tip.seg.title}</div>
           <div className="num mt-0.5 text-faint">

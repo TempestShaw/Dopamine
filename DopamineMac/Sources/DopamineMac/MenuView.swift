@@ -14,6 +14,7 @@ extension Category {
 
 final class MenuModel: ObservableObject {
     @Published var summary = DaySummary()
+    @Published var icons: [String: NSImage] = [:]
     @Published var yesterdayTotal: TimeInterval = 0
     @Published var isRecording = true
     @Published var isIdle = false
@@ -128,7 +129,13 @@ struct MenuView: View {
         return VStack(spacing: 8) {
             ForEach(Array(top)) { app in
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                    HStack(spacing: 6) {
+                        if let icon = model.icons[app.app] {
+                            Image(nsImage: icon)
+                                .resizable()
+                                .interpolation(.high)
+                                .frame(width: 18, height: 18)
+                        }
                         Text(app.app).font(.callout).lineLimit(1)
                         Spacer()
                         Text(formatDuration(app.duration)).font(.callout).monospacedDigit().foregroundColor(.secondary)

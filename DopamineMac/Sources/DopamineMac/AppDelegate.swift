@@ -119,9 +119,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let rows = db.activities(from: lookback, to: Int64(now.timeIntervalSince1970) + 60)
             let todaySummary = DaySummary.compute(rows: rows, start: today, end: now, now: now)
             let yesterdaySummary = DaySummary.compute(rows: rows, start: yesterday, end: today, now: now)
+            let iconData = db.icons(for: todaySummary.apps.prefix(5).map(\.app))
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.model.summary = todaySummary
+                self.model.icons = iconData.compactMapValues { NSImage(data: $0) }
                 self.model.yesterdayTotal = yesterdaySummary.total
                 self.model.isRecording = self.tracker.isRecording
                 self.model.isIdle = self.tracker.isIdle

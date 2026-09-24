@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { EventStore } from "@/lib/source";
+import { IconContext, useAppIcons } from "@/lib/icons";
 import { useDashboard } from "@/lib/useDashboard";
 import { View, rangeFor, sameDay, shiftAnchor, startOfDay } from "@/lib/time";
 import { ActivityChart } from "./ActivityChart";
@@ -33,10 +34,14 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
     if (rangeFor(view, next).start <= Date.now()) setAnchor(next);
   };
 
+  // Every app shown on the page appears in the summary, so its process names cover all icons needed.
+  const icons = useAppIcons(store.source, data ? data.summary.apps.map((a) => a.process) : []);
+
   // Buckets are days in the week and month views.
   const activeDays = data && view !== "day" ? data.buckets.filter((b) => b.total > 0).length : 1;
 
   return (
+    <IconContext.Provider value={icons}>
     <div className="min-h-screen pb-10">
       <Header
         view={view}
@@ -85,6 +90,7 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
         <footer className="hand mt-16 text-center text-lg text-faint">everything stays on this computer</footer>
       </main>
     </div>
+    </IconContext.Provider>
   );
 }
 

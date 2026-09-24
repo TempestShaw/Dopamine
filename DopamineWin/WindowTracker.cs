@@ -14,6 +14,7 @@ public class WindowTracker : IDisposable, IAsyncDisposable
     private string? _currentWindowTitle;
     private string? _currentProcessName;
     private DateTimeOffset _currentSince;
+    private readonly HashSet<string> _iconsCaptured = new();
 
     public bool IsTracking => _trackingReference != null;
 
@@ -101,6 +102,25 @@ public class WindowTracker : IDisposable, IAsyncDisposable
             _currentWindowTitle = activeWindow;
             _currentProcessName = processName;
             _currentSince = DateTimeOffset.Now;
+
+            CaptureIcon(processName);
+        }
+    }
+
+    /// <summary>Stores each app's icon once per launch so the dashboard and tray can show it.</summary>
+    private void CaptureIcon(string processName)
+    {
+        // UWP apps all run inside ApplicationFrameHost, whose icon would be misleading.
+        if (string.IsNullOrEmpty(processName) || processName == "ApplicationFrameHost" || !_iconsCaptured.Add(processName)) return;
+        try
+        {
+            var path = NativeMethods.GetActiveProcessPath();
+            var png = path == null ? null : NativeMethods.ExtractIconPng(path);
+            if (png != null) _database.SaveIcon(processName, png);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Could not capture icon for {ProcessName}", processName);
         }
     }
 

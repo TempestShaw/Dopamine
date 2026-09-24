@@ -49,7 +49,7 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
                 aria-expanded={expanded}
                 className="group flex w-full items-center gap-4 py-3 text-left"
               >
-                <AppAvatar app={a.app} category={a.category} />
+                <AppAvatar app={a.app} process={a.process} category={a.category} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="truncate text-[15px] font-medium group-hover:underline group-hover:decoration-line group-hover:underline-offset-4">{a.app}</span>
@@ -118,11 +118,14 @@ function SessionList({ sessions, showDate }: { sessions: Session[]; showDate: bo
                   <CategoryDot category={s.category} className="relative mt-4 size-3" />
                 </div>
                 <div className="min-w-0 flex-1 py-2.5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-[15px] font-medium">{s.app}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <AppAvatar app={s.app} process={s.process} category={s.category} size="sm" />
+                      <span className="truncate text-[15px] font-medium">{s.app}</span>
+                    </span>
                     <span className="num shrink-0 text-[13px] text-graphite">{formatDuration(s.active)}</span>
                   </div>
-                  <div className="truncate text-[13px] text-graphite" title={s.titles[0]?.title}>
+                  <div className="truncate pl-8 text-[13px] text-graphite" title={s.titles[0]?.title}>
                     {s.titles[0]?.title}
                     {s.titles.length > 1 && <span className="text-faint"> · +{s.titles.length - 1}</span>}
                   </div>

@@ -70,6 +70,14 @@ public class ApiServer : IDisposable, IAsyncDisposable
 
         _app.MapGet("/titles", database.GetActivities);
 
+        // Names are newline-separated; returns { processName: "data:image/png;base64,..." }.
+        _app.MapGet("/icons", (string? names) =>
+        {
+            var requested = (names ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(200);
+            return database.GetIcons(requested)
+                .ToDictionary(p => p.Key, p => "data:image/png;base64," + Convert.ToBase64String(p.Value));
+        });
+
         _app.MapGet("/settings", () => _settings.Settings.GetConfigurableSettings());
 
         _app.MapPut("/settings", (ConfigurableSettings.Partial newSettings) =>

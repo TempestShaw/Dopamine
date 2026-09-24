@@ -18,6 +18,8 @@ export interface DataSource {
   platform: Platform;
   version: string;
   fetchEvents(fromSec: number, toSec: number): Promise<RawEvent[]>;
+  /** App icons as data: URLs, keyed by raw process name. Missing names have no icon. */
+  fetchIcons?(processNames: string[]): Promise<Record<string, string>>;
 }
 
 export class AuthError extends Error {}
@@ -87,6 +89,15 @@ export class AgentSource implements DataSource {
     if (res.status === 401 || res.status === 403) throw new AuthError("Pairing code rejected");
     if (!res.ok) throw new Error(`Agent returned ${res.status}`);
     return (await res.json()) as RawEvent[];
+  }
+
+  async fetchIcons(processNames: string[]): Promise<Record<string, string>> {
+    // Names are newline-separated: process names never contain one, but may contain commas.
+    const res = await fetchWithTimeout(`${this.baseUrl}/icons?names=${encodeURIComponent(processNames.join("\n"))}`, {
+      headers: { Authorization: `Bearer ${this.code}` },
+    });
+    if (!res.ok) return {}; // older agents have no icon endpoint
+    return (await res.json()) as Record<string, string>;
   }
 }
 

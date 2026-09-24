@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import DopamineMac
 
@@ -32,6 +33,14 @@ final class DopamineMacTests: XCTestCase {
         let rows = db.activities(from: 0, to: 150)
         XCTAssertEqual(rows.count, 1)
         XCTAssertEqual(rows.first?.processName, "Xcode")
+    }
+
+    func testIconsRoundTrip() throws {
+        let db = try Database(url: tmp.appendingPathComponent("t.db"))
+        let png = try XCTUnwrap(AppIcons.png(from: NSImage(size: NSSize(width: 8, height: 8))))
+        db.saveIcon(process: "Xcode", png: png)
+        db.flush()
+        XCTAssertEqual(db.icons(for: ["Xcode", "Missing"]), ["Xcode": png])
     }
 
     func testDaySummary() {

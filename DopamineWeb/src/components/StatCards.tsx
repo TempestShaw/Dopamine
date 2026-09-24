@@ -2,6 +2,7 @@ import { Summary, productiveTime } from "@/lib/analytics";
 import { CATEGORY_META } from "@/lib/categories";
 import { trend } from "@/lib/insights";
 import { View, clock, formatDuration } from "@/lib/time";
+import { AppAvatar } from "./ui";
 
 const vs: Record<View, string> = { day: "vs. yesterday", week: "vs. last week", month: "vs. last month" };
 
@@ -48,19 +49,22 @@ export function StatCards({ view, summary, previous, days }: { view: View; summa
         {summary.longestFocus ? `from ${clock(summary.longestFocus.start)}` : "no deep stretch yet"}
       </Stat>
 
-      <Stat label="Most used" value={top ? top.app : "—"}>
+      <Stat label="Most used" value={top ? top.app : "—"} icon={top && <AppAvatar app={top.app} process={top.process} category={top.category} size="lg" />}>
         {top ? `${formatDuration(top.total)} · ${summary.switches.toLocaleString()} switches` : "—"}
       </Stat>
     </div>
   );
 }
 
-function Stat({ label, value, highlight, children }: { label: string; value: string; highlight?: boolean; children: React.ReactNode }) {
+function Stat({ label, value, highlight, icon, children }: { label: string; value: string; highlight?: boolean; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="min-w-0 border-line pr-4 lg:border-l lg:pl-6 lg:first:border-l-0 lg:first:pl-0">
       <div className="label">{label}</div>
-      <div className="serif num mt-2 truncate text-[40px] leading-[1.05] sm:text-[46px]">
-        <span className={highlight ? "marker" : ""}>{value}</span>
+      <div className="mt-2 flex min-w-0 items-center gap-3">
+        {icon}
+        <div className="serif num min-w-0 truncate text-[40px] leading-[1.05] sm:text-[46px]">
+          <span className={highlight ? "marker" : ""}>{value}</span>
+        </div>
       </div>
       <div className="mt-2 text-[13px] text-graphite">{children}</div>
     </div>

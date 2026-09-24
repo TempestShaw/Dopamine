@@ -20,6 +20,7 @@
   --grain-blend: multiply;
 
   --highlight: #ffd23f; /* lemon highlighter */
+  --heat: #f7c948; /* calendar dabs */
   --good: #13a86b;
   --warn: #f06a1f;
 
@@ -43,6 +44,7 @@
     --grain-opacity: 0.35;
     --grain-blend: screen;
     --highlight: #ffd84f;
+    --heat: #b8994a;
     --good: #3ddc97;
     --warn: #ff9a4a;
     --cat-work: #5b8cff;
@@ -65,6 +67,7 @@
   --grain-opacity: 0.35;
   --grain-blend: screen;
   --highlight: #ffd84f;
+  --heat: #b8994a;
   --good: #3ddc97;
   --warn: #ff9a4a;
   --cat-work: #5b8cff;
@@ -83,6 +86,7 @@
   --color-line: var(--line);
   --color-wash: var(--wash);
   --color-highlight: var(--highlight);
+  --color-heat: var(--heat);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --font-sans: "Figtree", ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;

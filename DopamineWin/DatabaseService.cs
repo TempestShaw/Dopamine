@@ -32,7 +32,12 @@ public class DatabaseService : IDisposable, IAsyncDisposable
                     WindowTitle TEXT,
                     ProcessName TEXT
                 );
-                CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp);";
+                CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp);
+                CREATE TABLE IF NOT EXISTS AppIcons (
+                    ProcessName TEXT PRIMARY KEY,
+                    Png BLOB NOT NULL,
+                    UpdatedAt INTEGER NOT NULL
+                );";
         command.ExecuteNonQuery();
 
         _logger?.LogInformation("Database initialized");
@@ -83,6 +88,40 @@ public class DatabaseService : IDisposable, IAsyncDisposable
 
         _logger?.LogDebug("Retrieved {Count} activities", activities.Count);
         return activities;
+    }
+
+    public void SaveIcon(string processName, byte[] png)
+    {
+        lock (_lock)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                INSERT OR REPLACE INTO AppIcons (ProcessName, Png, UpdatedAt)
+                VALUES ($ProcessName, $Png, $UpdatedAt)";
+            command.Parameters.AddWithValue("$ProcessName", processName);
+            command.Parameters.AddWithValue("$Png", png);
+            command.Parameters.AddWithValue("$UpdatedAt", DateTimeOffset.Now.ToUnixTimeSeconds());
+            command.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Stored icons for the given process names; names without an icon are left out.</summary>
+    public Dictionary<string, byte[]> GetIcons(IEnumerable<string> processNames)
+    {
+        var icons = new Dictionary<string, byte[]>();
+        lock (_lock)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "SELECT Png FROM AppIcons WHERE ProcessName = $ProcessName";
+            var parameter = command.Parameters.Add("$ProcessName", SqliteType.Text);
+            foreach (var name in processNames.Distinct())
+            {
+                parameter.Value = name;
+                if (command.ExecuteScalar() is byte[] png) icons[name] = png;
+            }
+        }
+
+        return icons;
     }
 
     public void Dispose()

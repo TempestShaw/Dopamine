@@ -13,6 +13,7 @@ public class NotificationIcon : ApplicationContext
     private readonly ToolStripItem _trackingToggle;
     private readonly ToolStripLabel _todayLabel;
     private readonly ToolStripLabel[] _topAppLabels;
+    private readonly Dictionary<string, Image> _iconCache = new();
 
     public NotificationIcon(WindowTracker windowTracker, SettingsService settings, DatabaseService database,
         ILogger<NotificationIcon>? logger = null)
@@ -123,12 +124,22 @@ public class NotificationIcon : ApplicationContext
             var summary = TodaySummary.Compute(_database);
             var state = !_windowTracker.IsTracking ? " (paused)" : _windowTracker.IsIdle ? " (idle)" : "";
             _todayLabel.Text = $"Today: {TodaySummary.Format(summary.Total)}{state}";
+            var missing = summary.TopApps.Select(a => a.Process).Where(p => !_iconCache.ContainsKey(p)).ToList();
+            foreach (var (process, png) in _database.GetIcons(missing))
+            {
+                using var stream = new MemoryStream(png);
+                using var full = Image.FromStream(stream);
+                _iconCache[process] = new Bitmap(full, new Size(16, 16));
+            }
+
             for (var i = 0; i < _topAppLabels.Length; i++)
             {
                 var visible = i < summary.TopApps.Count;
                 _topAppLabels[i].Visible = visible;
-                if (visible)
-                    _topAppLabels[i].Text = $"   {summary.TopApps[i].Process}  {TodaySummary.Format(summary.TopApps[i].Duration)}";
+                if (!visible) continue;
+                var (process, duration) = summary.TopApps[i];
+                _topAppLabels[i].Text = $"{process}  {TodaySummary.Format(duration)}";
+                _topAppLabels[i].Image = _iconCache.GetValueOrDefault(process);
             }
         }
         catch (Exception ex)

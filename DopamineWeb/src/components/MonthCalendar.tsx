@@ -1,17 +1,31 @@
-import { HOUR, addDays, formatDuration, sameDay, startOfMonth, startOfWeek } from "@/lib/time";
+import { addDays, formatDuration, sameDay, startOfMonth, startOfWeek } from "@/lib/time";
 import { Section } from "./ui";
 
 const monthName = new Intl.DateTimeFormat(undefined, { month: "long" });
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-/** Paint load per day: none, light wash … full-strength dab. */
-function strength(ms: number): number {
-  if (ms <= 0) return 0;
-  if (ms < 2 * HOUR) return 0.25;
-  if (ms < 4 * HOUR) return 0.45;
-  if (ms < 7 * HOUR) return 0.7;
-  return 1;
+// Paint load of a dab (share of --heat mixed into the paper). Even the busiest day stays
+// translucent so the grid reads as a wash rather than a row of solid blobs.
+const MIN_PAINT = 0.1;
+const MAX_PAINT = 0.6;
+const LEGEND = [0, 1 / 3, 2 / 3, 1].map((t) => MIN_PAINT + t * (MAX_PAINT - MIN_PAINT));
+
+/**
+ * Scales each day against the lightest and heaviest days of this month, so the calendar shows
+ * which days were heavier *for you* instead of turning every full workday the same colour.
+ */
+function paintScale(values: number[]): (ms: number) => number {
+  const active = values.filter((v) => v > 0);
+  const lo = Math.min(...active);
+  const hi = Math.max(...active);
+  return (ms) => {
+    if (ms <= 0) return 0;
+    const t = hi > lo ? (ms - lo) / (hi - lo) : 1;
+    return MIN_PAINT + t * (MAX_PAINT - MIN_PAINT);
+  };
 }
+
+const dab = (paint: number) => `color-mix(in srgb, var(--heat) ${Math.round(paint * 100)}%, transparent)`;
 
 // Each day gets its own dab shape so the grid reads as hand-painted, not stamped.
 const SHAPES = [
@@ -32,6 +46,7 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
   const values = [...daily.values()];
   const monthTotal = values.reduce((a, b) => a + b, 0);
   const activeDays = values.filter((v) => v > 0).length;
+  const strength = paintScale(values);
 
   return (
     <Section title={monthName.format(first)} note={activeDays ? `~${formatDuration(monthTotal / activeDays)} a day` : undefined}>
@@ -56,13 +71,13 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
               onClick={() => onPick(d)}
               title={inMonth ? `${d.toDateString()} · ${formatDuration(ms)}` : undefined}
               className={`num relative grid aspect-square place-items-center text-[12px] transition-transform enabled:hover:scale-110 ${!inMonth ? "invisible" : ""} ${
-                future ? "text-faint/50" : s >= 0.7 ? "font-semibold text-[#221f1b]" : "text-graphite"
+                future ? "text-faint/50" : s > 0 ? "text-ink" : "text-graphite"
               }`}
             >
               {s > 0 && (
                 <span
                   className="paint absolute inset-[3px]"
-                  style={{ borderRadius: SHAPES[i % SHAPES.length], background: `color-mix(in srgb, var(--highlight) ${s * 100}%, transparent)` }}
+                  style={{ borderRadius: SHAPES[i % SHAPES.length], background: dab(s) }}
                 />
               )}
               {isSel && (
@@ -76,8 +91,8 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
       </div>
       <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-faint">
         <span className="hand text-base">less</span>
-        {[0.25, 0.45, 0.7, 1].map((s) => (
-          <span key={s} className="dab paint size-3" style={{ background: `color-mix(in srgb, var(--highlight) ${s * 100}%, transparent)` }} />
+        {LEGEND.map((s) => (
+          <span key={s} className="dab paint size-3" style={{ background: dab(s) }} />
         ))}
         <span className="hand text-base">more</span>
       </div>

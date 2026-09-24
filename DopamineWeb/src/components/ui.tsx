@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Category, CATEGORY_META } from "@/lib/categories";
+import { useIcon } from "@/lib/icons";
 
 type IconProps = { className?: string };
 const svg = (path: ReactNode) =>
@@ -72,14 +73,53 @@ export function CategoryDot({ category, className = "size-2.5" }: { category: Ca
   return <span className={`dab inline-block shrink-0 ${className}`} style={{ background: CATEGORY_META[category].color }} />;
 }
 
-export function AppAvatar({ app, category }: { app: string; category: Category }) {
+const AVATAR = {
+  sm: { box: "size-6", img: "size-[20px]", text: "text-sm", offset: 1.5 },
+  md: { box: "size-9", img: "size-[30px]", text: "text-lg", offset: 3 },
+  lg: { box: "size-12", img: "size-[40px]", text: "text-2xl", offset: 4 },
+};
+
+/** Stable small tilt per app, so the same app always sits at the same angle. */
+function tilt(key: string): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return (Math.abs(h) % 9) - 4;
+}
+
+/**
+ * The app's real icon, pasted like a sticker onto a dab of its category colour.
+ * Falls back to a painted initial when the agent couldn't provide an icon.
+ */
+export function AppAvatar({ app, process, category, size = "md" }: { app: string; process: string; category: Category; size?: keyof typeof AVATAR }) {
+  const icon = useIcon(process);
   const color = CATEGORY_META[category].color;
-  return (
-    <span className="relative grid size-9 shrink-0 place-items-center">
-      <span className="dab paint absolute inset-0" style={{ background: `color-mix(in srgb, ${color} 30%, transparent)` }} />
-      <span className="serif relative text-lg italic" style={{ color: `color-mix(in srgb, ${color} 70%, var(--ink))` }}>
-        {app.slice(0, 1).toUpperCase()}
+  const s = AVATAR[size];
+
+  if (!icon) {
+    return (
+      <span className={`relative grid shrink-0 place-items-center ${s.box}`}>
+        <span className="dab paint absolute inset-0" style={{ background: `color-mix(in srgb, ${color} 30%, transparent)` }} />
+        <span className={`serif relative italic ${s.text}`} style={{ color: `color-mix(in srgb, ${color} 70%, var(--ink))` }}>
+          {app.slice(0, 1).toUpperCase()}
+        </span>
       </span>
+    );
+  }
+
+  return (
+    <span className={`relative grid shrink-0 place-items-center ${s.box}`}>
+      <span
+        className="dab paint absolute inset-0"
+        style={{ background: `color-mix(in srgb, ${color} 42%, transparent)`, transform: `translate(${s.offset}px, ${s.offset * 0.7}px)` }}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element -- local data: URL, nothing to optimise */}
+      <img
+        src={icon}
+        alt=""
+        draggable={false}
+        className={`relative ${s.img} object-contain drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.28)]`}
+        style={{ transform: `rotate(${tilt(process)}deg)` }}
+      />
     </span>
   );
 }

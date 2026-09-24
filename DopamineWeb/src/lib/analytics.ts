@@ -23,6 +23,7 @@ export interface Segment {
   start: number; // ms
   end: number; // ms
   app: string; // display name
+  process: string; // raw process name as recorded (used to look up the icon)
   title: string; // cleaned window title
   category: Category;
 }
@@ -80,6 +81,7 @@ export function buildSegments(events: RawEvent[], range: Range, now: number, max
       start: s,
       end: en,
       app: displayApp(e.processName),
+      process: e.processName,
       title: cleanTitle(e.windowTitle, e.processName),
       category: categoryOf(e.windowTitle, e.processName),
     });
@@ -95,6 +97,7 @@ export interface TitleStat {
 
 export interface AppStat {
   app: string;
+  process: string;
   total: number;
   category: Category; // the category the app spent most time in
   byCategory: CategoryTotals;
@@ -110,6 +113,7 @@ export interface Bucket {
 
 export interface Session {
   app: string;
+  process: string;
   start: number;
   end: number;
   active: number; // tracked time inside the session
@@ -136,7 +140,7 @@ export interface Summary {
 
 export function summarize(segments: Segment[], range: Range): Summary {
   const byCategory = emptyTotals();
-  const apps = new Map<string, { byCategory: CategoryTotals; titles: Map<string, TitleStat> }>();
+  const apps = new Map<string, { process: string; byCategory: CategoryTotals; titles: Map<string, TitleStat> }>();
   let switches = 0;
   let prevApp: string | null = null;
 
@@ -146,7 +150,7 @@ export function summarize(segments: Segment[], range: Range): Summary {
 
     let a = apps.get(seg.app);
     if (!a) {
-      a = { byCategory: emptyTotals(), titles: new Map() };
+      a = { process: seg.process, byCategory: emptyTotals(), titles: new Map() };
       apps.set(seg.app, a);
     }
     a.byCategory[seg.category] += d;
@@ -162,6 +166,7 @@ export function summarize(segments: Segment[], range: Range): Summary {
   for (const [app, a] of apps) {
     appStats.push({
       app,
+      process: a.process,
       total: sumTotals(a.byCategory),
       category: dominant(a.byCategory),
       byCategory: a.byCategory,
@@ -252,12 +257,13 @@ export function hourOfDayProfile(segments: Segment[]): CategoryTotals[] {
 /** Merges consecutive segments of the same app (tolerating short gaps) into sessions, newest first. */
 export function buildSessions(segments: Segment[], maxGap = 2 * MINUTE): Session[] {
   const sessions: Session[] = [];
-  let cur: { app: string; start: number; end: number; byCategory: CategoryTotals; titles: Map<string, TitleStat> } | null = null;
+  let cur: { app: string; process: string; start: number; end: number; byCategory: CategoryTotals; titles: Map<string, TitleStat> } | null = null;
 
   const flush = () => {
     if (!cur) return;
     sessions.push({
       app: cur.app,
+      process: cur.process,
       start: cur.start,
       end: cur.end,
       active: sumTotals(cur.byCategory),
@@ -269,7 +275,7 @@ export function buildSessions(segments: Segment[], maxGap = 2 * MINUTE): Session
   for (const seg of segments) {
     if (!cur || cur.app !== seg.app || seg.start - cur.end > maxGap) {
       flush();
-      cur = { app: seg.app, start: seg.start, end: seg.end, byCategory: emptyTotals(), titles: new Map() };
+      cur = { app: seg.app, process: seg.process, start: seg.start, end: seg.end, byCategory: emptyTotals(), titles: new Map() };
     }
     const d = seg.end - seg.start;
     cur.end = seg.end;

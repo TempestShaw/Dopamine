@@ -36,6 +36,14 @@ final class Database {
             )
             """)
         try exec("CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp)")
+        // One PNG per process name, captured the first time the app is seen (same table on Windows).
+        try exec("""
+            CREATE TABLE IF NOT EXISTS AppIcons (
+                ProcessName TEXT PRIMARY KEY,
+                Png BLOB NOT NULL,
+                UpdatedAt INTEGER NOT NULL
+            )
+            """)
     }
 
     deinit {
@@ -88,6 +96,41 @@ final class Database {
                 ))
             }
             return rows
+        }
+    }
+
+    func saveIcon(process: String, png: Data) {
+        queue.async { [self] in
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            let sql = "INSERT OR REPLACE INTO AppIcons (ProcessName, Png, UpdatedAt) VALUES (?, ?, ?)"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            sqlite3_bind_text(stmt, 1, process, -1, Database.transient)
+            _ = png.withUnsafeBytes { buf in
+                sqlite3_bind_blob(stmt, 2, buf.baseAddress, Int32(buf.count), Database.transient)
+            }
+            sqlite3_bind_int64(stmt, 3, Int64(Date().timeIntervalSince1970))
+            if sqlite3_step(stmt) != SQLITE_DONE {
+                Log.error("Saving icon failed: \(String(cString: sqlite3_errmsg(db)))")
+            }
+        }
+    }
+
+    /// Stored icons for the given process names; names without an icon are left out.
+    func icons(for processes: [String]) -> [String: Data] {
+        queue.sync {
+            var out: [String: Data] = [:]
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, "SELECT Png FROM AppIcons WHERE ProcessName = ?", -1, &stmt, nil) == SQLITE_OK else { return out }
+            for name in Set(processes) {
+                sqlite3_reset(stmt)
+                sqlite3_bind_text(stmt, 1, name, -1, Database.transient)
+                if sqlite3_step(stmt) == SQLITE_ROW, let bytes = sqlite3_column_blob(stmt, 0) {
+                    out[name] = Data(bytes: bytes, count: Int(sqlite3_column_bytes(stmt, 0)))
+                }
+            }
+            return out
         }
     }
 

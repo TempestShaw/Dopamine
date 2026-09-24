@@ -12,6 +12,8 @@ final class Tracker {
     private var observers: [NSObjectProtocol] = []
 
     private var current: (title: String, process: String, since: Date)?
+    /// Processes whose icon has been stored during this run.
+    private var iconsCaptured = Set<String>()
     private(set) var isIdle = false
     private var systemSuspended = false
 
@@ -131,6 +133,12 @@ final class Tracker {
 
         database.insert(windowTitle: title, processName: process)
         current = (title, process, Date())
+
+        // Refresh each app's icon once per launch (apps update their icons now and then).
+        if !iconsCaptured.contains(process), let png = AppIcons.png(for: app) {
+            iconsCaptured.insert(process)
+            database.saveIcon(process: process, png: png)
+        }
     }
 
     static func secondsSinceLastInput() -> Double {

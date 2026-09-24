@@ -32,7 +32,7 @@ final class API {
         switch req.path {
         case "/identify":
             return .jsonObject(["name": "dopamine-mac", "version": appVersion, "settings": ConfigurableSettings.schemas])
-        case "/pair", "/titles", "/settings":
+        case "/pair", "/titles", "/settings", "/icons":
             guard req.headers["authorization"] == "Bearer \(settings.settings.pairingCode)" else { return .empty(401) }
             return protected(req)
         default:
@@ -47,6 +47,9 @@ final class API {
         case ("GET", "/titles"):
             guard let from = Int64(req.query["from"] ?? ""), let to = Int64(req.query["to"] ?? "") else { return .empty(400) }
             return .json(database.activities(from: from, to: to))
+        case ("GET", "/icons"):
+            let names = (req.query["names"] ?? "").split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+            return .json(icons(for: Array(names.prefix(200))))
         case ("GET", "/settings"):
             return .json(current())
         case ("PUT", "/settings"):
@@ -59,6 +62,20 @@ final class API {
         default:
             return .empty(405)
         }
+    }
+
+    /// `{ processName: "data:image/png;base64,…" }` for every name with a known icon.
+    private func icons(for names: [String]) -> [String: String] {
+        var found = database.icons(for: names)
+        for name in names where found[name] == nil {
+            // Apps seen before icon capture existed: try to find the bundle by name (AppKit on the main thread).
+            let lookup = { AppIcons.png(forAppNamed: name) }
+            if let png = Thread.isMainThread ? lookup() : DispatchQueue.main.sync(execute: lookup) {
+                database.saveIcon(process: name, png: png)
+                found[name] = png
+            }
+        }
+        return found.mapValues { "data:image/png;base64,\($0.base64EncodedString())" }
     }
 
     private func current() -> ConfigurableSettings {

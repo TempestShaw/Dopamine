@@ -83,9 +83,42 @@ function generateDay(day: Date): RawEvent[] {
   return events;
 }
 
+// Generic app-icon-style drawings for the sample apps (not the real logos): a squircle with a
+// gradient and a simple white glyph. Real agents send each app's actual icon instead.
+const GLYPHS: Record<string, [from: string, to: string, glyph: string]> = {
+  Code: ["#3b82f6", "#1d4ed8", '<path d="M24 22l-9 10 9 10M40 22l9 10-9 10M35 18l-6 28" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'],
+  Terminal: ["#3f3f46", "#18181b", '<path d="M17 24l9 8-9 8M30 42h16" stroke="#e4e4e7" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'],
+  "Google Chrome": ["#f8fafc", "#e2e8f0", '<circle cx="32" cy="32" r="16" fill="none" stroke="#2563eb" stroke-width="4"/><path d="M16 32h32M32 16c-6 5-6 27 0 32M32 16c6 5 6 27 0 32" stroke="#2563eb" stroke-width="3" fill="none"/>'],
+  Notion: ["#ffffff", "#e7e5e4", '<path d="M21 17h16l7 7v23H21z" fill="none" stroke="#1c1917" stroke-width="3.5" stroke-linejoin="round"/><path d="M27 31h11M27 38h11" stroke="#1c1917" stroke-width="3" stroke-linecap="round"/>'],
+  Preview: ["#7dd3fc", "#0284c7", '<rect x="17" y="20" width="30" height="24" rx="3" fill="none" stroke="#fff" stroke-width="3.5"/><path d="M19 41l9-9 6 6 4-4 7 7" stroke="#fff" stroke-width="3" fill="none" stroke-linejoin="round"/><circle cx="39" cy="27" r="3" fill="#fff"/>'],
+  Slack: ["#fb7185", "#be123c", '<path d="M18 22h28a3 3 0 013 3v14a3 3 0 01-3 3H30l-8 6v-6h-4a3 3 0 01-3-3V25a3 3 0 013-3z" fill="#fff"/><path d="M28 28l-2 9M36 28l-2 9M25 31h13M24 35h13" stroke="#be123c" stroke-width="2" stroke-linecap="round"/>'],
+  Zoom: ["#60a5fa", "#2563eb", '<rect x="14" y="23" width="25" height="19" rx="4" fill="#fff"/><path d="M41 29l9-5v17l-9-5z" fill="#fff"/>'],
+  Figma: ["#a78bfa", "#6d28d9", '<path d="M20 44l6-18 16-6-6 16z" fill="none" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/><circle cx="32" cy="32" r="3.5" fill="#fff"/>'],
+  Discord: ["#818cf8", "#4338ca", '<path d="M17 21h22a3 3 0 013 3v12a3 3 0 01-3 3H27l-7 5v-5h-3a3 3 0 01-3-3V24a3 3 0 013-3z" fill="#fff"/><path d="M45 28h2a3 3 0 013 3v10a3 3 0 01-3 3h-2v4l-6-4h-7" stroke="#fff" stroke-width="3" fill="none" stroke-linejoin="round"/>'],
+  Spotify: ["#4ade80", "#15803d", '<path d="M27 42V21l17-4v21" stroke="#fff" stroke-width="3.5" fill="none" stroke-linejoin="round"/><circle cx="23" cy="42" r="5" fill="#fff"/><circle cx="40" cy="38" r="5" fill="#fff"/>'],
+  WeChat: ["#86efac", "#16a34a", '<ellipse cx="28" cy="29" rx="12" ry="10" fill="#fff"/><ellipse cx="39" cy="38" rx="10" ry="8" fill="#fff" stroke="#16a34a" stroke-width="2"/><circle cx="24" cy="27" r="1.8" fill="#16a34a"/><circle cx="32" cy="27" r="1.8" fill="#16a34a"/>'],
+  Finder: ["#93c5fd", "#3b82f6", '<path d="M15 23a3 3 0 013-3h9l3 4h16a3 3 0 013 3v15a3 3 0 01-3 3H18a3 3 0 01-3-3z" fill="#fff"/>'],
+};
+
+function demoIcon(process: string): string | null {
+  const g = GLYPHS[process];
+  if (!g) return null;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${g[0]}"/><stop offset="1" stop-color="${g[1]}"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>${g[2]}</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export class DemoSource implements DataSource {
   platform = "demo" as const;
   version = "demo";
+
+  async fetchIcons(processNames: string[]): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    for (const p of processNames) {
+      const icon = demoIcon(p);
+      if (icon) out[p] = icon;
+    }
+    return out;
+  }
 
   async fetchEvents(fromSec: number, toSec: number): Promise<RawEvent[]> {
     const now = Date.now();
