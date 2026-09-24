@@ -1,18 +1,26 @@
 import { HOUR, addDays, formatDuration, sameDay, startOfMonth, startOfWeek } from "@/lib/time";
-import { Card } from "./ui";
+import { Section } from "./ui";
 
 const monthName = new Intl.DateTimeFormat(undefined, { month: "long" });
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-function level(ms: number): number {
+/** Paint load per day: none, light wash … full-strength dab. */
+function strength(ms: number): number {
   if (ms <= 0) return 0;
-  if (ms < 2 * HOUR) return 1;
-  if (ms < 4 * HOUR) return 2;
-  if (ms < 7 * HOUR) return 3;
-  return 4;
+  if (ms < 2 * HOUR) return 0.25;
+  if (ms < 4 * HOUR) return 0.45;
+  if (ms < 7 * HOUR) return 0.7;
+  return 1;
 }
 
-const FILL = ["var(--track)", "25%", "45%", "70%", "100%"];
+// Each day gets its own dab shape so the grid reads as hand-painted, not stamped.
+const SHAPES = [
+  "48% 52% 45% 55% / 55% 44% 56% 45%",
+  "55% 45% 52% 48% / 46% 56% 44% 54%",
+  "44% 56% 58% 42% / 52% 48% 52% 48%",
+  "52% 48% 42% 58% / 58% 46% 54% 42%",
+  "58% 42% 50% 50% / 44% 58% 42% 56%",
+];
 
 export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor: Date; daily: Map<number, number>; selected: (d: Date) => boolean; now: number; onPick: (d: Date) => void }) {
   const first = startOfMonth(anchor);
@@ -21,21 +29,22 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
   for (let d = gridStart; cells.length < 42; d = addDays(d, 1)) cells.push(d);
   const rows = cells[35].getMonth() === first.getMonth() ? 6 : 5;
   const today = new Date(now);
-  const monthTotal = [...daily.values()].reduce((a, b) => a + b, 0);
-  const activeDays = [...daily.values()].filter((v) => v > 0).length;
+  const values = [...daily.values()];
+  const monthTotal = values.reduce((a, b) => a + b, 0);
+  const activeDays = values.filter((v) => v > 0).length;
 
   return (
-    <Card title={monthName.format(first)} action={<span className="num text-xs text-faint">{activeDays ? `${formatDuration(monthTotal / activeDays)} / day avg` : ""}</span>}>
+    <Section title={monthName.format(first)} note={activeDays ? `~${formatDuration(monthTotal / activeDays)} a day` : undefined}>
       <div className="grid grid-cols-7 gap-1.5 text-center">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="pb-1 text-[10px] font-medium text-faint">
+          <div key={i} className="pb-1 text-[11px] font-medium text-faint">
             {w}
           </div>
         ))}
-        {cells.slice(0, rows * 7).map((d) => {
+        {cells.slice(0, rows * 7).map((d, i) => {
           const inMonth = d.getMonth() === first.getMonth();
           const ms = daily.get(d.getTime()) ?? 0;
-          const lv = level(ms);
+          const s = strength(ms);
           const future = d.getTime() > now;
           const isSel = selected(d);
           const isToday = sameDay(d, today);
@@ -46,24 +55,32 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
               disabled={!inMonth || future}
               onClick={() => onPick(d)}
               title={inMonth ? `${d.toDateString()} · ${formatDuration(ms)}` : undefined}
-              className={`num relative aspect-square rounded-md text-[11px] transition-transform enabled:hover:scale-110 ${
-                !inMonth ? "invisible" : ""
-              } ${isSel ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""} ${future ? "text-faint/60" : lv >= 3 ? "text-white dark:text-bg" : "text-muted"}`}
-              style={{ background: lv === 0 ? "var(--track)" : `color-mix(in srgb, var(--accent) ${FILL[lv]}, var(--track))` }}
+              className={`num relative grid aspect-square place-items-center text-[12px] transition-transform enabled:hover:scale-110 ${!inMonth ? "invisible" : ""} ${
+                future ? "text-faint/50" : s >= 0.7 ? "font-semibold text-[#221f1b]" : "text-graphite"
+              }`}
             >
-              {d.getDate()}
-              {isToday && <span className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current" />}
+              {s > 0 && (
+                <span
+                  className="paint absolute inset-[3px]"
+                  style={{ borderRadius: SHAPES[i % SHAPES.length], background: `color-mix(in srgb, var(--highlight) ${s * 100}%, transparent)` }}
+                />
+              )}
+              {isSel && (
+                <span className="pencil absolute inset-0 border-[1.6px] border-ink" style={{ borderRadius: SHAPES[(i + 2) % SHAPES.length] }} />
+              )}
+              <span className="relative">{d.getDate()}</span>
+              {isToday && <span className="dab absolute bottom-1 left-1/2 size-1 -translate-x-1/2 bg-current" />}
             </button>
           );
         })}
       </div>
-      <div className="mt-3 flex items-center justify-end gap-1 text-[10px] text-faint">
-        Less
-        {[0, 1, 2, 3, 4].map((l) => (
-          <span key={l} className="size-2.5 rounded-sm" style={{ background: l === 0 ? "var(--track)" : `color-mix(in srgb, var(--accent) ${FILL[l]}, var(--track))` }} />
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-faint">
+        <span className="hand text-base">less</span>
+        {[0.25, 0.45, 0.7, 1].map((s) => (
+          <span key={s} className="dab paint size-3" style={{ background: `color-mix(in srgb, var(--highlight) ${s * 100}%, transparent)` }} />
         ))}
-        More
+        <span className="hand text-base">more</span>
       </div>
-    </Card>
+    </Section>
   );
 }

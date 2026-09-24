@@ -3,11 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dashboard } from "@/components/Dashboard";
 import { PairScreen } from "@/components/PairScreen";
-import { Logo } from "@/components/ui";
+import { Logo, PaintFilters } from "@/components/ui";
 import { DemoSource } from "@/lib/demo";
 import { AgentInfo, AgentSource, EventStore, clearPairing, defaultAgentUrl, identify, loadPairing, savePairing, verifyCode } from "@/lib/source";
 
 type State = { kind: "booting" } | { kind: "pairing" } | { kind: "ready"; store: EventStore };
+
+/** Set by the standalone preview build (scripts/build-preview.ts): open straight into sample data. */
+const isPreview = () => typeof window !== "undefined" && (window as { __DOPAMINE_PREVIEW__?: boolean }).__DOPAMINE_PREVIEW__ === true;
 
 /**
  * Reads a pairing handed over by the agent's "Open Dashboard" menu item
@@ -30,6 +33,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (isPreview()) {
+      setState({ kind: "ready", store: new EventStore(new DemoSource()) });
+      return;
+    }
     (async () => {
       const handed = takeHashPairing();
       const saved = loadPairing();
@@ -47,15 +54,18 @@ export default function Home() {
     setState({ kind: "pairing" });
   }, []);
 
-  if (state.kind === "booting") {
-    return (
-      <div className="grid min-h-screen place-items-center">
-        <Logo className="size-10 animate-pulse" />
-      </div>
-    );
-  }
-  if (state.kind === "pairing") {
-    return <PairScreen onPaired={connect} onDemo={() => setState({ kind: "ready", store: new EventStore(new DemoSource()) })} />;
-  }
-  return <Dashboard store={state.store} onDisconnect={disconnect} />;
+  return (
+    <>
+      <PaintFilters />
+      {state.kind === "booting" ? (
+        <div className="grid min-h-screen place-items-center">
+          <Logo className="size-12 animate-pulse" />
+        </div>
+      ) : state.kind === "pairing" ? (
+        <PairScreen onPaired={connect} onDemo={() => setState({ kind: "ready", store: new EventStore(new DemoSource()) })} />
+      ) : (
+        <Dashboard store={state.store} onDisconnect={disconnect} />
+      )}
+    </>
+  );
 }

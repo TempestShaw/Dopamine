@@ -5,7 +5,7 @@ import { Platform } from "@/lib/source";
 import { View, periodLabel } from "@/lib/time";
 import { Apple, ChevronLeft, ChevronRight, IconButton, Logo, Logout, Moon, Segmented, Sun, Windows } from "./ui";
 
-const PLATFORM_LABEL: Record<Platform, string> = { windows: "Windows", mac: "macOS", demo: "Demo data" };
+const PLATFORM_LABEL: Record<Platform, string> = { windows: "Windows", mac: "macOS", demo: "sample data" };
 
 export function Header({
   view,
@@ -31,54 +31,48 @@ export function Header({
   onDisconnect: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-bg/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <Logo />
-          <span className="text-[15px] font-semibold tracking-tight">Dopamine</span>
-        </div>
-
-        <div className="order-3 flex w-full items-center justify-between gap-3 md:order-none md:ml-6 md:w-auto md:justify-start">
-          <Segmented<View>
-            value={view}
-            onChange={onView}
-            options={[
-              { value: "day", label: "Day" },
-              { value: "week", label: "Week" },
-              { value: "month", label: "Month" },
-            ]}
-          />
-          <div className="flex items-center gap-1">
-            <IconButton label="Previous" onClick={() => onShift(-1)}>
-              <ChevronLeft />
-            </IconButton>
-            <span className="num min-w-24 text-center text-sm font-medium whitespace-nowrap sm:min-w-36">{periodLabel(view, anchor)}</span>
-            <IconButton label="Next" onClick={() => onShift(1)}>
-              <ChevronRight />
-            </IconButton>
-            {!isCurrent && (
-              <button type="button" onClick={onToday} className="ml-1 rounded-md px-2 py-1 text-xs font-medium text-accent hover:bg-accent-soft">
-                {view === "day" ? "Today" : view === "week" ? "This week" : "This month"}
-              </button>
-            )}
-          </div>
-        </div>
-
+    <header className="mx-auto max-w-[1180px] px-4 pt-6 sm:px-8 sm:pt-8">
+      <div className="flex items-center gap-3">
+        <Logo className="size-9" />
+        <span className="serif text-[28px] leading-none italic">Dopamine</span>
+        <span className="hand ml-1 hidden translate-y-0.5 text-lg text-graphite sm:inline" title={version}>
+          {platform === "mac" && <Apple className="mr-1 inline size-3.5 -translate-y-0.5" />}
+          {platform === "windows" && <Windows className="mr-1 inline size-3 -translate-y-0.5" />}
+          {PLATFORM_LABEL[platform]}
+          {loading && " · …"}
+        </span>
         <div className="ml-auto flex items-center gap-1">
-          <span className="mr-2 hidden items-center gap-2 rounded-full border border-border px-2.5 py-1 text-xs text-muted sm:inline-flex" title={version}>
-            <span className="relative flex size-2">
-              {loading && <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />}
-              <span className={`relative inline-flex size-2 rounded-full ${platform === "demo" ? "bg-warn" : "bg-good"}`} />
-            </span>
-            {platform === "mac" && <Apple className="size-3.5" />}
-            {platform === "windows" && <Windows className="size-3" />}
-            {PLATFORM_LABEL[platform]}
-          </span>
           <ThemeToggle />
-          <IconButton label={platform === "demo" ? "Exit demo" : "Disconnect"} onClick={onDisconnect}>
+          <IconButton label={platform === "demo" ? "Leave sample data" : "Disconnect"} onClick={onDisconnect}>
             <Logout />
           </IconButton>
         </div>
+      </div>
+
+      <div className="mt-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        <div className="flex items-center gap-2">
+          <IconButton label="Previous" onClick={() => onShift(-1)}>
+            <ChevronLeft />
+          </IconButton>
+          <h1 className="serif min-w-0 text-[34px] leading-none whitespace-nowrap sm:text-[44px]">{periodLabel(view, anchor)}</h1>
+          <IconButton label="Next" onClick={() => onShift(1)}>
+            <ChevronRight />
+          </IconButton>
+          {!isCurrent && (
+            <button type="button" onClick={onToday} className="hand ml-1 text-xl text-graphite underline decoration-line underline-offset-4 hover:text-ink">
+              back to {view === "day" ? "today" : view === "week" ? "this week" : "this month"}
+            </button>
+          )}
+        </div>
+        <Segmented<View>
+          value={view}
+          onChange={onView}
+          options={[
+            { value: "day", label: "Day" },
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month" },
+          ]}
+        />
       </div>
     </header>
   );
@@ -86,7 +80,11 @@ export function Header({
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
-  useEffect(() => setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light"), []);
+  useEffect(() => {
+    // No attribute means "follow the system".
+    const set = document.documentElement.dataset.theme;
+    setTheme(set === "dark" || set === "light" ? set : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  }, []);
   const toggle = () => {
     const next = theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
@@ -96,7 +94,7 @@ export function ThemeToggle() {
     setTheme(next);
   };
   return (
-    <IconButton label="Toggle theme" onClick={toggle}>
+    <IconButton label={theme === "dark" ? "Paper (light)" : "Canvas (dark)"} onClick={toggle}>
       {theme === "dark" ? <Sun /> : <Moon />}
     </IconButton>
   );
