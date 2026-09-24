@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func refresh() {
         let db = database!
+        let settings = self.settings.settings
         summaryQueue.async { [weak self] in
             let now = Date()
             let cal = Calendar.current
@@ -117,9 +118,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
             let lookback = Int64(yesterday.timeIntervalSince1970 - DaySummary.maxSegment)
             let rows = db.activities(from: lookback, to: Int64(now.timeIntervalSince1970) + 60)
-            let todaySummary = DaySummary.compute(rows: rows, start: today, end: now, now: now)
-            let yesterdaySummary = DaySummary.compute(rows: rows, start: yesterday, end: today, now: now)
-            let iconData = db.icons(for: todaySummary.apps.prefix(5).map(\.app))
+            // Same evidence as the dashboard: the user's choice, then rules, then the app's metadata.
+            let known = db.apps(for: Array(Set(rows.map(\.processName))))
+            let overrides = settings.categoryOverrides.compactMapValues(Category.init(rawValue:))
+            var cache: [String: Category] = [:]
+            let classify: (String, String) -> Category = { title, process in
+                if let chosen = overrides[process] { return chosen }
+                let key = process + "\u{0}" + title
+                if let hit = cache[key] { return hit }
+                let c = Category.of(title: title, app: process, hint: known[process]?.hint)
+                cache[key] = c
+                return c
+            }
+            let todaySummary = DaySummary.compute(rows: rows, start: today, end: now, now: now, classify: classify)
+            let yesterdaySummary = DaySummary.compute(rows: rows, start: yesterday, end: today, now: now, classify: classify)
+            let iconData = todaySummary.apps.prefix(5).reduce(into: [String: Data]()) { out, app in
+                if let png = known[app.app]?.png { out[app.app] = png }
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.model.summary = todaySummary

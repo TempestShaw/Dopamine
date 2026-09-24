@@ -4,7 +4,7 @@
 // (process "<Dopamine>") when tracking stops or the user goes idle. A row therefore lasts
 // until the next row, which is how durations are derived here.
 
-import { CATEGORIES, Category, CATEGORY_META, categorize, cleanTitle, displayApp } from "./categories";
+import { CATEGORIES, Category, CATEGORY_META, Classifier, cleanTitle, displayApp, makeClassifier } from "./categories";
 import { HOUR, MINUTE, Range, addDays } from "./time";
 
 export interface RawEvent {
@@ -46,18 +46,7 @@ export function productiveTime(t: CategoryTotals): number {
   return s;
 }
 
-const categoryCache = new Map<string, Category>();
-
-function categoryOf(title: string, process: string): Category {
-  const key = `${process}\u0000${title}`;
-  let c = categoryCache.get(key);
-  if (c === undefined) {
-    c = categorize(title, process);
-    if (categoryCache.size > 20_000) categoryCache.clear();
-    categoryCache.set(key, c);
-  }
-  return c;
-}
+const defaultClassifier = makeClassifier();
 
 /**
  * Windows in front for less than this are treated as accidental (a stray click, alt-tabbing past
@@ -71,7 +60,14 @@ export const MIN_DWELL = 5_000;
  * Pass events that start a little before the range so the window that was active at
  * `range.start` is known; the caller's EventStore takes care of that.
  */
-export function buildSegments(events: RawEvent[], range: Range, now: number, maxSegment = MAX_SEGMENT, minDwell = MIN_DWELL): Segment[] {
+export function buildSegments(
+  events: RawEvent[],
+  range: Range,
+  now: number,
+  classify: Classifier = defaultClassifier,
+  maxSegment = MAX_SEGMENT,
+  minDwell = MIN_DWELL,
+): Segment[] {
   // First pass on unclipped times, so a brief glance is recognised even at a range edge.
   const kept: { start: number; end: number; e: RawEvent }[] = [];
   for (let i = 0; i < events.length; i++) {
@@ -104,7 +100,7 @@ export function buildSegments(events: RawEvent[], range: Range, now: number, max
       app: displayApp(e.processName),
       process: e.processName,
       title: cleanTitle(e.windowTitle, e.processName),
-      category: categoryOf(e.windowTitle, e.processName),
+      category: classify(e.windowTitle, e.processName),
     });
   }
   return out;

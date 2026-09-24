@@ -9,6 +9,12 @@ struct WindowActivity: Codable, Equatable {
     let processName: String
 }
 
+/// What the agent remembers about an app: its icon and metadata used to categorise it.
+struct StoredApp: Equatable {
+    var png: Data?
+    var hint: AppHint
+}
+
 enum Marker {
     static let process = "<Dopamine>"
     static let stopped = "<Stopped>"
@@ -36,11 +42,15 @@ final class Database {
             )
             """)
         try exec("CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp)")
-        // One PNG per process name, captured the first time the app is seen (same table on Windows).
+        // Icon + metadata per process name, captured the first time the app is seen (same table on Windows).
         try exec("""
-            CREATE TABLE IF NOT EXISTS AppIcons (
+            CREATE TABLE IF NOT EXISTS AppInfo (
                 ProcessName TEXT PRIMARY KEY,
-                Png BLOB NOT NULL,
+                Png BLOB,
+                Kind TEXT,
+                Description TEXT,
+                Publisher TEXT,
+                Path TEXT,
                 UpdatedAt INTEGER NOT NULL
             )
             """)
@@ -99,36 +109,49 @@ final class Database {
         }
     }
 
-    func saveIcon(process: String, png: Data) {
+    func saveApp(process: String, info: StoredApp) {
         queue.async { [self] in
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
-            let sql = "INSERT OR REPLACE INTO AppIcons (ProcessName, Png, UpdatedAt) VALUES (?, ?, ?)"
+            let sql = """
+                INSERT OR REPLACE INTO AppInfo (ProcessName, Png, Kind, Description, Publisher, Path, UpdatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
             sqlite3_bind_text(stmt, 1, process, -1, Database.transient)
-            _ = png.withUnsafeBytes { buf in
-                sqlite3_bind_blob(stmt, 2, buf.baseAddress, Int32(buf.count), Database.transient)
+            if let png = info.png {
+                _ = png.withUnsafeBytes { sqlite3_bind_blob(stmt, 2, $0.baseAddress, Int32($0.count), Database.transient) }
+            } else {
+                sqlite3_bind_null(stmt, 2)
             }
-            sqlite3_bind_int64(stmt, 3, Int64(Date().timeIntervalSince1970))
+            for (i, value) in [info.hint.kind, info.hint.description, info.hint.publisher, info.hint.path].enumerated() {
+                if let value { sqlite3_bind_text(stmt, Int32(3 + i), value, -1, Database.transient) } else { sqlite3_bind_null(stmt, Int32(3 + i)) }
+            }
+            sqlite3_bind_int64(stmt, 7, Int64(Date().timeIntervalSince1970))
             if sqlite3_step(stmt) != SQLITE_DONE {
-                Log.error("Saving icon failed: \(String(cString: sqlite3_errmsg(db)))")
+                Log.error("Saving app info failed: \(String(cString: sqlite3_errmsg(db)))")
             }
         }
     }
 
-    /// Stored icons for the given process names; names without an icon are left out.
-    func icons(for processes: [String]) -> [String: Data] {
+    /// Stored icon/metadata for the given process names; unknown names are left out.
+    func apps(for processes: [String]) -> [String: StoredApp] {
         queue.sync {
-            var out: [String: Data] = [:]
+            var out: [String: StoredApp] = [:]
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
-            guard sqlite3_prepare_v2(db, "SELECT Png FROM AppIcons WHERE ProcessName = ?", -1, &stmt, nil) == SQLITE_OK else { return out }
+            let sql = "SELECT Png, Kind, Description, Publisher, Path FROM AppInfo WHERE ProcessName = ?"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return out }
             for name in Set(processes) {
                 sqlite3_reset(stmt)
                 sqlite3_bind_text(stmt, 1, name, -1, Database.transient)
-                if sqlite3_step(stmt) == SQLITE_ROW, let bytes = sqlite3_column_blob(stmt, 0) {
-                    out[name] = Data(bytes: bytes, count: Int(sqlite3_column_bytes(stmt, 0)))
+                guard sqlite3_step(stmt) == SQLITE_ROW else { continue }
+                var png: Data?
+                if let bytes = sqlite3_column_blob(stmt, 0) {
+                    png = Data(bytes: bytes, count: Int(sqlite3_column_bytes(stmt, 0)))
                 }
+                func text(_ col: Int32) -> String? { sqlite3_column_text(stmt, col).map { String(cString: $0) } }
+                out[name] = StoredApp(png: png, hint: AppHint(kind: text(1), description: text(2), publisher: text(3), path: text(4)))
             }
             return out
         }

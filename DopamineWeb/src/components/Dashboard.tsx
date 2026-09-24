@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { EventStore } from "@/lib/source";
-import { IconContext, useAppIcons } from "@/lib/icons";
+import { IconContext } from "@/lib/icons";
 import { useDashboard } from "@/lib/useDashboard";
 import { View, rangeFor, sameDay, shiftAnchor, startOfDay } from "@/lib/time";
 import { ActivityChart } from "./ActivityChart";
@@ -14,10 +14,12 @@ import { MonthCalendar } from "./MonthCalendar";
 import { StatCards } from "./StatCards";
 import { Refresh, Rule } from "./ui";
 
+const NO_ICONS: Record<string, string> = {};
+
 export function Dashboard({ store, onDisconnect }: { store: EventStore; onDisconnect: () => void }) {
   const [view, setView] = useState<View>("day");
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
-  const { data, loading, error, now } = useDashboard(store, view, anchor, onDisconnect);
+  const { data, loading, error, now, overrides, setOverride } = useDashboard(store, view, anchor, onDisconnect);
 
   const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
   const isCurrent = range.start <= now && now < range.end;
@@ -34,14 +36,11 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
     if (rangeFor(view, next).start <= Date.now()) setAnchor(next);
   };
 
-  // Every app shown on the page appears in the summary, so its process names cover all icons needed.
-  const icons = useAppIcons(store.source, data ? data.summary.apps.map((a) => a.process) : []);
-
   // Buckets are days in the week and month views.
   const activeDays = data && view !== "day" ? data.buckets.filter((b) => b.total > 0).length : 1;
 
   return (
-    <IconContext.Provider value={icons}>
+    <IconContext.Provider value={data?.icons ?? NO_ICONS}>
     <div className="min-h-screen pb-10">
       <Header
         view={view}
@@ -76,7 +75,7 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
               <div className="min-w-0 space-y-12">
                 <ActivityChart view={view} buckets={data.buckets} segments={data.segments} range={range} now={now} onPickDay={openDay} />
                 <Rule />
-                <ActivityLists apps={data.summary.apps} sessions={data.sessions} total={data.summary.total} view={view} />
+                <ActivityLists apps={data.summary.apps} sessions={data.sessions} total={data.summary.total} view={view} overrides={overrides} onOverride={setOverride} />
               </div>
               <aside className="space-y-12 lg:border-l lg:border-dashed lg:border-line lg:pl-10">
                 <CategoryBreakdown totals={data.summary.byCategory} total={data.summary.total} />

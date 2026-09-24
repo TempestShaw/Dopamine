@@ -1,7 +1,7 @@
 import Foundation
 
-// Swift port of DopamineWeb/src/lib/categories.ts and the core of analytics.ts, used for the
-// menu bar summary. Keep the rules in sync with the web version.
+// Swift port of DopamineWeb/src/lib/categories.ts, used for the menu bar summary. The rules
+// themselves are shared: CategoryRules.swift embeds DopamineWeb/src/lib/category-rules.json.
 
 enum Category: String, CaseIterable {
     case work, study, social, entertainment, other
@@ -18,20 +18,102 @@ enum Category: String, CaseIterable {
 
     var isProductive: Bool { self == .work || self == .study }
 
-    private static let rules: [(Category, NSRegularExpression)] = ([
-        (.entertainment, #"youtube|bilibili|netflix|twitch|prime video|disney\+|hulu|spotify|apple music|music\b|steam|epic games|battle\.net|minecraft|roblox|league of legends|genshin|tiktok|douyin|iqiyi|youku"#),
-        (.social, #"discord|whatsapp|telegram|signal|wechat|weixin|\bqq\b|line\b|messenger|facebook|instagram|twitter|\bx\.com|reddit|weibo|xiaohongshu|threads|mastodon|bluesky"#),
-        (.study, #"coursera|udemy|edx|khan academy|kindle|books\b|\.pdf|preview|acrobat|notion|obsidian|evernote|onenote|anki|quizlet|canvas|blackboard|moodle|gradescope|piazza|scholar|arxiv|researchgate|wikipedia|zotero|mendeley|overleaf|latex|wolfram|leetcode|duolingo"#),
-        (.work, #"code|visual studio|xcode|intellij|webstorm|pycharm|goland|rider|clion|android studio|sublime|vim|emacs|cursor|zed|terminal|iterm|warp|powershell|cmd\b|windowsterminal|github|gitlab|bitbucket|jira|linear|confluence|slack|teams|zoom|meet\b|webex|outlook|mail\b|calendar|excel|powerpoint|winword|\bword\b|keynote|pages|numbers|figma|sketch|photoshop|illustrator|docker|postman|insomnia|tableplus|datagrip|dbeaver|chatgpt|claude|stack overflow|localhost"#),
-    ] as [(Category, String)]).map { ($0.0, try! NSRegularExpression(pattern: $0.1, options: [.caseInsensitive])) }
+    /// Same order of evidence as the web: browsers by site, then app name, then the app's own
+    /// metadata, then the window title.
+    static func of(title: String, app: String, hint: AppHint? = nil) -> Category {
+        let rules = CategoryRules.shared
+        let name = app.replacingOccurrences(of: #"\.(exe|app)$"#, with: "", options: [.regularExpression, .caseInsensitive]).lowercased()
+        if rules.browsers.contains(name) { return rules.match(rules.sites, title) ?? .other }
+        return rules.match(rules.apps, CategoryRules.haystack(app)) ?? rules.fromHint(hint) ?? rules.match(rules.sites, title) ?? .other
+    }
+}
 
-    static func of(title: String, app: String) -> Category {
-        let haystack = "\(title) \(app)"
-        let range = NSRange(haystack.startIndex..., in: haystack)
-        for (category, regex) in rules where regex.firstMatch(in: haystack, range: range) != nil {
-            return category
+/// Metadata read from the app itself (Info.plist on macOS), used for apps no rule knows.
+struct AppHint: Codable, Equatable {
+    var kind: String?
+    var description: String?
+    var publisher: String?
+    var path: String?
+}
+
+struct CategoryRules {
+    typealias RuleList = [(Category, NSRegularExpression)]
+
+    static let shared = CategoryRules(json: categoryRulesJSON)
+
+    let browsers: Set<String>
+    let sites: RuleList
+    let apps: RuleList
+    let platformKinds: [String: Category]
+    let gamePaths: NSRegularExpression
+    let gamePublishers: NSRegularExpression
+
+    init(json: String) {
+        let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+        func list(_ key: String) -> RuleList {
+            ((obj[key] as? [[Any]]) ?? []).compactMap { entry in
+                guard entry.count == 2, let name = entry[0] as? String, let category = Category(rawValue: name),
+                      let keywords = entry[1] as? [String] else { return nil }
+                return (category, CategoryRules.compile(keywords))
+            }
         }
-        return .other
+        browsers = Set((obj["browsers"] as? [String]) ?? [])
+        sites = list("sites")
+        apps = list("apps")
+        platformKinds = ((obj["platformKinds"] as? [String: String]) ?? [:]).compactMapValues(Category.init(rawValue:))
+        gamePaths = CategoryRules.compile((obj["gamePaths"] as? [String]) ?? [])
+        gamePublishers = CategoryRules.compile((obj["gamePublishers"] as? [String]) ?? [])
+    }
+
+    /// Latin keywords must match whole words ("code" is not in "barcode"); others match anywhere.
+    static func compile(_ keywords: [String]) -> NSRegularExpression {
+        let parts = keywords.map { k -> String in
+            let escaped = NSRegularExpression.escapedPattern(for: k)
+            guard k.allSatisfy(\.isASCII) else { return escaped }
+            let start = k.first.map { $0.isLetter || $0.isNumber } == true ? "(?<![a-z0-9])" : ""
+            let end = k.last.map { $0.isLetter || $0.isNumber } == true ? "(?![a-z0-9])" : ""
+            return start + escaped + end
+        }
+        let pattern = parts.isEmpty ? "(?!)" : parts.joined(separator: "|")
+        // The keywords come from our own rules file, so a failure here is a bug worth crashing on in tests.
+        return try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+    }
+
+    /// "idea64" → also "idea 64"; "LeagueClientUx" → also "league client ux".
+    static func haystack(_ process: String) -> String {
+        let raw = process
+            .replacingOccurrences(of: #"\.(exe|app)$"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: "[-_.]+", with: " ", options: .regularExpression)
+        let digits = raw.replacingOccurrences(of: "([a-zA-Z])([0-9])", with: "$1 $2", options: .regularExpression)
+        let camel = digits
+            .replacingOccurrences(of: "([a-z])([A-Z])", with: "$1 $2", options: .regularExpression)
+            .replacingOccurrences(of: "([A-Z]+)([A-Z][a-z])", with: "$1 $2", options: .regularExpression)
+        return "\(raw) | \(digits) | \(camel)".lowercased()
+    }
+
+    func match(_ rules: RuleList, _ text: String) -> Category? {
+        let range = NSRange(text.startIndex..., in: text)
+        return rules.first { $0.1.firstMatch(in: text, range: range) != nil }?.0
+    }
+
+    private func matches(_ re: NSRegularExpression, _ text: String) -> Bool {
+        re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    func fromHint(_ hint: AppHint?) -> Category? {
+        guard let hint else { return nil }
+        if let kind = hint.kind?.lowercased() {
+            if let c = platformKinds[kind] { return c }
+            if kind.hasSuffix("-games") { return .entertainment }
+        }
+        if let path = hint.path, matches(gamePaths, path.replacingOccurrences(of: #"[\\/]+"#, with: " ", options: .regularExpression)) {
+            return .entertainment
+        }
+        if let publisher = hint.publisher, matches(gamePublishers, publisher) { return .entertainment }
+        for text in [hint.description, hint.publisher].compactMap({ $0 }) {
+            if let c = match(apps, CategoryRules.haystack(text)), c != .other { return c }
+        }
+        return nil
     }
 }
 
@@ -58,7 +140,10 @@ struct DaySummary {
 
     /// Mirrors buildSegments + summarize on the web: each row lasts until the next one;
     /// marker rows end a segment; brief glances are merged back; everything is clipped to [start, end).
-    static func compute(rows: [WindowActivity], start: Date, end: Date, now: Date = Date()) -> DaySummary {
+    static func compute(
+        rows: [WindowActivity], start: Date, end: Date, now: Date = Date(),
+        classify: (_ title: String, _ process: String) -> Category = { Category.of(title: $0, app: $1) }
+    ) -> DaySummary {
         let nowSec = now.timeIntervalSince1970
 
         // First pass on unclipped times: drop glances, extending the window that was in front before.
@@ -83,7 +168,7 @@ struct DaySummary {
         for item in kept {
             let d = min(item.end, hi) - max(item.start, lo)
             guard d > 0 else { continue }
-            let category = Category.of(title: item.row.windowTitle, app: item.row.processName)
+            let category = classify(item.row.windowTitle, item.row.processName)
             summary.total += d
             summary.byCategory[category, default: 0] += d
             perApp[item.row.processName, default: [:]][category, default: 0] += d

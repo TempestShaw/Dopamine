@@ -1,4 +1,6 @@
-﻿namespace DopamineWin;
+﻿using DopamineWin.Models;
+
+namespace DopamineWin;
 
 public class WindowTracker : IDisposable, IAsyncDisposable
 {
@@ -107,7 +109,7 @@ public class WindowTracker : IDisposable, IAsyncDisposable
         }
     }
 
-    /// <summary>Stores each app's icon once per launch so the dashboard and tray can show it.</summary>
+    /// <summary>Stores each app's icon and metadata once per launch for the dashboard and tray.</summary>
     private void CaptureIcon(string processName)
     {
         // UWP apps all run inside ApplicationFrameHost, whose icon would be misleading.
@@ -115,8 +117,14 @@ public class WindowTracker : IDisposable, IAsyncDisposable
         try
         {
             var path = NativeMethods.GetActiveProcessPath();
-            var png = path == null ? null : NativeMethods.ExtractIconPng(path);
-            if (png != null) _database.SaveIcon(processName, png);
+            if (path == null) return;
+            var version = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+            _database.SaveApp(processName, new StoredApp(
+                NativeMethods.ExtractIconPng(path),
+                null,
+                string.IsNullOrWhiteSpace(version.FileDescription) ? version.ProductName : version.FileDescription,
+                version.CompanyName,
+                path));
         }
         catch (Exception ex)
         {

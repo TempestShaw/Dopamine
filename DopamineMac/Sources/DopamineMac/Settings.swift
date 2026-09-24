@@ -26,6 +26,8 @@ struct StoredSettings: Codable, Equatable {
     var idleTimeout: Int = 300
     /// Shows today's total next to the menu bar icon.
     var showTimeInMenuBar: Bool = true
+    /// The user's category choices, keyed by process name ("work", "study", …).
+    var categoryOverrides: [String: String] = [:]
 
     init(pairingCode: String) {
         self.pairingCode = pairingCode
@@ -37,6 +39,7 @@ struct StoredSettings: Codable, Equatable {
         trackingInterval = try c.decodeIfPresent(Int.self, forKey: .trackingInterval) ?? 5000
         idleTimeout = try c.decodeIfPresent(Int.self, forKey: .idleTimeout) ?? 300
         showTimeInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showTimeInMenuBar) ?? true
+        categoryOverrides = try c.decodeIfPresent([String: String].self, forKey: .categoryOverrides) ?? [:]
     }
 
     static func generatePairingCode(length: Int = 6) -> String {
@@ -50,6 +53,7 @@ struct StoredSettings: Codable, Equatable {
 struct ConfigurableSettings: Codable {
     var trackingInterval: Int?
     var idleTimeout: Int?
+    var categoryOverrides: [String: String]?
 
     static let schemas: [[String: Any]] = [
         [

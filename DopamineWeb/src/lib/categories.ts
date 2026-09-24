@@ -1,5 +1,5 @@
-// Categorization rules. Keep in sync with DopamineMac/Sources/DopamineMac/Categories.swift,
-// which uses the same ordered rules for the menu bar summary.
+// Categorization. The rules live in category-rules.json, shared with the macOS agent.
+import RULES from "./category-rules.json";
 
 export type Category = "work" | "study" | "social" | "entertainment" | "other";
 
@@ -13,19 +13,104 @@ export const CATEGORY_META: Record<Category, { label: string; color: string; pro
   other: { label: "Other", color: "var(--cat-other)", productive: false },
 };
 
-// Ordered: the first match wins. Site/title keywords come before app names so that
-// "YouTube - Google Chrome" is entertainment rather than a generic browser.
-const RULES: [Category, RegExp][] = [
-  ["entertainment", /youtube|bilibili|netflix|twitch|prime video|disney\+|hulu|spotify|apple music|music\b|steam|epic games|battle\.net|minecraft|roblox|league of legends|genshin|tiktok|douyin|iqiyi|youku/i],
-  ["social", /discord|whatsapp|telegram|signal|wechat|weixin|\bqq\b|line\b|messenger|facebook|instagram|twitter|\bx\.com|reddit|weibo|xiaohongshu|threads|mastodon|bluesky/i],
-  ["study", /coursera|udemy|edx|khan academy|kindle|books\b|\.pdf|preview|acrobat|notion|obsidian|evernote|onenote|anki|quizlet|canvas|blackboard|moodle|gradescope|piazza|scholar|arxiv|researchgate|wikipedia|zotero|mendeley|overleaf|latex|wolfram|leetcode|duolingo/i],
-  ["work", /code|visual studio|xcode|intellij|webstorm|pycharm|goland|rider|clion|android studio|sublime|vim|emacs|cursor|zed|terminal|iterm|warp|powershell|cmd\b|windowsterminal|github|gitlab|bitbucket|jira|linear|confluence|slack|teams|zoom|meet\b|webex|outlook|mail\b|calendar|excel|powerpoint|winword|\bword\b|keynote|pages|numbers|figma|sketch|photoshop|illustrator|docker|postman|insomnia|tableplus|datagrip|dbeaver|chatgpt|claude|stack overflow|localhost/i],
-];
+/** Metadata an agent reads from the app itself, used for apps no rule knows by name. */
+export interface AppHint {
+  /** macOS Info.plist LSApplicationCategoryType, e.g. "public.app-category.games". */
+  kind?: string;
+  /** Windows file description or macOS bundle display name. */
+  description?: string;
+  /** Windows company name / macOS copyright holder. */
+  publisher?: string;
+  /** Path of the executable or app bundle. */
+  path?: string;
+}
 
-export function categorize(title: string, app: string): Category {
-  const haystack = `${title} ${app}`;
-  for (const [category, re] of RULES) if (re.test(haystack)) return category;
-  return "other";
+type RuleList = [Category, RegExp][];
+
+// Latin keywords must match whole words ("code" is not in "barcode"); others (e.g. Chinese) match anywhere.
+function compile(keywords: string[]): RegExp {
+  const esc = (k: string) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = keywords.map((k) => {
+    if (!/^[\x00-\x7f]+$/.test(k)) return esc(k);
+    const start = /^[a-z0-9]/i.test(k) ? "(?<![a-z0-9])" : "";
+    const end = /[a-z0-9]$/i.test(k) ? "(?![a-z0-9])" : "";
+    return start + esc(k) + end;
+  });
+  return new RegExp(parts.join("|"), "i");
+}
+
+const BROWSERS = new Set(RULES.browsers);
+const SITES: RuleList = RULES.sites.map(([c, k]) => [c as Category, compile(k as string[])]);
+const APPS: RuleList = RULES.apps.map(([c, k]) => [c as Category, compile(k as string[])]);
+const PLATFORM_KINDS = RULES.platformKinds as Record<string, Category>;
+const GAME_PATHS = compile(RULES.gamePaths);
+const GAME_PUBLISHERS = compile(RULES.gamePublishers);
+
+function match(rules: RuleList, text: string): Category | null {
+  for (const [category, re] of rules) if (re.test(text)) return category;
+  return null;
+}
+
+/**
+ * Process names come as "idea64", "LeagueClientUx", "VALORANT-Win64-Shipping". Match against the raw
+ * name plus versions with digits and camelCase split off, so rules can simply say "idea".
+ */
+export function appHaystack(process: string): string {
+  const raw = process.replace(/\.(exe|app)$/i, "").replace(/[-_.]+/g, " ");
+  const digits = raw.replace(/([a-z])(\d)/gi, "$1 $2");
+  const camel = digits.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+  return `${raw} | ${digits} | ${camel}`.toLowerCase();
+}
+
+function fromHint(hint: AppHint | undefined): Category | null {
+  if (!hint) return null;
+  if (hint.kind) {
+    const k = hint.kind.toLowerCase();
+    if (PLATFORM_KINDS[k]) return PLATFORM_KINDS[k];
+    if (k.endsWith("-games")) return "entertainment"; // action-games, card-games, puzzle-games …
+  }
+  if (hint.path && GAME_PATHS.test(hint.path.replace(/[\\/]+/g, " "))) return "entertainment";
+  if (hint.publisher && GAME_PUBLISHERS.test(hint.publisher)) return "entertainment";
+  for (const text of [hint.description, hint.publisher]) {
+    const c = text ? match(APPS, appHaystack(text)) : null;
+    if (c && c !== "other") return c;
+  }
+  return null;
+}
+
+/**
+ * Decides what a window is about:
+ * 1. Browsers are judged by the site in the tab title.
+ * 2. Other apps by their name (exact rules, including "other" for system utilities).
+ * 3. Apps no rule knows: the metadata the agent read from the app (category, publisher, path).
+ * 4. Finally the window title, e.g. `javaw` showing "Minecraft".
+ */
+export function categorize(title: string, process: string, hint?: AppHint): Category {
+  const name = process.replace(/\.(exe|app)$/i, "").toLowerCase();
+  if (BROWSERS.has(name)) return match(SITES, title) ?? "other";
+  return match(APPS, appHaystack(process)) ?? fromHint(hint) ?? match(SITES, title) ?? "other";
+}
+
+/** A user's choice of category for an app, keyed by raw process name. Always wins. */
+export type Overrides = Record<string, Category>;
+
+export type Classifier = (title: string, process: string) => Category;
+
+/** Builds a memoised classifier; rebuild it when hints or overrides change. */
+export function makeClassifier(hint: (process: string) => AppHint | undefined = () => undefined, overrides: Overrides = {}): Classifier {
+  const cache = new Map<string, Category>();
+  return (title, process) => {
+    const chosen = overrides[process];
+    if (chosen) return chosen;
+    const key = `${process}\u0000${title}`;
+    let c = cache.get(key);
+    if (c === undefined) {
+      c = categorize(title, process, hint(process));
+      if (cache.size > 20_000) cache.clear();
+      cache.set(key, c);
+    }
+    return c;
+  };
 }
 
 const APP_NAMES: Record<string, string> = {

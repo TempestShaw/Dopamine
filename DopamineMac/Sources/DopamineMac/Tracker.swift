@@ -134,10 +134,10 @@ final class Tracker {
         database.insert(windowTitle: title, processName: process)
         current = (title, process, Date())
 
-        // Refresh each app's icon once per launch (apps update their icons now and then).
-        if !iconsCaptured.contains(process), let png = AppIcons.png(for: app) {
+        // Refresh each app's icon and metadata once per launch (apps update now and then).
+        if !iconsCaptured.contains(process) {
             iconsCaptured.insert(process)
-            database.saveIcon(process: process, png: png)
+            database.saveApp(process: process, info: AppIcons.capture(app))
         }
     }
 

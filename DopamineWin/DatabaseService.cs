@@ -33,9 +33,13 @@ public class DatabaseService : IDisposable, IAsyncDisposable
                     ProcessName TEXT
                 );
                 CREATE INDEX IF NOT EXISTS IX_WindowActivities_Timestamp ON WindowActivities (Timestamp);
-                CREATE TABLE IF NOT EXISTS AppIcons (
+                CREATE TABLE IF NOT EXISTS AppInfo (
                     ProcessName TEXT PRIMARY KEY,
-                    Png BLOB NOT NULL,
+                    Png BLOB,
+                    Kind TEXT,
+                    Description TEXT,
+                    Publisher TEXT,
+                    Path TEXT,
                     UpdatedAt INTEGER NOT NULL
                 );";
         command.ExecuteNonQuery();
@@ -90,38 +94,45 @@ public class DatabaseService : IDisposable, IAsyncDisposable
         return activities;
     }
 
-    public void SaveIcon(string processName, byte[] png)
+    public void SaveApp(string processName, StoredApp app)
     {
         lock (_lock)
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                INSERT OR REPLACE INTO AppIcons (ProcessName, Png, UpdatedAt)
-                VALUES ($ProcessName, $Png, $UpdatedAt)";
+                INSERT OR REPLACE INTO AppInfo (ProcessName, Png, Kind, Description, Publisher, Path, UpdatedAt)
+                VALUES ($ProcessName, $Png, $Kind, $Description, $Publisher, $Path, $UpdatedAt)";
             command.Parameters.AddWithValue("$ProcessName", processName);
-            command.Parameters.AddWithValue("$Png", png);
+            command.Parameters.AddWithValue("$Png", (object?)app.Png ?? DBNull.Value);
+            command.Parameters.AddWithValue("$Kind", (object?)app.Kind ?? DBNull.Value);
+            command.Parameters.AddWithValue("$Description", (object?)app.Description ?? DBNull.Value);
+            command.Parameters.AddWithValue("$Publisher", (object?)app.Publisher ?? DBNull.Value);
+            command.Parameters.AddWithValue("$Path", (object?)app.Path ?? DBNull.Value);
             command.Parameters.AddWithValue("$UpdatedAt", DateTimeOffset.Now.ToUnixTimeSeconds());
             command.ExecuteNonQuery();
         }
     }
 
-    /// <summary>Stored icons for the given process names; names without an icon are left out.</summary>
-    public Dictionary<string, byte[]> GetIcons(IEnumerable<string> processNames)
+    /// <summary>Stored icon/metadata for the given process names; unknown names are left out.</summary>
+    public Dictionary<string, StoredApp> GetApps(IEnumerable<string> processNames)
     {
-        var icons = new Dictionary<string, byte[]>();
+        var apps = new Dictionary<string, StoredApp>();
         lock (_lock)
         {
             using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT Png FROM AppIcons WHERE ProcessName = $ProcessName";
+            command.CommandText = "SELECT Png, Kind, Description, Publisher, Path FROM AppInfo WHERE ProcessName = $ProcessName";
             var parameter = command.Parameters.Add("$ProcessName", SqliteType.Text);
             foreach (var name in processNames.Distinct())
             {
                 parameter.Value = name;
-                if (command.ExecuteScalar() is byte[] png) icons[name] = png;
+                using var reader = command.ExecuteReader();
+                if (!reader.Read()) continue;
+                string? Text(int i) => reader.IsDBNull(i) ? null : reader.GetString(i);
+                apps[name] = new StoredApp(reader.IsDBNull(0) ? null : (byte[])reader[0], Text(1), Text(2), Text(3), Text(4));
             }
         }
 
-        return icons;
+        return apps;
     }
 
     public void Dispose()

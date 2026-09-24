@@ -1,7 +1,10 @@
 // Deterministic sample data so the dashboard can be explored without an agent installed.
 
 import { AGENT_PROCESS, RawEvent } from "./analytics";
-import { DataSource } from "./source";
+import { Overrides } from "./categories";
+import { AppInfo, DataSource, sanitizeOverrides } from "./source";
+
+const OVERRIDES_KEY = "dopamine.demo.categoryOverrides";
 import { addDays, startOfDay } from "./time";
 
 type Activity = [process: string, titles: string[], weight: number, minMinutes: number, maxMinutes: number];
@@ -111,13 +114,30 @@ export class DemoSource implements DataSource {
   platform = "demo" as const;
   version = "demo";
 
-  async fetchIcons(processNames: string[]): Promise<Record<string, string>> {
-    const out: Record<string, string> = {};
+  async fetchApps(processNames: string[]): Promise<Record<string, AppInfo>> {
+    const out: Record<string, AppInfo> = {};
     for (const p of processNames) {
       const icon = demoIcon(p);
-      if (icon) out[p] = icon;
+      if (icon) out[p] = { icon };
     }
     return out;
+  }
+
+  // Sample data has no agent, so category choices are kept in this browser.
+  async loadOverrides(): Promise<Overrides> {
+    try {
+      return sanitizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_KEY) ?? "{}"));
+    } catch {
+      return {};
+    }
+  }
+
+  async saveOverrides(overrides: Overrides): Promise<void> {
+    try {
+      localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+    } catch {
+      // Storage blocked: the choice lasts until reload.
+    }
   }
 
   async fetchEvents(fromSec: number, toSec: number): Promise<RawEvent[]> {

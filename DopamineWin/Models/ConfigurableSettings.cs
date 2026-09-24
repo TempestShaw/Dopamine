@@ -14,6 +14,13 @@ public class ConfigurableSettings
      */
     public int IdleTimeout { get; set; } = 300;
 
+    /**
+     * The user's category choices, keyed by process name ("work", "study", "social", "entertainment", "other").
+     */
+    public Dictionary<string, string> CategoryOverrides { get; set; } = new();
+
+    private static readonly HashSet<string> Categories = ["work", "study", "social", "entertainment", "other"];
+
     public void Update(Partial partialSettings)
     {
         if (partialSettings.TrackingInterval.HasValue)
@@ -24,6 +31,13 @@ public class ConfigurableSettings
         if (partialSettings.IdleTimeout.HasValue)
         {
             IdleTimeout = Math.Clamp(partialSettings.IdleTimeout.Value, 0, 7200);
+        }
+
+        if (partialSettings.CategoryOverrides != null)
+        {
+            CategoryOverrides = partialSettings.CategoryOverrides
+                .Where(p => Categories.Contains(p.Value))
+                .ToDictionary(p => p.Key, p => p.Value);
         }
     }
 
@@ -64,6 +78,8 @@ public class ConfigurableSettings
         public int? TrackingInterval { get; set; } = null;
 
         public int? IdleTimeout { get; set; } = null;
+
+        public Dictionary<string, string>? CategoryOverrides { get; set; } = null;
     }
 
     public enum SchemaType

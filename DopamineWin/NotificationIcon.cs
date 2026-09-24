@@ -125,9 +125,10 @@ public class NotificationIcon : ApplicationContext
             var state = !_windowTracker.IsTracking ? " (paused)" : _windowTracker.IsIdle ? " (idle)" : "";
             _todayLabel.Text = $"Today: {TodaySummary.Format(summary.Total)}{state}";
             var missing = summary.TopApps.Select(a => a.Process).Where(p => !_iconCache.ContainsKey(p)).ToList();
-            foreach (var (process, png) in _database.GetIcons(missing))
+            foreach (var (process, app) in _database.GetApps(missing))
             {
-                using var stream = new MemoryStream(png);
+                if (app.Png == null) continue;
+                using var stream = new MemoryStream(app.Png);
                 using var full = Image.FromStream(stream);
                 _iconCache[process] = new Bitmap(full, new Size(16, 16));
             }

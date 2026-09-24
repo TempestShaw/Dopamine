@@ -32,7 +32,7 @@ final class API {
         switch req.path {
         case "/identify":
             return .jsonObject(["name": "dopamine-mac", "version": appVersion, "settings": ConfigurableSettings.schemas])
-        case "/pair", "/titles", "/settings", "/icons":
+        case "/pair", "/titles", "/settings", "/apps":
             guard req.headers["authorization"] == "Bearer \(settings.settings.pairingCode)" else { return .empty(401) }
             return protected(req)
         default:
@@ -47,9 +47,9 @@ final class API {
         case ("GET", "/titles"):
             guard let from = Int64(req.query["from"] ?? ""), let to = Int64(req.query["to"] ?? "") else { return .empty(400) }
             return .json(database.activities(from: from, to: to))
-        case ("GET", "/icons"):
+        case ("GET", "/apps"):
             let names = (req.query["names"] ?? "").split(separator: "\n").map(String.init).filter { !$0.isEmpty }
-            return .json(icons(for: Array(names.prefix(200))))
+            return .jsonObject(apps(for: Array(names.prefix(200))))
         case ("GET", "/settings"):
             return .json(current())
         case ("PUT", "/settings"):
@@ -57,6 +57,7 @@ final class API {
             settings.update { s in
                 if let v = patch.trackingInterval { s.trackingInterval = v }
                 if let v = patch.idleTimeout { s.idleTimeout = v }
+                if let v = patch.categoryOverrides { s.categoryOverrides = v.filter { Category(rawValue: $0.value) != nil } }
             }
             return .json(current())
         default:
@@ -64,23 +65,31 @@ final class API {
         }
     }
 
-    /// `{ processName: "data:image/png;base64,…" }` for every name with a known icon.
-    private func icons(for names: [String]) -> [String: String] {
-        var found = database.icons(for: names)
+    /// `{ processName: { icon: "data:image/png;base64,…", kind, description, publisher, path } }`.
+    private func apps(for names: [String]) -> [String: [String: String]] {
+        var found = database.apps(for: names)
         for name in names where found[name] == nil {
-            // Apps seen before icon capture existed: try to find the bundle by name (AppKit on the main thread).
-            let lookup = { AppIcons.png(forAppNamed: name) }
-            if let png = Thread.isMainThread ? lookup() : DispatchQueue.main.sync(execute: lookup) {
-                database.saveIcon(process: name, png: png)
-                found[name] = png
+            // Apps seen before capture existed: try to find the bundle by name (AppKit on the main thread).
+            let lookup = { AppIcons.capture(appNamed: name) }
+            if let app = Thread.isMainThread ? lookup() : DispatchQueue.main.sync(execute: lookup) {
+                database.saveApp(process: name, info: app)
+                found[name] = app
             }
         }
-        return found.mapValues { "data:image/png;base64,\($0.base64EncodedString())" }
+        return found.mapValues { app in
+            var out: [String: String] = [:]
+            if let png = app.png { out["icon"] = "data:image/png;base64,\(png.base64EncodedString())" }
+            out["kind"] = app.hint.kind
+            out["description"] = app.hint.description
+            out["publisher"] = app.hint.publisher
+            out["path"] = app.hint.path
+            return out
+        }
     }
 
     private func current() -> ConfigurableSettings {
         let s = settings.settings
-        return ConfigurableSettings(trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout)
+        return ConfigurableSettings(trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout, categoryOverrides: s.categoryOverrides)
     }
 
     // MARK: Static dashboard

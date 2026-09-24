@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "bun test src",
-    "preview": "bun scripts/build-preview.ts"
+    "preview": "bun scripts/build-preview.ts",
+    "sync-rules": "bun scripts/sync-rules.ts"
   },
   "dependencies": {
     "next": "15.2.2",

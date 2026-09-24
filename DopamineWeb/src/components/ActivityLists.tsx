@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { AppStat, Session } from "@/lib/analytics";
-import { CATEGORIES, CATEGORY_META } from "@/lib/categories";
+import { CATEGORIES, CATEGORY_META, Category, Overrides } from "@/lib/categories";
 import { MINUTE, View, clock, formatDuration, shortDate } from "@/lib/time";
 import { AppAvatar, CategoryDot, ChevronDown, EmptyState, Section, Segmented } from "./ui";
 
 type Tab = "apps" | "sessions";
 
-export function ActivityLists({ apps, sessions, total, view }: { apps: AppStat[]; sessions: Session[]; total: number; view: View }) {
+type OverrideProps = { overrides: Overrides; onOverride: (process: string, category: Category | null) => void };
+
+export function ActivityLists({ apps, sessions, total, view, overrides, onOverride }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
   const [tab, setTab] = useState<Tab>("apps");
   return (
     <Section
@@ -25,12 +27,12 @@ export function ActivityLists({ apps, sessions, total, view }: { apps: AppStat[]
         />
       }
     >
-      {tab === "apps" ? <AppList apps={apps} total={total} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
+      {tab === "apps" ? <AppList apps={apps} total={total} overrides={overrides} onOverride={onOverride} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
     </Section>
   );
 }
 
-function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
+function AppList({ apps, total, overrides, onOverride }: { apps: AppStat[]; total: number } & OverrideProps) {
   const [open, setOpen] = useState<string | null>(null);
   // Details are rendered the first time an app is opened and kept, so closing can animate too.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
@@ -84,18 +86,23 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
               >
                 <div className="min-h-0 overflow-hidden">
                   {opened.has(a.app) && (
-                  <ul className={`mb-3 ml-[3.25rem] space-y-1.5 pr-8 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1.5"}`}>
-                      {a.titles.slice(0, 8).map((t) => (
-                        <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
-                          <CategoryDot category={t.category} className="size-2" />
-                          <span className="min-w-0 flex-1 truncate text-graphite" title={t.title}>
-                            {t.title}
-                          </span>
-                          <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
-                        </li>
-                      ))}
-                      {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
-                    </ul>
+                    <div
+                      className={`mb-4 ml-[3.25rem] pr-8 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1.5"}`}
+                    >
+                      <ul className="space-y-1.5">
+                        {a.titles.slice(0, 8).map((t) => (
+                          <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
+                            <CategoryDot category={t.category} className="size-2" />
+                            <span className="min-w-0 flex-1 truncate text-graphite" title={t.title}>
+                              {t.title}
+                            </span>
+                            <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
+                          </li>
+                        ))}
+                        {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
+                      </ul>
+                      <CategoryPicker app={a.app} current={overrides[a.process]} onPick={(c) => onOverride(a.process, c)} tabIndex={expanded ? 0 : -1} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -107,6 +114,41 @@ function AppList({ apps, total }: { apps: AppStat[]; total: number }) {
         <button type="button" onClick={() => setLimit((l) => l + 12)} className="hand mt-3 text-xl text-graphite underline decoration-line underline-offset-4 hover:text-ink">
           show {Math.min(12, apps.length - limit)} more
         </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Lets the user say what an app is. Automatic detection handles most apps; this covers the rest
+ * (an unfamiliar game, a tool used for study). The choice applies to every window of the app.
+ */
+function CategoryPicker({ app, current, onPick, tabIndex }: { app: string; current?: Category; onPick: (c: Category | null) => void; tabIndex: number }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1.5 text-[13px]">
+      <span className="hand mr-1.5 text-base text-faint">{app} counts as</span>
+      {CATEGORIES.map((c) => {
+        const active = current === c;
+        return (
+          <button
+            key={c}
+            type="button"
+            tabIndex={tabIndex}
+            onClick={() => onPick(active ? null : c)}
+            aria-pressed={active}
+            className={`dab inline-flex items-center gap-1.5 px-2.5 py-0.5 transition-colors ${active ? "bg-wash font-medium text-ink" : "text-graphite hover:bg-wash hover:text-ink"}`}
+          >
+            <CategoryDot category={c} className="size-2" />
+            {CATEGORY_META[c].label}
+          </button>
+        );
+      })}
+      {current ? (
+        <button type="button" tabIndex={tabIndex} onClick={() => onPick(null)} className="hand ml-1 text-base text-faint underline decoration-line underline-offset-4 hover:text-graphite">
+          back to automatic
+        </button>
+      ) : (
+        <span className="hand ml-1 text-base text-faint">(automatic)</span>
       )}
     </div>
   );

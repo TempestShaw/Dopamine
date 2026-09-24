@@ -35,12 +35,13 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(rows.first?.processName, "Xcode")
     }
 
-    func testIconsRoundTrip() throws {
+    func testAppInfoRoundTrip() throws {
         let db = try Database(url: tmp.appendingPathComponent("t.db"))
         let png = try XCTUnwrap(AppIcons.png(from: NSImage(size: NSSize(width: 8, height: 8))))
-        db.saveIcon(process: "Xcode", png: png)
+        let app = StoredApp(png: png, hint: AppHint(kind: "public.app-category.developer-tools", description: "Xcode", path: "/Applications/Xcode.app"))
+        db.saveApp(process: "Xcode", info: app)
         db.flush()
-        XCTAssertEqual(db.icons(for: ["Xcode", "Missing"]), ["Xcode": png])
+        XCTAssertEqual(db.apps(for: ["Xcode", "Missing"]), ["Xcode": app])
     }
 
     func testDaySummary() {
@@ -70,10 +71,31 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(s.total, 1000)
     }
 
+    // Mirrors cases from DopamineWeb/src/lib/__fixtures__/categorize-corpus.ts.
     func testCategories() {
         XCTAssertEqual(Category.of(title: "Bilibili", app: "Google Chrome"), .entertainment)
         XCTAssertEqual(Category.of(title: "", app: "Xcode"), .work)
         XCTAssertEqual(Category.of(title: "New Tab", app: "Safari"), .other)
+        XCTAssertEqual(Category.of(title: "Free Barcode Generator - Google Chrome", app: "chrome"), .other)
+        XCTAssertEqual(Category.of(title: "C:\\Users\\me\\Code", app: "explorer"), .other)
+        XCTAssertEqual(Category.of(title: "Dopamine – Main.java", app: "idea64"), .work)
+        XCTAssertEqual(Category.of(title: "VALORANT", app: "VALORANT-Win64-Shipping"), .entertainment)
+        XCTAssertEqual(Category.of(title: "zsh", app: "iTerm2"), .work)
+        XCTAssertEqual(Category.of(title: "小红书 - 你的生活指南", app: "Google Chrome"), .social)
+        XCTAssertEqual(Category.of(title: "Minecraft 1.20.1", app: "javaw"), .entertainment)
+    }
+
+    func testHintsCategoriseUnknownApps() {
+        XCTAssertEqual(Category.of(title: "Balatro", app: "Balatro", hint: AppHint(kind: "public.app-category.card-games")), .entertainment)
+        XCTAssertEqual(Category.of(title: "x", app: "Hollow Knight", hint: AppHint(path: "D:\\SteamLibrary\\steamapps\\common\\Hollow Knight")), .entertainment)
+        XCTAssertEqual(Category.of(title: "x", app: "Ivory", hint: AppHint(kind: "public.app-category.social-networking")), .social)
+        XCTAssertEqual(Category.of(title: "x", app: "SomeGame", hint: AppHint(publisher: "Valve Corporation")), .entertainment)
+    }
+
+    func testRulesLoaded() {
+        XCTAssertFalse(CategoryRules.shared.apps.isEmpty)
+        XCTAssertFalse(CategoryRules.shared.sites.isEmpty)
+        XCTAssertTrue(CategoryRules.shared.browsers.contains("google chrome"))
     }
 
     func testAPIRequiresPairingCodeAndStaysInWebRoot() throws {

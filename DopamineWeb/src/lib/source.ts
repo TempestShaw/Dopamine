@@ -1,4 +1,5 @@
 import { MAX_SEGMENT, RawEvent } from "./analytics";
+import { AppHint, Category, Overrides } from "./categories";
 import { Range, addMonths, startOfMonth } from "./time";
 
 export const DEFAULT_PORT = 26535;
@@ -14,12 +15,20 @@ export function platformOf(info: AgentInfo): Platform {
   return info.name === "dopamine-mac" ? "mac" : "windows";
 }
 
+/** What an agent knows about an app: its icon plus metadata used to categorise unfamiliar apps. */
+export interface AppInfo extends AppHint {
+  icon?: string; // data: URL
+}
+
 export interface DataSource {
   platform: Platform;
   version: string;
   fetchEvents(fromSec: number, toSec: number): Promise<RawEvent[]>;
-  /** App icons as data: URLs, keyed by raw process name. Missing names have no icon. */
-  fetchIcons?(processNames: string[]): Promise<Record<string, string>>;
+  /** Icon and metadata keyed by raw process name. Apps the agent knows nothing about are left out. */
+  fetchApps(processNames: string[]): Promise<Record<string, AppInfo>>;
+  /** The user's category choices. Kept by the agent so the menu bar agrees with the dashboard. */
+  loadOverrides(): Promise<Overrides>;
+  saveOverrides(overrides: Overrides): Promise<void>;
 }
 
 export class AuthError extends Error {}
@@ -91,14 +100,38 @@ export class AgentSource implements DataSource {
     return (await res.json()) as RawEvent[];
   }
 
-  async fetchIcons(processNames: string[]): Promise<Record<string, string>> {
+  async fetchApps(processNames: string[]): Promise<Record<string, AppInfo>> {
     // Names are newline-separated: process names never contain one, but may contain commas.
-    const res = await fetchWithTimeout(`${this.baseUrl}/icons?names=${encodeURIComponent(processNames.join("\n"))}`, {
+    const res = await fetchWithTimeout(`${this.baseUrl}/apps?names=${encodeURIComponent(processNames.join("\n"))}`, {
       headers: { Authorization: `Bearer ${this.code}` },
     });
-    if (!res.ok) return {}; // older agents have no icon endpoint
-    return (await res.json()) as Record<string, string>;
+    if (!res.ok) return {}; // older agents have no app endpoint
+    return (await res.json()) as Record<string, AppInfo>;
   }
+
+  async loadOverrides(): Promise<Overrides> {
+    const res = await fetchWithTimeout(`${this.baseUrl}/settings`, { headers: { Authorization: `Bearer ${this.code}` } });
+    if (!res.ok) return {};
+    const settings = (await res.json()) as { categoryOverrides?: Record<string, string> };
+    return sanitizeOverrides(settings.categoryOverrides);
+  }
+
+  async saveOverrides(overrides: Overrides): Promise<void> {
+    const res = await fetchWithTimeout(`${this.baseUrl}/settings`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${this.code}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryOverrides: overrides }),
+    });
+    if (!res.ok) throw new Error(`Agent returned ${res.status}`);
+  }
+}
+
+const VALID: Category[] = ["work", "study", "social", "entertainment", "other"];
+
+export function sanitizeOverrides(raw: Record<string, string> | undefined | null): Overrides {
+  const out: Overrides = {};
+  for (const [k, v] of Object.entries(raw ?? {})) if (VALID.includes(v as Category)) out[k] = v as Category;
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -155,6 +188,7 @@ export class EventStore {
   private events: RawEvent[] = [];
   private ids = new Set<number>();
   private months = new Map<number, Promise<void>>();
+  private apps = new Map<string, AppInfo | null>();
 
   constructor(readonly source: DataSource) {}
 
@@ -182,6 +216,35 @@ export class EventStore {
     const before = this.events.length;
     this.merge(await this.source.fetchEvents(last, now / 1000 + 60));
     return this.events.length !== before;
+  }
+
+  /**
+   * Loads icon/metadata for any of these apps not asked about before (one request).
+   * Returns true when something new arrived, so callers know to re-categorise.
+   */
+  async ensureApps(processNames: Iterable<string>): Promise<boolean> {
+    const missing = [...new Set(processNames)].filter((n) => !this.apps.has(n));
+    if (missing.length === 0) return false;
+    for (const n of missing) this.apps.set(n, null);
+    try {
+      const info = await this.source.fetchApps(missing);
+      for (const [n, i] of Object.entries(info)) this.apps.set(n, i);
+      return Object.keys(info).length > 0;
+    } catch {
+      for (const n of missing) this.apps.delete(n); // retry next time
+      return false;
+    }
+  }
+
+  app(processName: string): AppInfo | undefined {
+    return this.apps.get(processName) ?? undefined;
+  }
+
+  /** Distinct process names among loaded events inside `range`. */
+  processNames(range: Range): Set<string> {
+    const names = new Set<string>();
+    for (const e of this.slice(range)) names.add(e.processName);
+    return names;
   }
 
   /** Events that can contribute to segments inside `range`, sorted by time. */
