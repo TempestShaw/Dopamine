@@ -1,5 +1,6 @@
 import { MAX_SEGMENT, RawEvent } from "./analytics";
 import { AppHint, Category, Overrides } from "./categories";
+import { Sharing } from "./community";
 import { Range, addMonths, startOfMonth } from "./time";
 
 export const DEFAULT_PORT = 26535;
@@ -26,9 +27,32 @@ export interface DataSource {
   fetchEvents(fromSec: number, toSec: number): Promise<RawEvent[]>;
   /** Icon and metadata keyed by raw process name. Apps the agent knows nothing about are left out. */
   fetchApps(processNames: string[]): Promise<Record<string, AppInfo>>;
-  /** The user's category choices. Kept by the agent so the menu bar agrees with the dashboard. */
-  loadOverrides(): Promise<Overrides>;
-  saveOverrides(overrides: Overrides): Promise<void>;
+  /** The user's category choices and sharing preference, kept by the agent. */
+  loadPreferences(): Promise<Preferences>;
+  savePreferences(change: Partial<Preferences>): Promise<void>;
+}
+
+export interface Preferences {
+  /** Category chosen per app; the menu bar reads these too. */
+  overrides: Overrides;
+  /** Whether choices are shared with the community ("ask" until the user decides). */
+  sharing: Sharing;
+  /** Random id sent with shared choices so one install counts once. Created when sharing is turned on. */
+  installId?: string;
+}
+
+/** Agent settings JSON ⇄ Preferences. */
+export function preferencesFromSettings(s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string }): Preferences {
+  const sharing = s.communitySharing === "on" || s.communitySharing === "off" ? s.communitySharing : "ask";
+  return { overrides: sanitizeOverrides(s.categoryOverrides), sharing, installId: s.installId || undefined };
+}
+
+export function settingsFromPreferences(p: Partial<Preferences>) {
+  return {
+    ...(p.overrides && { categoryOverrides: p.overrides }),
+    ...(p.sharing && { communitySharing: p.sharing }),
+    ...(p.installId && { installId: p.installId }),
+  };
 }
 
 export class AuthError extends Error {}
@@ -109,18 +133,16 @@ export class AgentSource implements DataSource {
     return (await res.json()) as Record<string, AppInfo>;
   }
 
-  async loadOverrides(): Promise<Overrides> {
+  async loadPreferences(): Promise<Preferences> {
     const res = await fetchWithTimeout(`${this.baseUrl}/settings`, { headers: { Authorization: `Bearer ${this.code}` } });
-    if (!res.ok) return {};
-    const settings = (await res.json()) as { categoryOverrides?: Record<string, string> };
-    return sanitizeOverrides(settings.categoryOverrides);
+    return preferencesFromSettings(res.ok ? await res.json() : {});
   }
 
-  async saveOverrides(overrides: Overrides): Promise<void> {
+  async savePreferences(change: Partial<Preferences>): Promise<void> {
     const res = await fetchWithTimeout(`${this.baseUrl}/settings`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${this.code}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryOverrides: overrides }),
+      body: JSON.stringify(settingsFromPreferences(change)),
     });
     if (!res.ok) throw new Error(`Agent returned ${res.status}`);
   }

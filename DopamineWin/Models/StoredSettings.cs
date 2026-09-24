@@ -16,7 +16,9 @@ public class StoredSettings : ConfigurableSettings
         {
             TrackingInterval = TrackingInterval,
             IdleTimeout = IdleTimeout,
-            CategoryOverrides = CategoryOverrides
+            CategoryOverrides = CategoryOverrides,
+            CommunitySharing = CommunitySharing,
+            InstallId = InstallId
         };
     }
     

@@ -17,8 +17,9 @@ import {
   summarize,
 } from "./analytics";
 import { Category, Overrides, makeClassifier } from "./categories";
+import { Sharing, communityAvailable, fetchCommunityCategories, isShareable, newInstallId, shareChoice } from "./community";
 import { Insight, buildInsights } from "./insights";
-import { AuthError, EventStore } from "./source";
+import { AuthError, EventStore, Preferences } from "./source";
 import { Range, View, previousAnchor, rangeFor, startOfMonth, addMonths } from "./time";
 
 export interface DashboardData {
@@ -42,7 +43,11 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [overrides, setOverrides] = useState<Overrides>({});
+  const [prefs, setPrefs] = useState<Preferences>({ overrides: {}, sharing: "ask" });
+  const [community, setCommunity] = useState<Overrides>({});
+  /** A choice waiting for the user to decide whether to share it (asked once, on the first choice). */
+  const [pendingShare, setPendingShare] = useState<{ process: string; category: Category } | null>(null);
+  const overrides = prefs.overrides;
   const authRef = useRef(onAuthError);
   authRef.current = onAuthError;
 
@@ -53,19 +58,42 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     return { start: m.getTime(), end: addMonths(m, 1).getTime() };
   }, [anchor]);
 
-  useEffect(() => {
-    store.source.loadOverrides().then(setOverrides, () => {});
-  }, [store]);
+  const platform = store.source.platform;
+  // Sample data can walk through the sharing prompt, but never sends anything.
+  const canShare = platform === "demo" || communityAvailable();
 
-  /** Pins an app to a category (or back to automatic with null), saved by the agent. */
+  useEffect(() => {
+    store.source.loadPreferences().then(setPrefs, () => {});
+    if (platform !== "demo") fetchCommunityCategories(platform).then(setCommunity);
+  }, [store, platform]);
+
+  const savePrefs = (change: Partial<Preferences>) => {
+    setPrefs((prev) => ({ ...prev, ...change }));
+    store.source.savePreferences(change).catch(() => setError("Couldn't save that setting."));
+  };
+
+  const share = (installId: string | undefined, process: string, category: Category | null) => {
+    if (platform !== "demo" && installId) shareChoice(installId, process, platform, category);
+  };
+
+  /** Pins an app to a category (or back to automatic with null). */
   const setOverride = (process: string, category: Category | null) => {
-    setOverrides((prev) => {
-      const next = { ...prev };
-      if (category) next[process] = category;
-      else delete next[process];
-      store.source.saveOverrides(next).catch(() => setError("Couldn't save that category choice."));
-      return next;
-    });
+    const next = { ...prefs.overrides };
+    if (category) next[process] = category;
+    else delete next[process];
+    savePrefs({ overrides: next });
+
+    if (!canShare || !isShareable(process)) return;
+    if (prefs.sharing === "on") share(prefs.installId, process, category);
+    else if (prefs.sharing === "ask" && category) setPendingShare({ process, category });
+  };
+
+  /** The user's answer to the sharing prompt (also used by the footer switch). */
+  const setSharing = (sharing: Exclude<Sharing, "ask">) => {
+    const installId = sharing === "on" ? (prefs.installId ?? newInstallId()) : prefs.installId;
+    savePrefs({ sharing, installId });
+    if (sharing === "on" && pendingShare) share(installId, pendingShare.process, pendingShare.category);
+    setPendingShare(null);
   };
 
   // Load everything the current view needs; the store caches by month, so this is usually instant.
@@ -121,10 +149,10 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   }, [store, isLive]);
 
   const classify = useMemo(
-    () => makeClassifier((p) => store.app(p), overrides),
+    () => makeClassifier((p) => store.app(p), overrides, community),
     // `version` bumps when new app metadata may have arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, overrides, version],
+    [store, overrides, community, version],
   );
 
   const data = useMemo<DashboardData | null>(() => {
@@ -159,5 +187,13 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     // `version` bumps whenever the store's contents change.
   }, [store, version, view, range, prevRange, monthRange, now, classify]);
 
-  return { data, loading, error, now, overrides, setOverride };
+  return {
+    data,
+    loading,
+    error,
+    now,
+    overrides,
+    setOverride,
+    sharing: { available: canShare, state: prefs.sharing, pending: pendingShare, set: setSharing, isDemo: platform === "demo" },
+  };
 }

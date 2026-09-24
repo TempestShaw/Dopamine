@@ -28,6 +28,10 @@ struct StoredSettings: Codable, Equatable {
     var showTimeInMenuBar: Bool = true
     /// The user's category choices, keyed by process name ("work", "study", …).
     var categoryOverrides: [String: String] = [:]
+    /// "ask", "on" or "off": whether category choices are shared with the community (decided in the dashboard).
+    var communitySharing: String = "ask"
+    /// Random id sent with shared choices so one install counts once. Empty until sharing is turned on.
+    var installId: String = ""
 
     init(pairingCode: String) {
         self.pairingCode = pairingCode
@@ -40,6 +44,8 @@ struct StoredSettings: Codable, Equatable {
         idleTimeout = try c.decodeIfPresent(Int.self, forKey: .idleTimeout) ?? 300
         showTimeInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showTimeInMenuBar) ?? true
         categoryOverrides = try c.decodeIfPresent([String: String].self, forKey: .categoryOverrides) ?? [:]
+        communitySharing = try c.decodeIfPresent(String.self, forKey: .communitySharing) ?? "ask"
+        installId = try c.decodeIfPresent(String.self, forKey: .installId) ?? ""
     }
 
     static func generatePairingCode(length: Int = 6) -> String {
@@ -54,6 +60,8 @@ struct ConfigurableSettings: Codable {
     var trackingInterval: Int?
     var idleTimeout: Int?
     var categoryOverrides: [String: String]?
+    var communitySharing: String?
+    var installId: String?
 
     static let schemas: [[String: Any]] = [
         [

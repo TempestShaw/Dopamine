@@ -1,10 +1,9 @@
 // Deterministic sample data so the dashboard can be explored without an agent installed.
 
 import { AGENT_PROCESS, RawEvent } from "./analytics";
-import { Overrides } from "./categories";
-import { AppInfo, DataSource, sanitizeOverrides } from "./source";
+import { AppInfo, DataSource, Preferences, preferencesFromSettings, settingsFromPreferences } from "./source";
 
-const OVERRIDES_KEY = "dopamine.demo.categoryOverrides";
+const PREFS_KEY = "dopamine.demo.preferences";
 import { addDays, startOfDay } from "./time";
 
 type Activity = [process: string, titles: string[], weight: number, minMinutes: number, maxMinutes: number];
@@ -123,18 +122,19 @@ export class DemoSource implements DataSource {
     return out;
   }
 
-  // Sample data has no agent, so category choices are kept in this browser.
-  async loadOverrides(): Promise<Overrides> {
+  // Sample data has no agent, so preferences are kept in this browser. Nothing is ever shared.
+  async loadPreferences(): Promise<Preferences> {
     try {
-      return sanitizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_KEY) ?? "{}"));
+      return preferencesFromSettings(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"));
     } catch {
-      return {};
+      return preferencesFromSettings({});
     }
   }
 
-  async saveOverrides(overrides: Overrides): Promise<void> {
+  async savePreferences(change: Partial<Preferences>): Promise<void> {
     try {
-      localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+      const current = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}");
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...settingsFromPreferences(change) }));
     } catch {
       // Storage blocked: the choice lasts until reload.
     }

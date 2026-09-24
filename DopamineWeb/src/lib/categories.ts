@@ -82,13 +82,22 @@ function fromHint(hint: AppHint | undefined): Category | null {
  * Decides what a window is about:
  * 1. Browsers are judged by the site in the tab title.
  * 2. Other apps by their name (exact rules, including "other" for system utilities).
- * 3. Apps no rule knows: the metadata the agent read from the app (category, publisher, path).
+ * 3. Apps no rule knows: what other users agreed on, then the metadata the agent read from the
+ *    app (category, publisher, path).
  * 4. Finally the window title, e.g. `javaw` showing "Minecraft".
  */
-export function categorize(title: string, process: string, hint?: AppHint): Category {
-  const name = process.replace(/\.(exe|app)$/i, "").toLowerCase();
-  if (BROWSERS.has(name)) return match(SITES, title) ?? "other";
-  return match(APPS, appHaystack(process)) ?? fromHint(hint) ?? match(SITES, title) ?? "other";
+export function isBrowser(process: string): boolean {
+  return BROWSERS.has(process.replace(/\.(exe|app)$/i, "").toLowerCase());
+}
+
+/**
+ * `community` holds categories other users agreed on (see community.ts). It fills in for apps our
+ * rules don't know, but never overrides a built-in rule, so a handful of bad votes can't relabel
+ * well-known apps.
+ */
+export function categorize(title: string, process: string, hint?: AppHint, community?: Overrides): Category {
+  if (isBrowser(process)) return match(SITES, title) ?? "other";
+  return match(APPS, appHaystack(process)) ?? community?.[process] ?? fromHint(hint) ?? match(SITES, title) ?? "other";
 }
 
 /** A user's choice of category for an app, keyed by raw process name. Always wins. */
@@ -97,7 +106,11 @@ export type Overrides = Record<string, Category>;
 export type Classifier = (title: string, process: string) => Category;
 
 /** Builds a memoised classifier; rebuild it when hints or overrides change. */
-export function makeClassifier(hint: (process: string) => AppHint | undefined = () => undefined, overrides: Overrides = {}): Classifier {
+export function makeClassifier(
+  hint: (process: string) => AppHint | undefined = () => undefined,
+  overrides: Overrides = {},
+  community: Overrides = {},
+): Classifier {
   const cache = new Map<string, Category>();
   return (title, process) => {
     const chosen = overrides[process];
@@ -105,7 +118,7 @@ export function makeClassifier(hint: (process: string) => AppHint | undefined = 
     const key = `${process}\u0000${title}`;
     let c = cache.get(key);
     if (c === undefined) {
-      c = categorize(title, process, hint(process));
+      c = categorize(title, process, hint(process), community);
       if (cache.size > 20_000) cache.clear();
       cache.set(key, c);
     }

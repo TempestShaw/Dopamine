@@ -19,7 +19,18 @@ public class ConfigurableSettings
      */
     public Dictionary<string, string> CategoryOverrides { get; set; } = new();
 
+    /**
+     * "ask", "on" or "off": whether category choices are shared with the community (decided in the dashboard).
+     */
+    public string CommunitySharing { get; set; } = "ask";
+
+    /**
+     * Random id sent with shared choices so one install counts once. Empty until sharing is turned on.
+     */
+    public string InstallId { get; set; } = string.Empty;
+
     private static readonly HashSet<string> Categories = ["work", "study", "social", "entertainment", "other"];
+    private static readonly HashSet<string> SharingStates = ["ask", "on", "off"];
 
     public void Update(Partial partialSettings)
     {
@@ -38,6 +49,16 @@ public class ConfigurableSettings
             CategoryOverrides = partialSettings.CategoryOverrides
                 .Where(p => Categories.Contains(p.Value))
                 .ToDictionary(p => p.Key, p => p.Value);
+        }
+
+        if (partialSettings.CommunitySharing != null && SharingStates.Contains(partialSettings.CommunitySharing))
+        {
+            CommunitySharing = partialSettings.CommunitySharing;
+        }
+
+        if (partialSettings.InstallId != null && Guid.TryParse(partialSettings.InstallId, out _))
+        {
+            InstallId = partialSettings.InstallId;
         }
     }
 
@@ -80,6 +101,10 @@ public class ConfigurableSettings
         public int? IdleTimeout { get; set; } = null;
 
         public Dictionary<string, string>? CategoryOverrides { get; set; } = null;
+
+        public string? CommunitySharing { get; set; } = null;
+
+        public string? InstallId { get; set; } = null;
     }
 
     public enum SchemaType

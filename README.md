@@ -29,6 +29,25 @@ Both agents write the same SQLite schema and expose the same local API, so the d
 Authenticated requests send `Authorization: Bearer <pairing code>`; the code is shown in the agent's menu.
 Rows with process `<Dopamine>` are markers (`<Stopped>`, `<Idle>`) that end the previous activity.
 
+## Privacy
+
+Your activity never leaves your computer: window titles, times and usage stay in the local SQLite
+database and are only served to `localhost`.
+
+The one exception is optional. The first time you pick a category for an app ("Discord counts as
+Study"), the dashboard asks whether to share that choice. If you agree, this is the complete request
+it sends, for that and later choices:
+
+```json
+{ "p_install": "<random id for this install>", "p_app": "Discord", "p_platform": "mac", "p_category": "study" }
+```
+
+The request is built in [`DopamineWeb/src/lib/community.ts`](DopamineWeb/src/lib/community.ts) and
+stored by the functions in [`supabase/migrations`](supabase/migrations). Choices for browsers are never
+sent. Once at least 5 installs agree on an app (70%+ majority), it is categorised that way for everyone,
+but only for apps the built-in rules don't know, so a few bad votes can't relabel well-known apps.
+You can stop sharing any time from the dashboard footer.
+
 ## Running it
 
 ### macOS (12+)

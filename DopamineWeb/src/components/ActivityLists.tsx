@@ -3,14 +3,23 @@
 import { useState } from "react";
 import { AppStat, Session } from "@/lib/analytics";
 import { CATEGORIES, CATEGORY_META, Category, Overrides } from "@/lib/categories";
+import { Sharing, votePayload } from "@/lib/community";
 import { MINUTE, View, clock, formatDuration, shortDate } from "@/lib/time";
 import { AppAvatar, CategoryDot, ChevronDown, EmptyState, Section, Segmented } from "./ui";
 
 type Tab = "apps" | "sessions";
 
-type OverrideProps = { overrides: Overrides; onOverride: (process: string, category: Category | null) => void };
+export interface SharingState {
+  available: boolean;
+  state: Sharing;
+  pending: { process: string; category: Category } | null;
+  set: (s: "on" | "off") => void;
+  isDemo: boolean;
+}
 
-export function ActivityLists({ apps, sessions, total, view, overrides, onOverride }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
+type OverrideProps = { overrides: Overrides; onOverride: (process: string, category: Category | null) => void; sharing: SharingState };
+
+export function ActivityLists({ apps, sessions, total, view, overrides, onOverride, sharing }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
   const [tab, setTab] = useState<Tab>("apps");
   return (
     <Section
@@ -27,12 +36,12 @@ export function ActivityLists({ apps, sessions, total, view, overrides, onOverri
         />
       }
     >
-      {tab === "apps" ? <AppList apps={apps} total={total} overrides={overrides} onOverride={onOverride} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
+      {tab === "apps" ? <AppList apps={apps} total={total} overrides={overrides} onOverride={onOverride} sharing={sharing} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
     </Section>
   );
 }
 
-function AppList({ apps, total, overrides, onOverride }: { apps: AppStat[]; total: number } & OverrideProps) {
+function AppList({ apps, total, overrides, onOverride, sharing }: { apps: AppStat[]; total: number } & OverrideProps) {
   const [open, setOpen] = useState<string | null>(null);
   // Details are rendered the first time an app is opened and kept, so closing can animate too.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
@@ -102,6 +111,7 @@ function AppList({ apps, total, overrides, onOverride }: { apps: AppStat[]; tota
                         {a.titles.length > 8 && <li className="hand text-base text-faint">+{a.titles.length - 8} more windows</li>}
                       </ul>
                       <CategoryPicker app={a.app} current={overrides[a.process]} onPick={(c) => onOverride(a.process, c)} tabIndex={expanded ? 0 : -1} />
+                      {sharing.pending?.process === a.process && <SharePrompt app={a.app} process={a.process} category={sharing.pending.category} sharing={sharing} />}
                     </div>
                   )}
                 </div>
@@ -150,6 +160,39 @@ function CategoryPicker({ app, current, onPick, tabIndex }: { app: string; curre
       ) : (
         <span className="hand ml-1 text-base text-faint">(automatic)</span>
       )}
+    </div>
+  );
+}
+
+const SOURCE_URL = "https://github.com/TempestShaw/Dopamine/blob/main/DopamineWeb/src/lib/community.ts";
+
+/**
+ * Asked once, on the user's first category choice. Shows the exact request that would be sent so
+ * the promise "only the category is shared" can be checked, and links to the code that sends it.
+ */
+function SharePrompt({ app, process, category, sharing }: { app: string; process: string; category: Category; sharing: SharingState }) {
+  const payload = votePayload("<random id for this install>", process, "mac", category);
+  return (
+    <div className="sketch fade-in mt-4 px-4 py-3.5 text-[13px]">
+      <p className="text-[14px] leading-snug">
+        Share this choice so Dopamine recognises <b className="font-semibold">{app}</b> for other people too?
+      </p>
+      <p className="mt-1.5 text-graphite">This is everything that would be sent, now and for later choices. No window titles, no times, no usage:</p>
+      <pre className="mt-2 rounded-md bg-wash whitespace-pre-wrap break-all px-3 py-2 font-mono text-[12px] leading-relaxed text-ink">
+        {JSON.stringify({ ...payload, p_platform: "mac | windows" }, null, 1).replace(/\n\s*/g, " ")}
+      </pre>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button type="button" onClick={() => sharing.set("on")} className="dab bg-ink px-3.5 py-1.5 font-semibold text-paper hover:opacity-90">
+          Share anonymously
+        </button>
+        <button type="button" onClick={() => sharing.set("off")} className="font-medium text-graphite underline decoration-line underline-offset-4 hover:text-ink">
+          Keep it on this computer
+        </button>
+        <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="hand ml-auto text-base text-faint hover:text-graphite">
+          read the code →
+        </a>
+      </div>
+      {sharing.isDemo && <p className="hand mt-2 text-base text-faint">sample data: nothing is sent either way</p>}
     </div>
   );
 }

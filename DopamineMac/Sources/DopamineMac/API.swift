@@ -58,6 +58,8 @@ final class API {
                 if let v = patch.trackingInterval { s.trackingInterval = v }
                 if let v = patch.idleTimeout { s.idleTimeout = v }
                 if let v = patch.categoryOverrides { s.categoryOverrides = v.filter { Category(rawValue: $0.value) != nil } }
+                if let v = patch.communitySharing, ["ask", "on", "off"].contains(v) { s.communitySharing = v }
+                if let v = patch.installId, UUID(uuidString: v) != nil { s.installId = v }
             }
             return .json(current())
         default:
@@ -89,7 +91,10 @@ final class API {
 
     private func current() -> ConfigurableSettings {
         let s = settings.settings
-        return ConfigurableSettings(trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout, categoryOverrides: s.categoryOverrides)
+        return ConfigurableSettings(
+            trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout, categoryOverrides: s.categoryOverrides,
+            communitySharing: s.communitySharing, installId: s.installId.isEmpty ? nil : s.installId
+        )
     }
 
     // MARK: Static dashboard
