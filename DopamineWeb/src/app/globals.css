@@ -24,10 +24,10 @@
   --warn: #f06a1f;
 
   --cat-work: #2f6bff; /* cobalt */
-  --cat-study: #15c27f; /* mint */
-  --cat-social: #ff4f9a; /* bubblegum */
-  --cat-entertainment: #ff8a1e; /* tangerine */
-  --cat-other: #b49cff; /* lilac */
+  --cat-study: #4fb58a; /* soft mint */
+  --cat-social: #e8799f; /* dusty pink */
+  --cat-entertainment: #eea062; /* apricot */
+  --cat-other: #b3a6dc; /* muted lilac */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -46,10 +46,10 @@
     --good: #3ddc97;
     --warn: #ff9a4a;
     --cat-work: #5b8cff;
-    --cat-study: #34d893;
-    --cat-social: #ff6fae;
-    --cat-entertainment: #ffa04a;
-    --cat-other: #c3afff;
+    --cat-study: #6cc79f;
+    --cat-social: #ec91b2;
+    --cat-entertainment: #f2b27a;
+    --cat-other: #c1b6e4;
   }
 }
 
@@ -68,10 +68,10 @@
   --good: #3ddc97;
   --warn: #ff9a4a;
   --cat-work: #5b8cff;
-  --cat-study: #34d893;
-  --cat-social: #ff6fae;
-  --cat-entertainment: #ffa04a;
-  --cat-other: #c3afff;
+  --cat-study: #6cc79f;
+  --cat-social: #ec91b2;
+  --cat-entertainment: #f2b27a;
+  --cat-other: #c1b6e4;
 }
 
 @theme inline {

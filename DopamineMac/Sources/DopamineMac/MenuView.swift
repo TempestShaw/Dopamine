@@ -4,10 +4,10 @@ extension Category {
     var color: Color {
         switch self {
         case .work: return Color(red: 0.31, green: 0.43, blue: 0.97)
-        case .study: return Color(red: 0.07, green: 0.63, blue: 0.55)
-        case .social: return Color(red: 0.61, green: 0.36, blue: 0.96)
-        case .entertainment: return Color(red: 0.94, green: 0.55, blue: 0.23)
-        case .other: return Color(red: 0.64, green: 0.67, blue: 0.71)
+        case .study: return Color(red: 0.31, green: 0.71, blue: 0.54)
+        case .social: return Color(red: 0.91, green: 0.47, blue: 0.62)
+        case .entertainment: return Color(red: 0.93, green: 0.63, blue: 0.38)
+        case .other: return Color(red: 0.70, green: 0.65, blue: 0.86)
         }
     }
 }
