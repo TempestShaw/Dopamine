@@ -88,6 +88,21 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(StoredSettings(pairingCode: "ABC123").hidden, ["Dopamine"])
     }
 
+    // Same cases as DopamineWeb/src/lib/nlp.test.ts.
+    func testTitleModel() {
+        XCTAssertEqual(TitleModel.tokenize("Python 零基础入门"), ["python", "零基", "基础", "础入", "入门"])
+        XCTAssertEqual(TitleModel.tokenize("The 3 Best Tutorials"), ["best", "tutorials"])
+        let cases: [(String, Category)] = [
+            ("教你网络基础", .study), ("建立測試版本", .work), ("Celery實務比較", .work),
+            ("HermesEngine | Quantitative Trading Platform", .work),
+            ("特厨探店｜最擅长做鲍鱼的餐厅？！阿一鲍鱼！_哔哩哔哩_bilibili", .entertainment), ("仪表板", .other),
+            ("Python 零基础入门教程_哔哩哔哩_bilibili", .study),
+        ]
+        for (title, expected) in cases { XCTAssertEqual(Category.of(title: title, app: "Arc"), expected, title) }
+        XCTAssertEqual(Category.of(title: "CS50 2024 - Lecture 3 - Algorithms - YouTube - Google Chrome", app: "Google Chrome"), .study)
+        XCTAssertEqual(Category.of(title: "(12) lofi hip hop radio - beats to relax/study to - YouTube - Google Chrome", app: "Google Chrome"), .entertainment)
+    }
+
     func testLanguagesAndDurations() {
         XCTAssertEqual(Lang.from(["zh-Hans-CN", "en"]), .zhHans)
         XCTAssertEqual(Lang.from(["zh-Hant-TW"]), .zhHant)

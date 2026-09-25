@@ -291,6 +291,19 @@ export class EventStore {
     return names;
   }
 
+  /** Every distinct (process, title) loaded so far. */
+  windows(): [process: string, title: string][] {
+    const seen = new Set<string>();
+    const out: [string, string][] = [];
+    for (const e of this.events) {
+      const key = `${e.processName}\u0000${e.windowTitle}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push([e.processName, e.windowTitle]);
+    }
+    return out;
+  }
+
   /** Events that can contribute to segments inside `range`, sorted by time. */
   slice(range: Range): RawEvent[] {
     const lo = lowerBound(this.events, (range.start - MAX_SEGMENT) / 1000);

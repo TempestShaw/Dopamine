@@ -27,13 +27,25 @@ enum Category: String, CaseIterable {
         return best.flatMap { rules[$0] }.flatMap(Category.init(rawValue:))
     }
 
-    /// Same order of evidence as the web: browsers by site, then app name, then the app's own
-    /// metadata, then the window title.
-    static func of(title: String, app: String, hint: AppHint? = nil) -> Category {
+    /// Same order of evidence as `categorize` on the web: browsers by site, then app name, then the
+    /// app's own metadata, then the title's site names; what nothing recognises goes to the title model.
+    static func of(title: String, app: String, hint: AppHint? = nil, model: TitleModel = .seed) -> Category {
         let rules = CategoryRules.shared
         let name = app.replacingOccurrences(of: #"\.(exe|app)$"#, with: "", options: [.regularExpression, .caseInsensitive]).lowercased()
-        if rules.browsers.contains(name) { return rules.match(rules.sites, title) ?? .other }
-        return rules.match(rules.apps, CategoryRules.haystack(app)) ?? rules.fromHint(hint) ?? rules.match(rules.sites, title) ?? .other
+        let browser = rules.browsers.contains(name)
+        let known = browser
+            ? rules.match(rules.sites, title)
+            : rules.match(rules.apps, CategoryRules.haystack(app)) ?? rules.fromHint(hint) ?? rules.match(rules.sites, title)
+
+        // Video sites carry lectures as well as entertainment: judge the title without the platform's name.
+        if known == .entertainment && browser {
+            let text = cleanTitle(title)
+            let stripped = rules.anySite.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: " ")
+            if let g = model.guess(stripped), g.category == .study, g.p >= 0.8 { return .study }
+        }
+        if let known { return known }
+        if let g = model.guess(cleanTitle(title)), g.p >= TitleModel.minConfidence { return g.category }
+        return .other
     }
 }
 
@@ -56,6 +68,10 @@ struct CategoryRules {
     let platformKinds: [String: Category]
     let gamePaths: NSRegularExpression
     let gamePublishers: NSRegularExpression
+    /// Every site name at once, to take platform names out of a title before reading its topic.
+    let anySite: NSRegularExpression
+    /// Seed examples for the title model.
+    let titleExamples: [Category: [String]]
 
     init(json: String) {
         let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
@@ -72,6 +88,12 @@ struct CategoryRules {
         platformKinds = ((obj["platformKinds"] as? [String: String]) ?? [:]).compactMapValues(Category.init(rawValue:))
         gamePaths = CategoryRules.compile((obj["gamePaths"] as? [String]) ?? [])
         gamePublishers = CategoryRules.compile((obj["gamePublishers"] as? [String]) ?? [])
+        anySite = CategoryRules.compile(((obj["sites"] as? [[Any]]) ?? []).flatMap { ($0.last as? [String]) ?? [] })
+        var examples: [Category: [String]] = [:]
+        for (key, value) in (obj["titleExamples"] as? [String: [String]]) ?? [:] {
+            if let c = Category(rawValue: key) { examples[c] = value }
+        }
+        titleExamples = examples
     }
 
     /// Latin keywords must match whole words ("code" is not in "barcode"); others match anywhere.

@@ -1,5 +1,6 @@
 // Categorization. The rules live in category-rules.json, shared with the macOS agent.
 import RULES from "./category-rules.json";
+import { MIN_CONFIDENCE, TitleModel, buildTitleModel } from "./nlp";
 
 export type Category = "work" | "study" | "social" | "entertainment" | "other";
 
@@ -42,6 +43,8 @@ function compile(keywords: string[]): RegExp {
 
 const BROWSERS = new Set(RULES.browsers);
 const SITES: RuleList = RULES.sites.map(([c, k]) => [c as Category, compile(k as string[])]);
+// Every site name at once, to take platform names out of a title before reading its topic.
+const ANY_SITE = new RegExp(RULES.sites.map(([, k]) => compile(k as string[]).source).join("|"), "gi");
 const APPS: RuleList = RULES.apps.map(([c, k]) => [c as Category, compile(k as string[])]);
 const PLATFORM_KINDS = RULES.platformKinds as Record<string, Category>;
 const GAME_PATHS = compile(RULES.gamePaths);
@@ -96,9 +99,37 @@ export function isBrowser(process: string): boolean {
  * rules don't know, but never overrides a built-in rule, so a handful of bad votes can't relabel
  * well-known apps.
  */
-export function categorize(title: string, process: string, hint?: AppHint, community?: Overrides): Category {
-  if (isBrowser(process)) return match(SITES, title) ?? "other";
-  return match(APPS, appHaystack(process)) ?? community?.[process] ?? fromHint(hint) ?? match(SITES, title) ?? "other";
+export function categorize(title: string, process: string, hint?: AppHint, community?: Overrides, model: TitleModel = seedModel()): Category {
+  const browser = isBrowser(process);
+  const known = browser
+    ? match(SITES, title)
+    : (match(APPS, appHaystack(process)) ?? community?.[process] ?? fromHint(hint) ?? match(SITES, title));
+
+  // Video sites carry lectures as well as entertainment: judge the title without the platform's name.
+  if (known === "entertainment" && browser) {
+    const g = model.guess(cleanTitle(title, process).replace(ANY_SITE, " "));
+    if (g && g.category === "study" && g.p >= STUDY_ON_VIDEO_SITES) return "study";
+  }
+  if (known) return known;
+
+  // Nothing recognised: let the title model read it ("教你网络基础", "Intro to database systems").
+  const g = model.guess(cleanTitle(title, process));
+  return g && g.p >= MIN_CONFIDENCE ? g.category : "other";
+}
+
+/** The model must be this sure before a video counts as study rather than entertainment. */
+const STUDY_ON_VIDEO_SITES = 0.8;
+
+let seed: TitleModel | null = null;
+/** The model trained on the seed examples only (built once, on first use). */
+export function seedModel(): TitleModel {
+  return (seed ??= buildTitleModel(RULES.titleExamples as Partial<Record<Category, string[]>>));
+}
+
+/** The seed model plus what the user's own title rules teach. */
+export function userModel(rules: TitleRules, ruledTitles: Iterable<[string, Category]>): TitleModel {
+  if (Object.keys(rules).length === 0) return seedModel();
+  return buildTitleModel(RULES.titleExamples as Partial<Record<Category, string[]>>, rules, ruledTitles);
 }
 
 /** A user's choice of category for an app, keyed by raw process name. Always wins. */
@@ -127,6 +158,7 @@ export function makeClassifier(
   overrides: Overrides = {},
   community: Overrides = {},
   titleRules: TitleRules = {},
+  model: TitleModel = seedModel(),
 ): Classifier {
   const cache = new Map<string, Category>();
   const hasRules = Object.keys(titleRules).length > 0;
@@ -140,7 +172,7 @@ export function makeClassifier(
     const key = `${process}\u0000${title}`;
     let c = cache.get(key);
     if (c === undefined) {
-      c = categorize(title, process, hint(process), community);
+      c = categorize(title, process, hint(process), community, model);
       if (cache.size > 20_000) cache.clear();
       cache.set(key, c);
     }

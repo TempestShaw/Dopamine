@@ -16,7 +16,7 @@ import {
   hourOfDayProfile,
   summarize,
 } from "./analytics";
-import { Category, Overrides, TitleRules, makeClassifier } from "./categories";
+import { Category, Overrides, TitleRules, cleanTitle, makeClassifier, matchTitleRule, userModel } from "./categories";
 import { Sharing, communityAvailable, fetchCommunityCategories, isShareable, newInstallId, shareChoice } from "./community";
 import { Insight, buildInsights } from "./insights";
 import { useI18n } from "./i18n";
@@ -173,11 +173,27 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     };
   }, [store, isLive]);
 
+  // The title model learns from the user's rules and the windows they matched, so one rule for
+  // "CMU" also teaches the words around it.
+  const model = useMemo(() => {
+    const ruled: [string, Category][] = [];
+    if (Object.keys(prefs.titleRules).length) {
+      for (const [process, title] of store.windows()) {
+        const rule = matchTitleRule(title, prefs.titleRules);
+        if (rule) ruled.push([cleanTitle(title, process), rule.category]);
+        if (ruled.length >= 2000) break;
+      }
+    }
+    return userModel(prefs.titleRules, ruled);
+    // `version` bumps when more windows have loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, prefs.titleRules, version]);
+
   const classify = useMemo(
-    () => makeClassifier((p) => store.app(p), overrides, community, prefs.titleRules),
+    () => makeClassifier((p) => store.app(p), overrides, community, prefs.titleRules, model),
     // `version` bumps when new app metadata may have arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, overrides, community, prefs.titleRules, version],
+    [store, overrides, community, prefs.titleRules, model, version],
   );
 
   const hiddenSet = useMemo(() => new Set(prefs.hidden.map(hiddenKey)), [prefs.hidden]);

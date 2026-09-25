@@ -127,12 +127,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let overrides = settings.categoryOverrides.compactMapValues(Category.init(rawValue:))
             var cache: [String: Category] = [:]
             let titleRules = settings.titleRules
+            // The title model learns from the user's rules and the windows they matched, like the dashboard.
+            var ruled: [(String, Category)] = []
+            if !titleRules.isEmpty {
+                var seen = Set<String>()
+                for row in rows where seen.insert(row.windowTitle).inserted {
+                    if let c = Category.fromTitleRules(row.windowTitle, titleRules) { ruled.append((cleanTitle(row.windowTitle), c)) }
+                }
+            }
+            let model = TitleModel.user(rules: titleRules, ruledTitles: ruled)
             let classify: (String, String) -> Category = { title, process in
                 if let ruled = Category.fromTitleRules(title, titleRules) { return ruled }
                 if let chosen = overrides[process] { return chosen }
                 let key = process + "\u{0}" + title
                 if let hit = cache[key] { return hit }
-                let c = Category.of(title: title, app: process, hint: known[process]?.hint)
+                let c = Category.of(title: title, app: process, hint: known[process]?.hint, model: model)
                 cache[key] = c
                 return c
             }
