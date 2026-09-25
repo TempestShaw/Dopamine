@@ -156,6 +156,81 @@ internal static unsafe class Win32
         public fixed uint bmiColors[4];
     }
 
+    // Tray panel: window, painting and mouse
+    public const uint WM_ACTIVATE = 0x0006, WM_PAINT = 0x000F, WM_ERASEBKGND = 0x0014, WM_SETCURSOR = 0x0020;
+    public const uint WM_KEYDOWN = 0x0100, WM_MOUSEMOVE = 0x0200, WM_LBUTTONUP = 0x0202, WM_MOUSELEAVE = 0x02A3;
+    public const int VK_ESCAPE = 0x1B, WA_INACTIVE = 0;
+    public const uint WS_POPUP = 0x80000000, WS_EX_TOOLWINDOW = 0x80, WS_EX_TOPMOST = 0x8, CS_DROPSHADOW = 0x20000;
+    public const int SW_HIDE = 0;
+    public const uint SWP_SHOWWINDOW = 0x40;
+    public const uint TME_LEAVE = 2;
+    public const int IDC_ARROW = 32512, IDC_HAND = 32649;
+    public const uint DI_NORMAL = 3, SRCCOPY = 0x00CC0020;
+    public const int TRANSPARENT = 1;
+    public const uint DT_CENTER = 0x1, DT_RIGHT = 0x2, DT_VCENTER = 0x4, DT_SINGLELINE = 0x20, DT_NOPREFIX = 0x800, DT_END_ELLIPSIS = 0x8000;
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+    public const uint DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left, Top, Right, Bottom;
+
+        public RECT(int left, int top, int right, int bottom)
+        {
+            Left = left;
+            Top = top;
+            Right = right;
+            Bottom = bottom;
+        }
+
+        public readonly bool Contains(int x, int y) => x >= Left && x < Right && y >= Top && y < Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PAINTSTRUCT
+    {
+        public IntPtr hdc;
+        public int fErase;
+        public RECT rcPaint;
+        public int fRestore;
+        public int fIncUpdate;
+        public fixed byte rgbReserved[32];
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct TRACKMOUSEEVENT
+    {
+        public uint cbSize;
+        public uint dwFlags;
+        public IntPtr hwndTrack;
+        public uint dwHoverTime;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct NOTIFYICONIDENTIFIER
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uID;
+        public Guid guidItem;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SIZE
+    {
+        public int cx, cy;
+    }
+
     // user32 ---------------------------------------------------------------------------------
     [DllImport("user32.dll")] public static extern ushort RegisterClassExW(WNDCLASSEXW* wc);
     [DllImport("user32.dll")] public static extern IntPtr CreateWindowExW(uint exStyle, char* className, char* windowName, uint style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
@@ -187,11 +262,41 @@ internal static unsafe class Win32
     [DllImport("user32.dll")] public static extern int GetIconInfo(IntPtr icon, ICONINFO* info);
     [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
+    [DllImport("user32.dll")] public static extern IntPtr BeginPaint(IntPtr hwnd, PAINTSTRUCT* paint);
+    [DllImport("user32.dll")] public static extern int EndPaint(IntPtr hwnd, PAINTSTRUCT* paint);
+    [DllImport("user32.dll")] public static extern int InvalidateRect(IntPtr hwnd, RECT* rect, int erase);
+    [DllImport("user32.dll")] public static extern int FillRect(IntPtr dc, RECT* rect, IntPtr brush);
+    [DllImport("user32.dll")] public static extern int DrawTextW(IntPtr dc, char* text, int length, RECT* rect, uint format);
+    [DllImport("user32.dll")] public static extern int ShowWindow(IntPtr hwnd, int command);
+    [DllImport("user32.dll")] public static extern int IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern int SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int w, int h, uint flags);
+    [DllImport("user32.dll")] public static extern int TrackMouseEvent(TRACKMOUSEEVENT* track);
+    [DllImport("user32.dll")] public static extern IntPtr LoadCursorW(IntPtr instance, IntPtr name);
+    [DllImport("user32.dll")] public static extern IntPtr SetCursor(IntPtr cursor);
+    [DllImport("user32.dll")] public static extern int DrawIconEx(IntPtr dc, int x, int y, IntPtr icon, int w, int h, uint step, IntPtr brush, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT point, uint flags);
+    [DllImport("user32.dll")] public static extern int GetMonitorInfoW(IntPtr monitor, MONITORINFO* info);
+    [DllImport("user32.dll")] public static extern int SetProcessDpiAwarenessContext(IntPtr context);
 
     // gdi32 ----------------------------------------------------------------------------------
     [DllImport("gdi32.dll")] public static extern int GetObjectW(IntPtr obj, int size, void* buffer);
     [DllImport("gdi32.dll")] public static extern int GetDIBits(IntPtr dc, IntPtr bitmap, uint start, uint lines, void* bits, BITMAPINFO* info, uint usage);
     [DllImport("gdi32.dll")] public static extern int DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr dc);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int w, int h);
+    [DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
+    [DllImport("gdi32.dll")] public static extern int DeleteDC(IntPtr dc);
+    [DllImport("gdi32.dll")] public static extern int BitBlt(IntPtr dc, int x, int y, int w, int h, IntPtr src, int sx, int sy, uint rop);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateSolidBrush(uint color);
+    [DllImport("gdi32.dll")] public static extern int SetBkMode(IntPtr dc, int mode);
+    [DllImport("gdi32.dll")] public static extern uint SetTextColor(IntPtr dc, uint color);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateFontW(int height, int width, int escapement, int orientation, int weight, uint italic, uint underline, uint strikeOut, uint charSet, uint outPrecision, uint clipPrecision, uint quality, uint pitchAndFamily, char* face);
+    [DllImport("gdi32.dll")] public static extern int GetTextExtentPoint32W(IntPtr dc, char* text, int length, SIZE* size);
+
+    // dwmapi / shcore / advapi32 --------------------------------------------------------------
+    [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, uint attribute, void* value, uint size);
+    [DllImport("shcore.dll")] public static extern int GetDpiForMonitor(IntPtr monitor, int type, uint* dpiX, uint* dpiY);
+    [DllImport("advapi32.dll")] public static extern int RegGetValueW(IntPtr key, char* subKey, char* value, uint flags, uint* type, void* data, uint* size);
 
     // kernel32 -------------------------------------------------------------------------------
     [DllImport("kernel32.dll")] public static extern IntPtr GetModuleHandleW(char* name);
@@ -202,6 +307,7 @@ internal static unsafe class Win32
 
     // shell32 / wtsapi32 ---------------------------------------------------------------------
     [DllImport("shell32.dll")] public static extern int Shell_NotifyIconW(uint message, NOTIFYICONDATAW* data);
+    [DllImport("shell32.dll")] public static extern int Shell_NotifyIconGetRect(NOTIFYICONIDENTIFIER* id, RECT* rect);
     [DllImport("shell32.dll")] public static extern IntPtr ShellExecuteW(IntPtr hwnd, char* operation, char* file, char* parameters, char* directory, int show);
     [DllImport("shell32.dll")] public static extern int SHDefExtractIconW(char* iconFile, int index, uint flags, IntPtr* large, IntPtr* small, uint iconSize);
     [DllImport("wtsapi32.dll")] public static extern int WTSRegisterSessionNotification(IntPtr hwnd, uint flags);

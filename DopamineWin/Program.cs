@@ -4,8 +4,19 @@ namespace DopamineWin;
 
 public static class Program
 {
-    public static int Main()
+    public static int Main(string[] args)
     {
+        if (args.Contains("--selftest")) return SelfTest.Run();
+
+        // Crisp text and icons on high-DPI screens (per-monitor v2). Missing before Windows 10 1703.
+        try
+        {
+            Win32.SetProcessDpiAwarenessContext(-4);
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+
         // One tracker per user. Launching it again just opens the dashboard.
         using var single = new Mutex(true, @"Local\Dopamine", out var first);
         AppInfo.MigrateFromExeDirectory();

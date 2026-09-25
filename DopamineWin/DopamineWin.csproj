@@ -25,6 +25,11 @@
     <WarningsAsErrors>IL2026;IL2104;IL3050;IL3053</WarningsAsErrors>
   </PropertyGroup>
 
+  <!-- Category rules and seed titles, shared with the dashboard and the macOS agent. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\DopamineWeb\src\lib\category-rules.json" LogicalName="category-rules.json" />
+  </ItemGroup>
+
   <!-- The dashboard (run `bun run build` in ../DopamineWeb first) is embedded in the exe. -->
   <ItemGroup Condition="Exists('..\DopamineWeb\out\index.html')">
     <EmbeddedResource Include="..\DopamineWeb\out\**\*" LogicalName="web/%(RecursiveDir)%(Filename)%(Extension)" />

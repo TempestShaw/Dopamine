@@ -6,8 +6,9 @@ using static DopamineWin.Native.Win32;
 namespace DopamineWin;
 
 /// <summary>
-/// The notification-area icon and its menu, drawn with plain Win32 (no WinForms). A hidden window
-/// receives the icon's clicks plus lock/unlock, sleep/wake and shutdown notifications.
+/// The notification-area icon: a left click opens the panel (TrayPanel), a right click the menu.
+/// Plain Win32, no WinForms. A hidden window receives the icon's clicks plus lock/unlock,
+/// sleep/wake and shutdown notifications.
 /// </summary>
 public sealed unsafe class TrayIcon
 {
@@ -23,6 +24,7 @@ public sealed unsafe class TrayIcon
     private readonly Action _onExit;
     private IntPtr _hwnd;
     private IntPtr _icon;
+    private TrayPanel? _panel;
     private uint _taskbarCreated;
 
     public TrayIcon(WindowTracker tracker, SettingsService settings, DatabaseService database, Action onExit)
@@ -61,6 +63,7 @@ public sealed unsafe class TrayIcon
             return;
         }
 
+        _panel = new TrayPanel(_hwnd, module, _tracker, _settings, _database, OpenDashboard);
         fixed (char* name = "TaskbarCreated") _taskbarCreated = RegisterWindowMessageW(name);
         WTSRegisterSessionNotification(_hwnd, NOTIFY_FOR_THIS_SESSION);
         AddIcon();
@@ -123,11 +126,11 @@ public sealed unsafe class TrayIcon
         {
             switch ((uint)lParam)
             {
+                case WM_LBUTTONUP:
+                    _panel?.Toggle();
+                    break;
                 case WM_RBUTTONUP or WM_CONTEXTMENU:
                     ShowMenu();
-                    break;
-                case WM_LBUTTONDBLCLK:
-                    OpenDashboard();
                     break;
             }
 
@@ -196,12 +199,12 @@ public sealed unsafe class TrayIcon
 
             try
             {
-                var today = TodaySummary.Compute(_database, settings.Hidden);
+                var today = TodaySummary.Compute(_database, settings);
                 var state = _tracker.IsPaused ? Strings.T(" (paused)", "（已暂停）", "（已暫停）")
                     : _tracker.IsIdle ? Strings.T(" (idle)", "（闲置）", "（閒置）") : "";
                 Add(menu, $"{Strings.T("Today", "今天", "今天")}: {TodaySummary.Format(today.Total)}{state}", 0, MF_GRAYED);
-                foreach (var (process, duration) in today.TopApps)
-                    Add(menu, $"      {process}   {TodaySummary.Format(duration)}", 0, MF_GRAYED);
+                foreach (var app in today.Apps.Take(3))
+                    Add(menu, $"      {app.Name}   {TodaySummary.Format(app.Seconds)}", 0, MF_GRAYED);
             }
             catch (Exception ex)
             {

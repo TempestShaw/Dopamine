@@ -73,6 +73,10 @@ jobs:
         run: |
           $exe = Resolve-Path publish/DopamineWin.exe
           "Exe size: {0:N1} MB" -f ((Get-Item $exe).Length / 1MB)
+          # The C# categorizer must agree with the dashboard's (cases shared with the web tests).
+          $selftest = Start-Process -FilePath $exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content "$env:LOCALAPPDATA\Dopamine\dopamine.log" -ErrorAction SilentlyContinue | Select-String "selftest"
+          if ($selftest.ExitCode -ne 0) { throw "selftest failed" }
           $proc = Start-Process -FilePath $exe -PassThru
           $base = "http://127.0.0.1:26535"
           $info = $null
