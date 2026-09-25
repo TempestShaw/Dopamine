@@ -92,7 +92,7 @@ final class DopamineMacTests: XCTestCase {
     func testTitleModel() {
         XCTAssertEqual(TitleModel.tokenize("Python 零基础入门"), ["python", "零基", "基础", "础入", "入门"])
         XCTAssertEqual(TitleModel.tokenize("The 3 Best Tutorials"), ["best", "tutorials"])
-        let cases: [(String, Category)] = [
+        let cases: [(String, DopamineMac.Category)] = [
             ("教你网络基础", .study), ("建立測試版本", .work), ("Celery實務比較", .work),
             ("HermesEngine | Quantitative Trading Platform", .work),
             ("特厨探店｜最擅长做鲍鱼的餐厅？！阿一鲍鱼！_哔哩哔哩_bilibili", .entertainment), ("仪表板", .other),
