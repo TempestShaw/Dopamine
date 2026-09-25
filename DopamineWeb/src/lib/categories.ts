@@ -5,12 +5,13 @@ export type Category = "work" | "study" | "social" | "entertainment" | "other";
 
 export const CATEGORIES: Category[] = ["work", "study", "social", "entertainment", "other"];
 
-export const CATEGORY_META: Record<Category, { label: string; color: string; productive: boolean }> = {
-  work: { label: "Work", color: "var(--cat-work)", productive: true },
-  study: { label: "Study", color: "var(--cat-study)", productive: true },
-  social: { label: "Social", color: "var(--cat-social)", productive: false },
-  entertainment: { label: "Entertainment", color: "var(--cat-entertainment)", productive: false },
-  other: { label: "Other", color: "var(--cat-other)", productive: false },
+/** Names are in i18n.ts (`categories`). */
+export const CATEGORY_META: Record<Category, { color: string; productive: boolean }> = {
+  work: { color: "var(--cat-work)", productive: true },
+  study: { color: "var(--cat-study)", productive: true },
+  social: { color: "var(--cat-social)", productive: false },
+  entertainment: { color: "var(--cat-entertainment)", productive: false },
+  other: { color: "var(--cat-other)", productive: false },
 };
 
 /** Metadata an agent reads from the app itself, used for apps no rule knows by name. */
@@ -145,6 +146,7 @@ const APP_NAMES: Record<string, string> = {
   shellexperiencehost: "Windows Shell",
   lockapp: "Lock Screen",
   finder: "Finder",
+  dopaminewin: "Dopamine",
 };
 
 /** Human-friendly app name from a raw process name ("msedge" -> "Edge"). */

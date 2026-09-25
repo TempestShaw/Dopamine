@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { langScript } from "@/lib/locale";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript + langScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="stylesheet" href={FONTS} />

@@ -46,7 +46,7 @@ struct MenuView: View {
                 categoryBar
                 appList
             } else {
-                Text(model.userPaused ? "Tracking is paused." : "Nothing tracked yet today.")
+                Text(model.userPaused ? L("Tracking is paused.", "已暂停记录。", "已暫停記錄。") : L("Nothing tracked yet today.", "今天还没有记录。", "今天還沒有紀錄。"))
                     .font(.callout)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 60)
@@ -67,7 +67,7 @@ struct MenuView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Today").font(.caption).foregroundColor(.secondary)
+                Text(L("Today", "今天", "今天")).font(.caption).foregroundColor(.secondary)
                 Text(formatDuration(model.summary.total))
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .monospacedDigit()
@@ -77,7 +77,7 @@ struct MenuView: View {
                 status
                 if model.summary.total > 0 {
                     let share = model.summary.focus / model.summary.total
-                    Text("\(Int((share * 100).rounded()))% focused")
+                    Text(L("\(Int((share * 100).rounded()))% focused", "专注 \(Int((share * 100).rounded()))%", "專注 \(Int((share * 100).rounded()))%"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -86,7 +86,14 @@ struct MenuView: View {
     }
 
     private var status: some View {
-        let (text, color): (String, Color) = model.userPaused ? ("Paused", .orange) : model.isIdle ? ("Idle", .secondary) : model.isRecording ? ("Recording", .green) : ("Suspended", .secondary)
+        let text: String
+        let color: Color
+        switch (model.userPaused, model.isIdle, model.isRecording) {
+        case (true, _, _): text = L("Paused", "已暂停", "已暫停"); color = .orange
+        case (_, true, _): text = L("Idle", "闲置", "閒置"); color = .secondary
+        case (_, _, true): text = L("Recording", "记录中", "記錄中"); color = .green
+        default: text = L("Suspended", "已挂起", "已暫止"); color = .secondary
+        }
         return HStack(spacing: 5) {
             Circle().fill(color).frame(width: 7, height: 7)
             Text(text).font(.caption.weight(.medium))
@@ -156,9 +163,9 @@ struct MenuView: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "lock.shield").foregroundColor(.orange)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Window titles need Accessibility access").font(.caption.weight(.semibold))
-                Text("Without it Dopamine only sees app names.").font(.caption).foregroundColor(.secondary)
-                Button("Open System Settings…", action: actions.grantAccessibility)
+                Text(L("Window titles need Accessibility access", "读取窗口标题需要“辅助功能”权限", "讀取視窗標題需要「輔助使用」權限")).font(.caption.weight(.semibold))
+                Text(L("Without it Dopamine only sees app names.", "没有权限时 Dopamine 只能看到应用名称。", "沒有權限時 Dopamine 只能看到應用程式名稱。")).font(.caption).foregroundColor(.secondary)
+                Button(L("Open System Settings…", "打开系统设置…", "打開系統設定…"), action: actions.grantAccessibility)
                     .buttonStyle(.link)
                     .font(.caption)
             }
@@ -171,7 +178,7 @@ struct MenuView: View {
     private var footer: some View {
         VStack(spacing: 10) {
             Button(action: actions.openDashboard) {
-                Label("Open Dashboard", systemImage: "chart.bar.xaxis")
+                Label(L("Open Dashboard", "打开仪表板", "打開儀表板"), systemImage: "chart.bar.xaxis")
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
@@ -185,29 +192,29 @@ struct MenuView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Pairing code").foregroundColor(.secondary)
+                        Text(L("Pairing code", "配对码", "配對碼")).foregroundColor(.secondary)
                         Text(model.pairingCode).font(.system(.caption, design: .monospaced).weight(.semibold))
                         Image(systemName: copied ? "checkmark" : "doc.on.doc").foregroundColor(.secondary)
                     }
                     .font(.caption)
                 }
                 .buttonStyle(.plain)
-                .help("Copy pairing code")
+                .help(L("Copy pairing code", "复制配对码", "拷貝配對碼"))
                 Spacer()
-                Button(model.userPaused ? "Resume" : "Pause", action: actions.togglePause)
+                Button(model.userPaused ? L("Resume", "继续", "繼續") : L("Pause", "暂停", "暫停"), action: actions.togglePause)
                     .buttonStyle(.link)
                     .font(.caption)
             }
 
             HStack {
                 if model.canLaunchAtLogin {
-                    Toggle("Open at login", isOn: Binding(get: { model.launchAtLogin }, set: actions.setLaunchAtLogin))
+                    Toggle(L("Open at login", "登录时打开", "登入時打開"), isOn: Binding(get: { model.launchAtLogin }, set: actions.setLaunchAtLogin))
                         .toggleStyle(.checkbox)
                         .font(.caption)
                 }
                 Spacer()
                 Text("v\(appVersion)").font(.caption2).foregroundColor(.secondary)
-                Button("Quit", action: actions.quit)
+                Button(L("Quit", "退出", "結束"), action: actions.quit)
                     .buttonStyle(.link)
                     .font(.caption)
             }

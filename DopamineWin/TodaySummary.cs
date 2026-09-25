@@ -11,13 +11,17 @@ public record TodaySummary(TimeSpan Total, IReadOnlyList<(string Process, TimeSp
 {
     private static readonly TimeSpan MaxSegment = TimeSpan.FromHours(2);
 
-    public static TodaySummary Compute(DatabaseService database)
+    public static TodaySummary Compute(DatabaseService database, IEnumerable<string> hidden)
     {
         var now = DateTimeOffset.Now;
         var start = new DateTimeOffset(now.Date, now.Offset);
         var rows = database.GetActivities((start - MaxSegment).ToUnixTimeSeconds(), now.ToUnixTimeSeconds() + 60);
-        return Compute(rows, start.ToUnixTimeSeconds(), now.ToUnixTimeSeconds());
+        return Compute(rows, start.ToUnixTimeSeconds(), now.ToUnixTimeSeconds(), hidden);
     }
+
+    /// <summary>"DopamineWin.exe" and "dopaminewin" are the same app when matching the hidden list.</summary>
+    public static string HiddenKey(string process) =>
+        (process.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process[..^4] : process).ToLowerInvariant();
 
     /// <summary>
     /// Windows in front for less than this many seconds are accidental; their time stays with the
@@ -25,8 +29,10 @@ public record TodaySummary(TimeSpan Total, IReadOnlyList<(string Process, TimeSp
     /// </summary>
     public const long MinDwell = 5;
 
-    public static TodaySummary Compute(IReadOnlyList<WindowActivity> rows, long from, long now)
+    /// <summary>Hidden apps drop out after glances are merged, so their time isn't handed to the window before them.</summary>
+    public static TodaySummary Compute(IReadOnlyList<WindowActivity> rows, long from, long now, IEnumerable<string>? hidden = null)
     {
+        var hiddenKeys = (hidden ?? Enumerable.Empty<string>()).Select(HiddenKey).ToHashSet();
         // First pass on unclipped times: drop glances, extending the window that was in front before.
         var kept = new List<(string Process, long Start, long End)>();
         for (var i = 0; i < rows.Count; i++)
@@ -50,6 +56,7 @@ public record TodaySummary(TimeSpan Total, IReadOnlyList<(string Process, TimeSp
         long total = 0;
         foreach (var (process, start, end) in kept)
         {
+            if (hiddenKeys.Contains(HiddenKey(process))) continue;
             var seconds = end - Math.Max(start, from);
             if (seconds <= 0) continue;
             total += seconds;
@@ -61,10 +68,17 @@ public record TodaySummary(TimeSpan Total, IReadOnlyList<(string Process, TimeSp
         return new TodaySummary(TimeSpan.FromSeconds(total), top);
     }
 
-    public static string Format(TimeSpan t)
+    /// <summary>"3h 12m", "3小时12分", "3小時12分": same units as the dashboard.</summary>
+    public static string Format(TimeSpan t, Lang? lang = null)
     {
+        var (h, m, mOnly, sep) = (lang ?? Strings.Current) switch
+        {
+            Lang.ZhHans => ("小时", "分", "分钟", ""),
+            Lang.ZhHant => ("小時", "分", "分鐘", ""),
+            _ => ("h", "m", "m", " "),
+        };
         var minutes = (int)t.TotalMinutes;
-        if (minutes < 60) return $"{minutes}m";
-        return minutes % 60 == 0 ? $"{minutes / 60}h" : $"{minutes / 60}h {minutes % 60}m";
+        if (minutes < 60) return $"{minutes}{mOnly}";
+        return minutes % 60 == 0 ? $"{minutes / 60}{h}" : $"{minutes / 60}{h}{sep}{minutes % 60}{m}";
     }
 }

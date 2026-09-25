@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             database = try Database(url: Paths.database)
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Dopamine couldn't open its database"
+            alert.messageText = L("Dopamine couldn't open its database", "Dopamine 无法打开数据库", "Dopamine 無法開啟資料庫")
             alert.informativeText = "\(error)"
             alert.runModal()
             NSApp.terminate(nil)
@@ -38,7 +38,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try server.start()
             self.server = server
         } catch {
-            model.serverError = "Port \(apiPort) is busy — is another copy of Dopamine running?"
+            model.serverError = L(
+                "Port \(apiPort) is busy — is another copy of Dopamine running?",
+                "端口 \(apiPort) 被占用，是不是已经有一个 Dopamine 在运行？",
+                "連接埠 \(apiPort) 被佔用，是不是已經有一個 Dopamine 在執行？"
+            )
             Log.error("Could not start API: \(error)")
         }
 
@@ -97,12 +101,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateStatusButton() {
         guard let button = statusItem?.button else { return }
-        let symbol = model.userPaused ? "pause.circle" : "hourglass"
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Dopamine")
-        image?.isTemplate = true
-        button.image = image
+        button.image = StatusIcon.image
+        // Paused: the dabs fade, like the other menu bar items that are switched off.
+        button.appearsDisabled = model.userPaused
         let showTime = settings.settings.showTimeInMenuBar && model.summary.total >= 60 && !model.userPaused
-        button.title = showTime ? " " + formatDuration(model.summary.total) : ""
+        // Menu bar space is tight, so the figure stays in its shortest form ("3h 12m") in every language.
+        button.title = showTime ? " " + formatDuration(model.summary.total, lang: .en) : ""
         button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     }
 
@@ -130,8 +134,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 cache[key] = c
                 return c
             }
-            let todaySummary = DaySummary.compute(rows: rows, start: today, end: now, now: now, classify: classify)
-            let yesterdaySummary = DaySummary.compute(rows: rows, start: yesterday, end: today, now: now, classify: classify)
+            let hidden = settings.hidden
+            let todaySummary = DaySummary.compute(rows: rows, start: today, end: now, now: now, hidden: hidden, classify: classify)
+            let yesterdaySummary = DaySummary.compute(rows: rows, start: yesterday, end: today, now: now, hidden: hidden, classify: classify)
             let iconData = todaySummary.apps.prefix(5).reduce(into: [String: Data]()) { out, app in
                 if let png = known[app.app]?.png { out[app.app] = png }
             }

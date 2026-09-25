@@ -1,7 +1,7 @@
 import Foundation
 
 let apiPort: UInt16 = 26535
-let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.1"
+let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.2"
 
 /// Routes compatible with DopamineWin's ApiServer, plus static hosting of the web dashboard.
 final class API {
@@ -60,6 +60,7 @@ final class API {
                 if let v = patch.categoryOverrides { s.categoryOverrides = v.filter { Category(rawValue: $0.value) != nil } }
                 if let v = patch.communitySharing, ["ask", "on", "off"].contains(v) { s.communitySharing = v }
                 if let v = patch.installId, UUID(uuidString: v) != nil { s.installId = v }
+                if let v = patch.hiddenApps { s.hiddenApps = Array(v.filter { !$0.isEmpty && $0.count <= 256 }.prefix(500)) }
             }
             return .json(current())
         default:
@@ -93,7 +94,8 @@ final class API {
         let s = settings.settings
         return ConfigurableSettings(
             trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout, categoryOverrides: s.categoryOverrides,
-            communitySharing: s.communitySharing, installId: s.installId.isEmpty ? nil : s.installId
+            communitySharing: s.communitySharing, installId: s.installId.isEmpty ? nil : s.installId,
+            hiddenApps: s.hidden
         )
     }
 

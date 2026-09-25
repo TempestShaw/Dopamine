@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dashboard } from "@/components/Dashboard";
 import { PairScreen } from "@/components/PairScreen";
 import { Logo } from "@/components/ui";
 import { DemoSource } from "@/lib/demo";
+import { I18nContext, Locale, detectLocale, saveLocale } from "@/lib/i18n";
+import { setTimeLocale } from "@/lib/time";
 import { AgentInfo, AgentSource, EventStore, clearPairing, defaultAgentUrl, identify, loadPairing, savePairing, verifyCode } from "@/lib/source";
 
 type State = { kind: "booting" } | { kind: "pairing" } | { kind: "ready"; store: EventStore };
@@ -26,6 +28,26 @@ function takeHashPairing(): { code: string; url?: string } | null {
 
 export default function Home() {
   const [state, setState] = useState<State>({ kind: "booting" });
+  // Held here, above everything, so a change re-renders the whole page in the new language.
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    const l = detectLocale();
+    setTimeLocale(l);
+    return l;
+  });
+  const i18n = useMemo(
+    () => ({
+      locale,
+      setLocale: (l: Locale) => {
+        setTimeLocale(l);
+        saveLocale(l);
+        setLocaleState(l);
+      },
+    }),
+    [locale],
+  );
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const connect = useCallback((url: string, code: string, info: AgentInfo) => {
     savePairing({ url, code });
@@ -55,7 +77,7 @@ export default function Home() {
   }, []);
 
   return (
-    <>
+    <I18nContext.Provider value={i18n}>
       {state.kind === "booting" ? (
         <div className="grid min-h-screen place-items-center">
           <Logo className="size-12 animate-pulse" />
@@ -65,6 +87,6 @@ export default function Home() {
       ) : (
         <Dashboard store={state.store} onDisconnect={disconnect} />
       )}
-    </>
+    </I18nContext.Provider>
   );
 }

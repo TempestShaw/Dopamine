@@ -72,6 +72,32 @@ final class DopamineMacTests: XCTestCase {
     }
 
     // Mirrors cases from DopamineWeb/src/lib/__fixtures__/categorize-corpus.ts.
+    func testHiddenAppsDropOutOfTheSummary() {
+        let rows = [
+            WindowActivity(id: 1, timestamp: 1000, windowTitle: "main.swift", processName: "Xcode"),
+            WindowActivity(id: 2, timestamp: 1600, windowTitle: "Dopamine", processName: "Dopamine"),
+            WindowActivity(id: 3, timestamp: 1700, windowTitle: "main.swift", processName: "Xcode"),
+            WindowActivity(id: 4, timestamp: 2000, windowTitle: Marker.stopped, processName: Marker.process),
+        ]
+        let s = DaySummary.compute(
+            rows: rows, start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 10_000),
+            now: Date(timeIntervalSince1970: 5000), hidden: StoredSettings.defaultHidden
+        )
+        XCTAssertEqual(s.total, 900) // the 100 s in Dopamine are not handed to Xcode
+        XCTAssertEqual(s.apps.map(\.app), ["Xcode"])
+        XCTAssertEqual(StoredSettings(pairingCode: "ABC123").hidden, ["Dopamine"])
+    }
+
+    func testLanguagesAndDurations() {
+        XCTAssertEqual(Lang.from(["zh-Hans-CN", "en"]), .zhHans)
+        XCTAssertEqual(Lang.from(["zh-Hant-TW"]), .zhHant)
+        XCTAssertEqual(Lang.from(["zh-HK"]), .zhHant)
+        XCTAssertEqual(Lang.from(["de-DE", "en-GB"]), .en)
+        XCTAssertEqual(formatDuration(192 * 60, lang: .en), "3h 12m")
+        XCTAssertEqual(formatDuration(192 * 60, lang: .zhHans), "3小时12分")
+        XCTAssertEqual(formatDuration(45 * 60, lang: .zhHant), "45分鐘")
+    }
+
     func testCategories() {
         XCTAssertEqual(Category.of(title: "Bilibili", app: "Google Chrome"), .entertainment)
         XCTAssertEqual(Category.of(title: "", app: "Xcode"), .work)
@@ -119,5 +145,13 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(get("/").status, 200)
         XCTAssertEqual(get("/../config.json").status, 404)
         XCTAssertEqual(settings.settings.pairingCode.count, 6)
+
+        let put = api.handle(HTTPRequest(
+            method: "PUT", path: "/settings", query: [:],
+            headers: ["authorization": "Bearer \(settings.settings.pairingCode)"],
+            body: Data(#"{"hiddenApps":["Steam",""]}"#.utf8)
+        ))
+        XCTAssertEqual(put.status, 200)
+        XCTAssertEqual(settings.settings.hidden, ["Steam"])
     }
 }

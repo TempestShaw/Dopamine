@@ -1,8 +1,7 @@
-import { addDays, formatDuration, sameDay, startOfMonth, startOfWeek } from "@/lib/time";
+import { useT } from "@/lib/i18n";
+import { addDays, formatDuration, longDay, monthName, sameDay, startOfMonth, startOfWeek, weekdayInitials } from "@/lib/time";
 import { Section } from "./ui";
 
-const monthName = new Intl.DateTimeFormat(undefined, { month: "long" });
-const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 // Paint load of a dab (share of --heat mixed into the paper). Even the busiest day stays
 // translucent so the grid reads as a wash rather than a row of solid blobs.
@@ -47,11 +46,12 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
   const monthTotal = values.reduce((a, b) => a + b, 0);
   const activeDays = values.filter((v) => v > 0).length;
   const strength = paintScale(values);
+  const t = useT();
 
   return (
-    <Section title={monthName.format(first)} note={activeDays ? `~${formatDuration(monthTotal / activeDays)} a day` : undefined}>
+    <Section title={monthName(first)} note={activeDays ? t.calendar.perDay(formatDuration(monthTotal / activeDays)) : undefined}>
       <div className="grid grid-cols-7 gap-1.5 text-center">
-        {WEEKDAYS.map((w, i) => (
+        {weekdayInitials().map((w, i) => (
           <div key={i} className="pb-1 text-[11px] font-medium text-faint">
             {w}
           </div>
@@ -69,7 +69,7 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
               type="button"
               disabled={!inMonth || future}
               onClick={() => onPick(d)}
-              title={inMonth ? `${d.toDateString()} · ${formatDuration(ms)}` : undefined}
+              title={inMonth ? `${longDay(d)} · ${formatDuration(ms)}` : undefined}
               className={`num relative grid aspect-square place-items-center text-[12px] transition-transform enabled:hover:scale-110 ${!inMonth ? "invisible" : ""} ${
                 future ? "text-faint/50" : s > 0 ? "text-ink" : "text-graphite"
               }`}
@@ -90,11 +90,11 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
         })}
       </div>
       <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-faint">
-        <span className="hand text-base">less</span>
+        <span className="hand text-base">{t.calendar.less}</span>
         {LEGEND.map((s) => (
           <span key={s} className="dab paint size-3" style={{ background: dab(s) }} />
         ))}
-        <span className="hand text-base">more</span>
+        <span className="hand text-base">{t.calendar.more}</span>
       </div>
     </Section>
   );
