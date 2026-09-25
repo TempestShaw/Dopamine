@@ -63,6 +63,10 @@ final class API {
                 if let v = patch.titleRules {
                     s.titleRules = v.filter { !$0.key.isEmpty && $0.key.count <= 200 && Category(rawValue: $0.value) != nil }
                 }
+                if let v = patch.titleLabels {
+                    let valid = v.filter { !$0.key.isEmpty && $0.key.count <= 300 && Category(rawValue: $0.value) != nil }
+                    s.titleLabels = valid.count <= 3000 ? valid : Dictionary(uniqueKeysWithValues: valid.prefix(3000).map { ($0.key, $0.value) })
+                }
                 if let v = patch.hiddenApps { s.hiddenApps = Array(v.filter { !$0.isEmpty && $0.count <= 256 }.prefix(500)) }
             }
             return .json(current())
@@ -98,7 +102,7 @@ final class API {
         return ConfigurableSettings(
             trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout, categoryOverrides: s.categoryOverrides,
             communitySharing: s.communitySharing, installId: s.installId.isEmpty ? nil : s.installId,
-            hiddenApps: s.hidden, titleRules: s.titleRules
+            hiddenApps: s.hidden, titleRules: s.titleRules, titleLabels: s.titleLabels
         )
     }
 

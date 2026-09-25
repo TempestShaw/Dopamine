@@ -33,15 +33,25 @@ enum Category: String, CaseIterable {
         let rules = CategoryRules.shared
         let name = app.replacingOccurrences(of: #"\.(exe|app)$"#, with: "", options: [.regularExpression, .caseInsensitive]).lowercased()
         let browser = rules.browsers.contains(name)
+        let haystack = CategoryRules.haystack(app)
+        let byName = rules.match(rules.apps, haystack)
+
+        // Note apps and AI chats are used for anything; the page or chat title says what.
+        if !browser && byName == nil && rules.mixedApps.firstMatch(in: haystack, range: NSRange(haystack.startIndex..., in: haystack)) != nil {
+            if let g = model.guess(cleanTitle(title)), g.p >= TitleModel.minConfidence { return g.category }
+            return rules.fromHint(hint) ?? .other
+        }
+
         let known = browser
             ? rules.match(rules.sites, title)
-            : rules.match(rules.apps, CategoryRules.haystack(app)) ?? rules.fromHint(hint) ?? rules.match(rules.sites, title)
+            : byName ?? rules.fromHint(hint) ?? rules.match(rules.sites, title)
 
-        // Video sites carry lectures as well as entertainment: judge the title without the platform's name.
+        // Video sites carry lectures and talks as well as entertainment: read the title without the
+        // platform's name, and move it only when the model is sure.
         if known == .entertainment && browser {
             let text = cleanTitle(title)
             let stripped = rules.anySite.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: " ")
-            if let g = model.guess(stripped), g.category == .study, g.p >= 0.8 { return .study }
+            if let g = model.guess(stripped), g.category == .study || g.category == .work, g.p >= 0.8 { return g.category }
         }
         if let known { return known }
         if let g = model.guess(cleanTitle(title)), g.p >= TitleModel.minConfidence { return g.category }
@@ -70,6 +80,8 @@ struct CategoryRules {
     let gamePublishers: NSRegularExpression
     /// Every site name at once, to take platform names out of a title before reading its topic.
     let anySite: NSRegularExpression
+    /// Apps used for anything (note apps, AI chats): judged by their window titles.
+    let mixedApps: NSRegularExpression
     /// Seed examples for the title model.
     let titleExamples: [Category: [String]]
 
@@ -88,6 +100,7 @@ struct CategoryRules {
         platformKinds = ((obj["platformKinds"] as? [String: String]) ?? [:]).compactMapValues(Category.init(rawValue:))
         gamePaths = CategoryRules.compile((obj["gamePaths"] as? [String]) ?? [])
         gamePublishers = CategoryRules.compile((obj["gamePublishers"] as? [String]) ?? [])
+        mixedApps = CategoryRules.compile((obj["mixedApps"] as? [String]) ?? [])
         anySite = CategoryRules.compile(((obj["sites"] as? [[Any]]) ?? []).flatMap { ($0.last as? [String]) ?? [] })
         var examples: [Category: [String]] = [:]
         for (key, value) in (obj["titleExamples"] as? [String: [String]]) ?? [:] {

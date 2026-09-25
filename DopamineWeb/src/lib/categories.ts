@@ -46,6 +46,7 @@ const SITES: RuleList = RULES.sites.map(([c, k]) => [c as Category, compile(k as
 // Every site name at once, to take platform names out of a title before reading its topic.
 const ANY_SITE = new RegExp(RULES.sites.map(([, k]) => compile(k as string[]).source).join("|"), "gi");
 const APPS: RuleList = RULES.apps.map(([c, k]) => [c as Category, compile(k as string[])]);
+const MIXED_APPS = compile(RULES.mixedApps);
 const PLATFORM_KINDS = RULES.platformKinds as Record<string, Category>;
 const GAME_PATHS = compile(RULES.gamePaths);
 const GAME_PUBLISHERS = compile(RULES.gamePublishers);
@@ -100,25 +101,34 @@ export function isBrowser(process: string): boolean {
  * well-known apps.
  */
 export function categorize(title: string, process: string, hint?: AppHint, community?: Overrides, model: TitleModel = seedModel()): Category {
+  const read = (text: string) => model.guess(cleanTitle(text, process));
+
+  // Note apps and AI chats are used for anything; the page or chat title says what.
+  if (!isBrowser(process) && !match(APPS, appHaystack(process)) && MIXED_APPS.test(appHaystack(process))) {
+    const g = read(title);
+    return g && g.p >= MIN_CONFIDENCE ? g.category : (fromHint(hint) ?? "other");
+  }
+
   const browser = isBrowser(process);
   const known = browser
     ? match(SITES, title)
     : (match(APPS, appHaystack(process)) ?? community?.[process] ?? fromHint(hint) ?? match(SITES, title));
 
-  // Video sites carry lectures as well as entertainment: judge the title without the platform's name.
+  // Video sites carry lectures and talks as well as entertainment: read the title without the
+  // platform's name, and move it only when the model is sure.
   if (known === "entertainment" && browser) {
-    const g = model.guess(cleanTitle(title, process).replace(ANY_SITE, " "));
-    if (g && g.category === "study" && g.p >= STUDY_ON_VIDEO_SITES) return "study";
+    const g = read(title.replace(ANY_SITE, " "));
+    if (g && (g.category === "study" || g.category === "work") && g.p >= SURE) return g.category;
   }
   if (known) return known;
 
-  // Nothing recognised: let the title model read it ("教你网络基础", "Intro to database systems").
-  const g = model.guess(cleanTitle(title, process));
+  // Nothing recognised: let the title model read it.
+  const g = read(title);
   return g && g.p >= MIN_CONFIDENCE ? g.category : "other";
 }
 
-/** The model must be this sure before a video counts as study rather than entertainment. */
-const STUDY_ON_VIDEO_SITES = 0.8;
+/** How sure the model must be to overrule a site rule. */
+const SURE = 0.8;
 
 let seed: TitleModel | null = null;
 /** The model trained on the seed examples only (built once, on first use). */
@@ -126,10 +136,10 @@ export function seedModel(): TitleModel {
   return (seed ??= buildTitleModel(RULES.titleExamples as Partial<Record<Category, string[]>>));
 }
 
-/** The seed model plus what the user's own title rules teach. */
-export function userModel(rules: TitleRules, ruledTitles: Iterable<[string, Category]>): TitleModel {
-  if (Object.keys(rules).length === 0) return seedModel();
-  return buildTitleModel(RULES.titleExamples as Partial<Record<Category, string[]>>, rules, ruledTitles);
+/** The seed model plus what the user taught it: labelled windows, title rules and the windows those matched. */
+export function userModel(labels: TitleLabels, rules: TitleRules, ruledTitles: Iterable<[string, Category]>): TitleModel {
+  if (Object.keys(labels).length === 0 && Object.keys(rules).length === 0) return seedModel();
+  return buildTitleModel(RULES.titleExamples as Partial<Record<Category, string[]>>, labels, rules, ruledTitles);
 }
 
 /** A user's choice of category for an app, keyed by raw process name. Always wins. */
@@ -138,8 +148,14 @@ export type Overrides = Record<string, Category>;
 export type Classifier = (title: string, process: string) => Category;
 
 /**
+ * Windows the user put in a category one by one, keyed by their cleaned title. Like marking mail
+ * as spam: the window itself changes at once, and the title model learns from it for similar ones.
+ */
+export type TitleLabels = Record<string, Category>;
+
+/**
  * The user's own rules for windows: a title containing the keyword (any case) counts as the
- * category. They cover what no built-in rule can know, like a chat named "Celery 實務比較" or a
+ * category. They cover what no built-in rule can know, like a chat named after its topic or a
  * course's name, and win over everything else. The longest matching keyword decides.
  */
 export type TitleRules = Record<string, Category>;
@@ -159,10 +175,16 @@ export function makeClassifier(
   community: Overrides = {},
   titleRules: TitleRules = {},
   model: TitleModel = seedModel(),
+  labels: TitleLabels = {},
 ): Classifier {
   const cache = new Map<string, Category>();
   const hasRules = Object.keys(titleRules).length > 0;
+  const hasLabels = Object.keys(labels).length > 0;
   return (title, process) => {
+    if (hasLabels) {
+      const labelled = labels[cleanTitle(title, process)];
+      if (labelled) return labelled;
+    }
     if (hasRules) {
       const rule = matchTitleRule(title, titleRules);
       if (rule) return rule.category;

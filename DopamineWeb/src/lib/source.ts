@@ -1,5 +1,5 @@
 import { MAX_SEGMENT, RawEvent } from "./analytics";
-import { AppHint, Category, Overrides, TitleRules } from "./categories";
+import { AppHint, Category, Overrides, TitleLabels, TitleRules } from "./categories";
 import { Sharing } from "./community";
 import { Range, addMonths, startOfMonth } from "./time";
 
@@ -43,6 +43,8 @@ export interface Preferences {
   hidden: string[];
   /** Keyword → category for window titles; never shared. */
   titleRules: TitleRules;
+  /** Windows the user put in a category one by one (cleaned title → category); never shared. */
+  titleLabels: TitleLabels;
 }
 
 /** Hidden until the user says otherwise: Dopamine's own windows (the agents send the same default). */
@@ -57,14 +59,15 @@ export function hiddenKey(process: string): string {
 
 /** Agent settings JSON ⇄ Preferences. */
 export function preferencesFromSettings(
-  s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string; hiddenApps?: unknown; titleRules?: Record<string, string> },
+  s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string; hiddenApps?: unknown; titleRules?: Record<string, string>; titleLabels?: Record<string, string> },
   platform: Platform,
 ): Preferences {
   const sharing = s.communitySharing === "on" || s.communitySharing === "off" ? s.communitySharing : "ask";
   // Agents from before hiding existed send no list at all; an empty list means "hide nothing".
   const hidden = Array.isArray(s.hiddenApps) ? s.hiddenApps.filter((p): p is string => typeof p === "string" && p.length > 0) : defaultHidden(platform);
   const titleRules = sanitizeOverrides(s.titleRules);
-  return { overrides: sanitizeOverrides(s.categoryOverrides), sharing, installId: s.installId || undefined, hidden, titleRules };
+  const titleLabels = sanitizeOverrides(s.titleLabels);
+  return { overrides: sanitizeOverrides(s.categoryOverrides), sharing, installId: s.installId || undefined, hidden, titleRules, titleLabels };
 }
 
 export function settingsFromPreferences(p: Partial<Preferences>) {
@@ -74,6 +77,7 @@ export function settingsFromPreferences(p: Partial<Preferences>) {
     ...(p.installId && { installId: p.installId }),
     ...(p.hidden && { hiddenApps: p.hidden }),
     ...(p.titleRules && { titleRules: p.titleRules }),
+    ...(p.titleLabels && { titleLabels: p.titleLabels }),
   };
 }
 

@@ -21,7 +21,7 @@ export const HOLDOUT: CorpusCase[] = [
   c("chrome", "抖音-记录美好生活 - Google Chrome", "entertainment"),
   c("chrome", "豆瓣电影 - Google Chrome", "social"),
   c("chrome", "淘宝网 - 淘！我喜欢 - Google Chrome", "other"),
-  c("msedge", "Microsoft Copilot - Microsoft\u200b Edge", "work"),
+  c("msedge", "Microsoft Copilot - Microsoft\u200b Edge", "other"), // AI chats are judged by the chat title
   c("firefox", "Pinterest - Mozilla Firefox", "social"),
   c("Safari", "Apple Music - Web Player", "entertainment"),
   c("Safari", "Wolfram|Alpha: Computational Intelligence", "study"),
@@ -49,7 +49,7 @@ export const HOLDOUT: CorpusCase[] = [
   c("Rectangle", "Rectangle", "other", { kind: "public.app-category.productivity" }),
   c("Photos", "Library", "other"),
   c("QuickTime Player", "screen recording.mov", "entertainment"),
-  c("OBS", "OBS 30.0 - Profile: Untitled", "work"),
+  c("OBS", "OBS 30.0 - Profile: Untitled", "other"), // recording or streaming: depends on what
   c("WeChatAppEx", "小程序", "social"),
   c("Tencent Meeting", "腾讯会议", "work"),
   c("Lark", "Messenger", "work"),

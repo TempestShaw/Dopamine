@@ -1,8 +1,9 @@
-// A tiny text classifier for window titles no rule recognises ("教你网络基础", "CMU Database
-// Systems"). Multinomial naive Bayes over words (Latin scripts) and single characters plus
+// A tiny text classifier for window titles no rule recognises ("机器学习课程 第五讲", "Q4 sales
+// report"). Multinomial naive Bayes over words (Latin scripts) and
 // character pairs (Chinese, Japanese, Korean), so it needs no word segmenter and no model download.
 // It trains in a few milliseconds from the seed examples in category-rules.json plus the user's own
-// title rules, and the macOS agent has a line-for-line port (TitleModel in Categories.swift).
+// corrections (labelled windows and title rules). The macOS agent has a line-for-line port
+// (TitleModel.swift).
 import type { Category } from "./categories";
 
 const CATEGORIES: Category[] = ["work", "study", "social", "entertainment", "other"];
@@ -84,16 +85,19 @@ export class TitleModel {
 export const MIN_CONFIDENCE = 0.6;
 
 /**
- * Seed examples plus the user's rules. A rule's keyword counts three times; the titles it matched
- * add the words around it, so a rule for "CMU" also teaches "database systems".
+ * Seed examples plus what the user taught: each window they labelled counts three times, like a
+ * message marked as spam; a rule's keyword counts three times too, and the titles it matched add
+ * the words around it.
  */
 export function buildTitleModel(
   seed: Partial<Record<Category, string[]>>,
+  labels: Record<string, Category> = {},
   rules: Record<string, Category> = {},
   ruledTitles: Iterable<[title: string, category: Category]> = [],
 ): TitleModel {
   const model = new TitleModel();
   for (const c of CATEGORIES) for (const t of seed[c] ?? []) model.add(t, c);
+  for (const [t, c] of Object.entries(labels)) model.add(t, c, 3);
   for (const [k, c] of Object.entries(rules)) model.add(k, c, 3);
   for (const [t, c] of ruledTitles) model.add(t, c);
   return model;

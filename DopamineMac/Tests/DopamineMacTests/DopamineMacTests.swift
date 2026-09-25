@@ -92,15 +92,24 @@ final class DopamineMacTests: XCTestCase {
     func testTitleModel() {
         XCTAssertEqual(TitleModel.tokenize("Python 零基础入门"), ["python", "零基", "基础", "础入", "入门"])
         XCTAssertEqual(TitleModel.tokenize("The 3 Best Tutorials"), ["best", "tutorials"])
-        let cases: [(String, DopamineMac.Category)] = [
-            ("教你网络基础", .study), ("建立測試版本", .work), ("Celery實務比較", .work),
-            ("HermesEngine | Quantitative Trading Platform", .work),
-            ("特厨探店｜最擅长做鲍鱼的餐厅？！阿一鲍鱼！_哔哩哔哩_bilibili", .entertainment), ("仪表板", .other),
-            ("Python 零基础入门教程_哔哩哔哩_bilibili", .study),
+        let unseen: [(String, DopamineMac.Category)] = [
+            ("Week 6 lecture: dynamic programming", .study), ("机器学习课程 第五讲", .study), ("統計學期末考複習", .study),
+            ("Q4 sales report", .work), ("季度工作汇报", .work), ("同学群聊", .social),
+            ("周末电影推荐", .entertainment), ("明天天气预报", .other),
         ]
-        for (title, expected) in cases { XCTAssertEqual(Category.of(title: title, app: "Arc"), expected, title) }
-        XCTAssertEqual(Category.of(title: "CS50 2024 - Lecture 3 - Algorithms - YouTube - Google Chrome", app: "Google Chrome"), .study)
+        for (title, expected) in unseen { XCTAssertEqual(TitleModel.seed.guess(title)?.category, expected, title) }
+
+        XCTAssertEqual(Category.of(title: "Lecture 3: Sorting algorithms - YouTube - Google Chrome", app: "Google Chrome"), .study)
+        XCTAssertEqual(Category.of(title: "Python 零基础入门教程_哔哩哔哩_bilibili", app: "Arc"), .study)
         XCTAssertEqual(Category.of(title: "(12) lofi hip hop radio - beats to relax/study to - YouTube - Google Chrome", app: "Google Chrome"), .entertainment)
+        XCTAssertEqual(Category.of(title: "Lecture notes — Operating Systems", app: "Notion"), .study)
+        XCTAssertEqual(Category.of(title: "Q3 roadmap", app: "Notion"), .work)
+        XCTAssertEqual(Category.of(title: "Week 39", app: "Notion Calendar"), .work)
+
+        // Sorting one window by hand teaches similar ones.
+        XCTAssertEqual(Category.of(title: "Kestrel Bramble", app: "Arc"), .other)
+        let taught = TitleModel.user(labels: ["Kestrel Bramble": "work"], rules: [:], ruledTitles: [])
+        XCTAssertEqual(Category.of(title: "Bramble v2", app: "Arc", model: taught), .work)
     }
 
     func testLanguagesAndDurations() {
@@ -172,11 +181,11 @@ final class DopamineMacTests: XCTestCase {
         let rules = api.handle(HTTPRequest(
             method: "PUT", path: "/settings", query: [:],
             headers: ["authorization": "Bearer \(settings.settings.pairingCode)"],
-            body: Data(#"{"titleRules":{"CMU":"study","x":"nope"}}"#.utf8)
+            body: Data(#"{"titleRules":{"CS 101":"study","x":"nope"}}"#.utf8)
         ))
         XCTAssertEqual(rules.status, 200)
-        XCTAssertEqual(settings.settings.titleRules, ["CMU": "study"])
-        XCTAssertEqual(Category.fromTitleRules("cmu Database Systems", ["CMU": "study", "cmu database": "work"]), .work)
-        XCTAssertNil(Category.fromTitleRules("YouTube", ["CMU": "study"]))
+        XCTAssertEqual(settings.settings.titleRules, ["CS 101": "study"])
+        XCTAssertEqual(Category.fromTitleRules("cs 101 grading sheet", ["CS 101": "study", "cs 101 grading": "work"]), .work)
+        XCTAssertNil(Category.fromTitleRules("YouTube", ["CS 101": "study"]))
     }
 }

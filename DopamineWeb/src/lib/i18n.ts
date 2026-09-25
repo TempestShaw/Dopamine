@@ -118,6 +118,11 @@ const en = {
     hint: "Set a category for windows like this",
     count: (n: number) => (n === 1 ? "1 title rule" : `${n} title rules`),
   },
+  labels: {
+    thisWindow: "This window counts as",
+    count: (n: number) => (n === 1 ? "1 window sorted by hand" : `${n} windows sorted by hand`),
+    or: "or:",
+  },
   share: {
     ask: (app: ReactNode) => ["Share this choice so Dopamine recognises ", app, " for other people too?"],
     everything: "This is everything that would be sent, now and for later choices. No window titles, no times, no usage:",
@@ -245,6 +250,11 @@ const zhCN: Dict = {
     hint: "为这类窗口设定分类",
     count: (n) => `${n} 条标题规则`,
   },
+  labels: {
+    thisWindow: "这个窗口算作",
+    count: (n) => `手动分类了 ${n} 个窗口`,
+    or: "或者：",
+  },
   share: {
     ask: (app) => ["要分享这个选择，让 Dopamine 也能帮其他人认出 ", app, " 吗？"],
     everything: "以下就是会发送的全部内容，现在和以后的选择都一样。不含窗口标题、时间或使用情况：",
@@ -369,6 +379,11 @@ const zhTW: Dict = {
     remove: "刪除規則",
     hint: "為這類視窗設定分類",
     count: (n) => `${n} 條標題規則`,
+  },
+  labels: {
+    thisWindow: "這個視窗算作",
+    count: (n) => `手動分類了 ${n} 個視窗`,
+    or: "或者：",
   },
   share: {
     ask: (app) => ["要分享這個選擇，讓 Dopamine 也能幫其他人認出 ", app, " 嗎？"],

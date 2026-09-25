@@ -16,7 +16,7 @@ import {
   hourOfDayProfile,
   summarize,
 } from "./analytics";
-import { Category, Overrides, TitleRules, cleanTitle, makeClassifier, matchTitleRule, userModel } from "./categories";
+import { Category, Overrides, TitleLabels, TitleRules, cleanTitle, makeClassifier, matchTitleRule, userModel } from "./categories";
 import { Sharing, communityAvailable, fetchCommunityCategories, isShareable, newInstallId, shareChoice } from "./community";
 import { Insight, buildInsights } from "./insights";
 import { useI18n } from "./i18n";
@@ -38,6 +38,7 @@ export interface DashboardData {
 }
 
 const LIVE_REFRESH_MS = 30_000;
+const MAX_LABELS = 3000;
 
 /** Keys into the `errors` strings of i18n.ts. */
 export type DashboardError = "save" | "unreachable" | "lost";
@@ -47,7 +48,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<DashboardError | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [prefs, setPrefs] = useState<Preferences>(() => ({ overrides: {}, sharing: "ask", hidden: defaultHidden(store.source.platform), titleRules: {} }));
+  const [prefs, setPrefs] = useState<Preferences>(() => ({ overrides: {}, sharing: "ask", hidden: defaultHidden(store.source.platform), titleRules: {}, titleLabels: {} }));
   const [community, setCommunity] = useState<Overrides>({});
   /** A choice waiting for the user to decide whether to share it (asked once, on the first choice). */
   const [pendingShare, setPendingShare] = useState<{ process: string; category: Category } | null>(null);
@@ -104,6 +105,17 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     if (k && category) next[k] = category;
     else if (k) delete next[k];
     savePrefs({ titleRules: next });
+  };
+
+  /** Puts one window in a category (null: back to automatic). Also teaches the title model. */
+  const setTitleLabel = (title: string, category: Category | null) => {
+    const next: TitleLabels = { ...prefs.titleLabels };
+    if (category) next[title] = category;
+    else delete next[title];
+    // Keep the newest few thousand: plenty to learn from, small enough to store anywhere.
+    const keys = Object.keys(next);
+    for (const k of keys.slice(0, Math.max(0, keys.length - MAX_LABELS))) delete next[k];
+    savePrefs({ titleLabels: next });
   };
 
   /** Leaves an app out of every figure, or brings it back. */
@@ -174,7 +186,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   }, [store, isLive]);
 
   // The title model learns from the user's rules and the windows they matched, so one rule for
-  // "CMU" also teaches the words around it.
+  // "CS 101" also teaches the words around it.
   const model = useMemo(() => {
     const ruled: [string, Category][] = [];
     if (Object.keys(prefs.titleRules).length) {
@@ -184,16 +196,16 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
         if (ruled.length >= 2000) break;
       }
     }
-    return userModel(prefs.titleRules, ruled);
+    return userModel(prefs.titleLabels, prefs.titleRules, ruled);
     // `version` bumps when more windows have loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, prefs.titleRules, version]);
+  }, [store, prefs.titleLabels, prefs.titleRules, version]);
 
   const classify = useMemo(
-    () => makeClassifier((p) => store.app(p), overrides, community, prefs.titleRules, model),
+    () => makeClassifier((p) => store.app(p), overrides, community, prefs.titleRules, model, prefs.titleLabels),
     // `version` bumps when new app metadata may have arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, overrides, community, prefs.titleRules, model, version],
+    [store, overrides, community, prefs.titleRules, prefs.titleLabels, model, version],
   );
 
   const hiddenSet = useMemo(() => new Set(prefs.hidden.map(hiddenKey)), [prefs.hidden]);
@@ -247,6 +259,8 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     setHidden,
     titleRules: prefs.titleRules,
     setTitleRule,
+    titleLabels: prefs.titleLabels,
+    setTitleLabel,
     sharing: { available: canShare, state: prefs.sharing, pending: pendingShare, set: setSharing, isDemo: platform === "demo" },
   };
 }

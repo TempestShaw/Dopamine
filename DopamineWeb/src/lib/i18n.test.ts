@@ -55,17 +55,18 @@ describe("hidden apps", () => {
 
 describe("title rules", () => {
   test("a keyword in the title decides, longest keyword first, over app choices", () => {
-    const classify = makeClassifier(undefined, { Arc: "other" }, {}, { cmu: "study", "CMU Database": "work", 實務: "work" });
-    expect(classify("CMU Database Systems", "Arc")).toBe("work");
-    expect(classify("cmu 15-213 lecture notes", "Arc")).toBe("study");
-    expect(classify("Celery實務比較", "Arc")).toBe("work");
+    const classify = makeClassifier(undefined, { Arc: "other" }, {}, { "cs 101": "study", "CS 101 grading": "work", 報表: "work" });
+    expect(classify("CS 101 grading sheet", "Arc")).toBe("work");
+    expect(classify("cs 101 lecture notes", "Arc")).toBe("study");
+    expect(classify("月度報表整理", "Arc")).toBe("work");
     expect(classify("Something else", "Arc")).toBe("other");
-    expect(matchTitleRule("CMU Database Systems", { cmu: "study" })).toEqual({ keyword: "cmu", category: "study" });
+    expect(matchTitleRule("CS 101 grading sheet", { "cs 101": "study" })).toEqual({ keyword: "cs 101", category: "study" });
   });
 
   test("rules round-trip through agent settings, bad categories dropped", () => {
-    const p = preferencesFromSettings({ titleRules: { cmu: "study", x: "nope" } }, "mac");
-    expect(p.titleRules).toEqual({ cmu: "study" });
-    expect(settingsFromPreferences({ titleRules: p.titleRules })).toEqual({ titleRules: { cmu: "study" } });
+    const p = preferencesFromSettings({ titleRules: { "cs 101": "study", x: "nope" }, titleLabels: { "Q4 report": "work", y: "nope" } }, "mac");
+    expect(p.titleRules).toEqual({ "cs 101": "study" });
+    expect(p.titleLabels).toEqual({ "Q4 report": "work" });
+    expect(settingsFromPreferences({ titleRules: p.titleRules })).toEqual({ titleRules: { "cs 101": "study" } });
   });
 });

@@ -75,18 +75,31 @@ The dashboard opens at [localhost:26535](http://localhost:26535) and pairs itsel
 
 ## How categories are decided
 
+Built-in rules only cover apps and sites whose use is clear. Everything else is read by a small
+title model, and your corrections train it on your computer, the way a mail app learns what you
+mark as spam.
+
 Dopamine looks at the evidence in this order and stops at the first answer:
 
 | Evidence | Example |
 | --- | --- |
+| A window you sorted by hand | You marked "Stack Overflow" as Study |
+| Your title rules | Windows with "CS 101" in the title count as Study |
 | Your own choice for the app | Discord counts as Study because you said so |
 | The site, for browsers | `Two Sum - LeetCode - Google Chrome` → Study |
 | The app, by name | `idea64`, `LeagueClientUx`, `WXWork` |
 | Apps others agreed on | Only if you opted in, and only for apps the rules don't know |
 | What the app says about itself | macOS App Store category; Windows publisher and install path (`steamapps` means a game) |
-| The window title | `javaw` showing "Minecraft" |
+| The title model | `Week 6 lecture: dynamic programming` → Study, `季度工作汇报` → Work |
 
-The rules live in [`category-rules.json`](DopamineWeb/src/lib/category-rules.json), shared by the dashboard and the macOS agent. They are checked against 115 real process names and tab titles, and a separate held-out set that the rules were never tuned on.
+Note apps and AI chats (Notion, Obsidian, ChatGPT…) are used for anything, so they go straight to
+the title model. On video sites the model can move a lecture to Study when it is at least 80% sure.
+
+The title model is naive Bayes over words and Chinese character pairs: no download, a few
+milliseconds to train. It starts from neutral example titles and learns from every window you sort
+and every rule you set. None of that leaves your computer.
+
+The rules and example titles live in [`category-rules.json`](DopamineWeb/src/lib/category-rules.json), shared by the dashboard and the macOS agent. They are checked against real process names and tab titles, plus held-out sets that were never used for tuning.
 
 ## Privacy
 

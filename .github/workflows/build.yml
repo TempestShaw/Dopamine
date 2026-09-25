@@ -102,8 +102,10 @@ jobs:
           if (@($before.hiddenApps) -notcontains "DopamineWin") { throw "Dopamine itself should be hidden by default" }
           $hid = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"hiddenApps":["Steam",""]}'
           if ((@($hid.hiddenApps) -join ",") -ne "Steam") { throw "hidden apps not saved: $(@($hid.hiddenApps) -join ',')" }
-          $ruled = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"titleRules":{"CMU":"study","x":"nope"}}'
-          if ($ruled.titleRules.CMU -ne "study" -or $ruled.titleRules.x) { throw "title rules not validated" }
+          $ruled = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"titleRules":{"CS 101":"study","x":"nope"}}'
+          if ($ruled.titleRules."CS 101" -ne "study" -or $ruled.titleRules.x) { throw "title rules not validated" }
+          $sorted = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"titleLabels":{"Q4 sales report":"work","x":"nope"}}'
+          if ($sorted.titleLabels."Q4 sales report" -ne "work" -or $sorted.titleLabels.x) { throw "title labels not validated" }
 
           $page = Invoke-WebRequest "$base/"
           if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<html") { throw "dashboard not served" }

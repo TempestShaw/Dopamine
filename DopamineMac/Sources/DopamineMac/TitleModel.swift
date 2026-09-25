@@ -20,12 +20,13 @@ final class TitleModel {
     private var counts: [String: [Double]] = [:]
     private var totals = [Double](repeating: 0, count: Category.allCases.count)
 
-    /// The seed plus what the user's rules teach: each keyword counts three times, and the titles it
-    /// matched add the words around it.
-    static func user(rules: [String: String], ruledTitles: [(String, Category)]) -> TitleModel {
-        if rules.isEmpty { return seed }
+    /// The seed plus what the user taught: each window they sorted by hand counts three times, like
+    /// a message marked as spam; so does each rule's keyword, and the titles it matched add the words around it.
+    static func user(labels: [String: String], rules: [String: String], ruledTitles: [(String, Category)]) -> TitleModel {
+        if labels.isEmpty && rules.isEmpty { return seed }
         let model = TitleModel()
         model.addSeed()
+        for (title, name) in labels { if let c = Category(rawValue: name) { model.add(title, c, weight: 3) } }
         for (keyword, name) in rules { if let c = Category(rawValue: name) { model.add(keyword, c, weight: 3) } }
         for (title, c) in ruledTitles { model.add(title, c) }
         return model

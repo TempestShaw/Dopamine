@@ -42,6 +42,8 @@ struct StoredSettings: Codable, Equatable {
 
     /// The user's rules for windows: a title containing the keyword (any case) counts as the category.
     var titleRules: [String: String] = [:]
+    /// Windows the user sorted by hand, keyed by cleaned title. They also train the title model.
+    var titleLabels: [String: String] = [:]
 
     init(pairingCode: String) {
         self.pairingCode = pairingCode
@@ -58,6 +60,7 @@ struct StoredSettings: Codable, Equatable {
         installId = try c.decodeIfPresent(String.self, forKey: .installId) ?? ""
         hiddenApps = try c.decodeIfPresent([String].self, forKey: .hiddenApps)
         titleRules = try c.decodeIfPresent([String: String].self, forKey: .titleRules) ?? [:]
+        titleLabels = try c.decodeIfPresent([String: String].self, forKey: .titleLabels) ?? [:]
     }
 
     static func generatePairingCode(length: Int = 6) -> String {
@@ -76,6 +79,7 @@ struct ConfigurableSettings: Codable {
     var installId: String?
     var hiddenApps: [String]?
     var titleRules: [String: String]?
+    var titleLabels: [String: String]?
 
     static let schemas: [[String: Any]] = [
         [

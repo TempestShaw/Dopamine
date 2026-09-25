@@ -21,7 +21,7 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
   const [view, setView] = useState<View>("day");
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
   const t = useT();
-  const { data, loading, error, now, overrides, setOverride, hidden, setHidden, titleRules, setTitleRule, sharing } = useDashboard(store, view, anchor, onDisconnect);
+  const { data, loading, error, now, overrides, setOverride, hidden, setHidden, titleRules, setTitleRule, titleLabels, setTitleLabel, sharing } = useDashboard(store, view, anchor, onDisconnect);
 
   const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
   const isCurrent = range.start <= now && now < range.end;
@@ -89,6 +89,8 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
                   onHide={setHidden}
                   titleRules={titleRules}
                   onTitleRule={setTitleRule}
+                  titleLabels={titleLabels}
+                  onTitleLabel={setTitleLabel}
                 />
               </div>
               <aside className="space-y-12 lg:border-l lg:border-dashed lg:border-line lg:pl-10">

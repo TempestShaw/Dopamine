@@ -135,8 +135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let c = Category.fromTitleRules(row.windowTitle, titleRules) { ruled.append((cleanTitle(row.windowTitle), c)) }
                 }
             }
-            let model = TitleModel.user(rules: titleRules, ruledTitles: ruled)
+            let titleLabels = settings.titleLabels
+            let model = TitleModel.user(labels: titleLabels, rules: titleRules, ruledTitles: ruled)
             let classify: (String, String) -> Category = { title, process in
+                if let name = titleLabels[cleanTitle(title)], let labelled = Category(rawValue: name) { return labelled }
                 if let ruled = Category.fromTitleRules(title, titleRules) { return ruled }
                 if let chosen = overrides[process] { return chosen }
                 let key = process + "\u{0}" + title

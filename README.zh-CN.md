@@ -75,18 +75,26 @@ Dopamine 是一个适用于 macOS 和 Windows 的轻量屏幕时间记录工具�
 
 ## 分类是怎么判断的
 
+内置规则只管用途明确的 App 和网站。其余的交给一个很小的标题模型来读；你的每次纠正都会在你自己的电脑上训练它，就像邮箱学习你标记的垃圾邮件。
+
 Dopamine 按下面的顺序查找依据，找到答案就停：
 
 | 依据 | 例子 |
 | --- | --- |
+| 你手动分类过的窗口 | 你把 "Stack Overflow" 标成了学习 |
+| 你的标题规则 | 标题包含 "CS 101" 的窗口算学习 |
 | 你自己为这个 App 选的分类 | 你把 Discord 设成了学习，它就算学习 |
 | 浏览器看网站 | `Two Sum - LeetCode - Google Chrome` → 学习 |
 | 按 App 名称 | `idea64`、`LeagueClientUx`、`WXWork` |
 | 其他用户的共识 | 仅在你选择加入时使用，并且只用于规则不认识的 App |
 | App 对自己的描述 | macOS 的 App Store 类别；Windows 的发行商和安装路径（装在 `steamapps` 里就是游戏） |
-| 窗口标题 | `javaw` 显示 "Minecraft" |
+| 标题模型 | `Week 6 lecture: dynamic programming` → 学习，`季度工作汇报` → 工作 |
 
-规则放在 [`category-rules.json`](DopamineWeb/src/lib/category-rules.json) 里，仪表盘和 macOS 程序共用。规则经过 115 个真实进程名和网页标题的测试，另外还有一组从未用来调整规则的独立测试集。
+笔记 App 和 AI 聊天（Notion、Obsidian、ChatGPT……）什么用途都有，所以直接交给标题模型判断。在视频网站上，模型有八成以上把握时，会把课程视频算作学习。
+
+标题模型是基于单词和中文双字的朴素贝叶斯：不用下载，训练只要几毫秒。它从一组中性的示例标题起步，并从你分类的每个窗口、设定的每条规则里学习，这些都不会离开你的电脑。
+
+规则和示例标题放在 [`category-rules.json`](DopamineWeb/src/lib/category-rules.json) 里，仪表盘和 macOS 程序共用。它们用真实的进程名和网页标题测试过，另外还有从未用来调整的独立测试集。
 
 ## 隐私
 
