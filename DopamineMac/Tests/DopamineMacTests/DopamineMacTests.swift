@@ -153,5 +153,15 @@ final class DopamineMacTests: XCTestCase {
         ))
         XCTAssertEqual(put.status, 200)
         XCTAssertEqual(settings.settings.hidden, ["Steam"])
+
+        let rules = api.handle(HTTPRequest(
+            method: "PUT", path: "/settings", query: [:],
+            headers: ["authorization": "Bearer \(settings.settings.pairingCode)"],
+            body: Data(#"{"titleRules":{"CMU":"study","x":"nope"}}"#.utf8)
+        ))
+        XCTAssertEqual(rules.status, 200)
+        XCTAssertEqual(settings.settings.titleRules, ["CMU": "study"])
+        XCTAssertEqual(Category.fromTitleRules("cmu Database Systems", ["CMU": "study", "cmu database": "work"]), .work)
+        XCTAssertNil(Category.fromTitleRules("YouTube", ["CMU": "study"]))
     }
 }

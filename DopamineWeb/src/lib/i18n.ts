@@ -111,6 +111,13 @@ const en = {
     done: "done",
     unhide: "show again",
   },
+  rules: {
+    before: "Windows with",
+    after: "in the title count as",
+    remove: "remove rule",
+    hint: "Set a category for windows like this",
+    count: (n: number) => (n === 1 ? "1 title rule" : `${n} title rules`),
+  },
   share: {
     ask: (app: ReactNode) => ["Share this choice so Dopamine recognises ", app, " for other people too?"],
     everything: "This is everything that would be sent, now and for later choices. No window titles, no times, no usage:",
@@ -231,6 +238,13 @@ const zhCN: Dict = {
     done: "完成",
     unhide: "取消隐藏",
   },
+  rules: {
+    before: "标题包含",
+    after: "的窗口算作",
+    remove: "删除规则",
+    hint: "为这类窗口设定分类",
+    count: (n) => `${n} 条标题规则`,
+  },
   share: {
     ask: (app) => ["要分享这个选择，让 Dopamine 也能帮其他人认出 ", app, " 吗？"],
     everything: "以下就是会发送的全部内容，现在和以后的选择都一样。不含窗口标题、时间或使用情况：",
@@ -348,6 +362,13 @@ const zhTW: Dict = {
     manage: "管理",
     done: "完成",
     unhide: "取消隱藏",
+  },
+  rules: {
+    before: "標題包含",
+    after: "的視窗算作",
+    remove: "刪除規則",
+    hint: "為這類視窗設定分類",
+    count: (n) => `${n} 條標題規則`,
   },
   share: {
     ask: (app) => ["要分享這個選擇，讓 Dopamine 也能幫其他人認出 ", app, " 嗎？"],

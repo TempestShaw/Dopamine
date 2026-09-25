@@ -29,6 +29,9 @@ public sealed class StoredSettings
 
     public IReadOnlyList<string> Hidden => HiddenApps ?? [.. DefaultHidden];
 
+    /// <summary>The user's rules for windows: a title containing the keyword (any case) counts as the category.</summary>
+    public Dictionary<string, string> TitleRules { get; set; } = new();
+
     private static readonly HashSet<string> Categories = ["work", "study", "social", "entertainment", "other"];
     private static readonly HashSet<string> SharingStates = ["ask", "on", "off"];
 
@@ -40,6 +43,8 @@ public sealed class StoredSettings
             CategoryOverrides = patch.CategoryOverrides.Where(p => Categories.Contains(p.Value)).ToDictionary(p => p.Key, p => p.Value);
         if (patch.CommunitySharing != null && SharingStates.Contains(patch.CommunitySharing)) CommunitySharing = patch.CommunitySharing;
         if (patch.InstallId != null && Guid.TryParse(patch.InstallId, out _)) InstallId = patch.InstallId;
+        if (patch.TitleRules != null)
+            TitleRules = patch.TitleRules.Where(p => p.Key.Length is > 0 and <= 200 && Categories.Contains(p.Value)).ToDictionary(p => p.Key, p => p.Value);
         if (patch.HiddenApps != null)
             HiddenApps = patch.HiddenApps.Where(p => !string.IsNullOrEmpty(p) && p.Length <= 256).Take(500).ToList();
     }
@@ -53,6 +58,7 @@ public sealed class StoredSettings
         CommunitySharing = CommunitySharing,
         InstallId = string.IsNullOrEmpty(InstallId) ? null : InstallId,
         HiddenApps = [.. Hidden],
+        TitleRules = TitleRules,
     };
 }
 
@@ -65,6 +71,7 @@ public sealed class SettingsPatch
     public string? CommunitySharing { get; set; }
     public string? InstallId { get; set; }
     public List<string>? HiddenApps { get; set; }
+    public Dictionary<string, string>? TitleRules { get; set; }
 }
 
 public sealed class PublicSettings
@@ -75,6 +82,7 @@ public sealed class PublicSettings
     public string CommunitySharing { get; set; } = "ask";
     public string? InstallId { get; set; }
     public List<string> HiddenApps { get; set; } = [];
+    public Dictionary<string, string> TitleRules { get; set; } = new();
 }
 
 /// <summary>GET /identify: lets the dashboard find the agent and learn its settings.</summary>

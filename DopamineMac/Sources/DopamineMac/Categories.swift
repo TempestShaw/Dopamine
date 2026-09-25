@@ -18,6 +18,15 @@ enum Category: String, CaseIterable {
 
     var isProductive: Bool { self == .work || self == .study }
 
+    /// The user's title rule a window falls under: longest matching keyword, any case. Mirrors
+    /// matchTitleRule in DopamineWeb/src/lib/categories.ts.
+    static func fromTitleRules(_ title: String, _ rules: [String: String]) -> Category? {
+        guard !rules.isEmpty else { return nil }
+        let t = title.lowercased()
+        let best = rules.keys.filter { !$0.isEmpty && t.contains($0.lowercased()) }.max { $0.count < $1.count }
+        return best.flatMap { rules[$0] }.flatMap(Category.init(rawValue:))
+    }
+
     /// Same order of evidence as the web: browsers by site, then app name, then the app's own
     /// metadata, then the window title.
     static func of(title: String, app: String, hint: AppHint? = nil) -> Category {

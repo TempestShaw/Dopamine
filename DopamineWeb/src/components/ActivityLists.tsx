@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AppStat, Session } from "@/lib/analytics";
-import { CATEGORIES, CATEGORY_META, Category, Overrides, displayApp } from "@/lib/categories";
+import { CATEGORIES, CATEGORY_META, Category, Overrides, TitleRules, displayApp, matchTitleRule } from "@/lib/categories";
 import { Sharing, votePayload } from "@/lib/community";
 import { useT } from "@/lib/i18n";
 import { MINUTE, View, clock, formatDuration, shortDate } from "@/lib/time";
@@ -24,6 +24,8 @@ type OverrideProps = {
   sharing: SharingState;
   hidden: string[];
   onHide: (process: string, hide: boolean) => void;
+  titleRules: TitleRules;
+  onTitleRule: (keyword: string, category: Category | null, replaces?: string) => void;
 };
 
 export function ActivityLists({ apps, sessions, total, view, ...props }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
@@ -49,7 +51,9 @@ export function ActivityLists({ apps, sessions, total, view, ...props }: { apps:
   );
 }
 
-function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }: { apps: AppStat[]; total: number } & OverrideProps) {
+function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide, titleRules, onTitleRule }: { apps: AppStat[]; total: number } & OverrideProps) {
+  /** The window whose title rule is being edited, as `app \0 title`. */
+  const [editing, setEditing] = useState<string | null>(null);
   const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   // Details are rendered the first time an app is opened and kept, so closing can animate too.
@@ -65,6 +69,7 @@ function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }
       <div>
         <EmptyState>{t.lists.empty}</EmptyState>
         <HiddenApps hidden={hidden} onHide={onHide} />
+        <RuleList rules={titleRules} onRule={onTitleRule} />
       </div>
     );
   const top = apps[0].total;
@@ -114,15 +119,39 @@ function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }
                       className={`mb-4 ml-[3.25rem] pr-8 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1.5"}`}
                     >
                       <ul className="space-y-1.5">
-                        {a.titles.slice(0, 8).map((t) => (
-                          <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
-                            <CategoryDot category={t.category} className="size-2" />
-                            <span className="min-w-0 flex-1 truncate text-graphite" title={t.title}>
-                              {t.title}
-                            </span>
-                            <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
-                          </li>
-                        ))}
+                        {a.titles.slice(0, 8).map((w) => {
+                          const key = `${a.app}\0${w.title}`;
+                          return (
+                            <li key={w.title}>
+                              {/* Any window can get its own rule: the title says what an app name can't. */}
+                              <button
+                                type="button"
+                                tabIndex={expanded ? 0 : -1}
+                                onClick={() => setEditing((cur) => (cur === key ? null : key))}
+                                aria-expanded={editing === key}
+                                title={t.rules.hint}
+                                className="group/w flex w-full items-center gap-2.5 text-left text-[13px]"
+                              >
+                                <CategoryDot category={w.category} className="size-2 transition-transform group-hover/w:scale-150" />
+                                <span className="min-w-0 flex-1 truncate text-graphite group-hover/w:text-ink" title={w.title}>
+                                  {w.title}
+                                </span>
+                                <span className="num shrink-0 text-faint">{formatDuration(w.total)}</span>
+                              </button>
+                              {editing === key && (
+                                <TitleRuleEditor
+                                  title={w.title}
+                                  rules={titleRules}
+                                  onSave={(k, c, replaces) => {
+                                    onTitleRule(k, c, replaces);
+                                    setEditing(null);
+                                  }}
+                                  onCancel={() => setEditing(null)}
+                                />
+                              )}
+                            </li>
+                          );
+                        })}
                         {a.titles.length > 8 && <li className="hand text-base text-faint">{t.lists.moreWindows(a.titles.length - 8)}</li>}
                       </ul>
                       <CategoryPicker app={a.app} current={overrides[a.process]} onPick={(c) => onOverride(a.process, c)} tabIndex={expanded ? 0 : -1} />
@@ -150,6 +179,94 @@ function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }
         </button>
       )}
       <HiddenApps hidden={hidden} onHide={onHide} />
+      <RuleList rules={titleRules} onRule={onTitleRule} />
+    </div>
+  );
+}
+
+/**
+ * "Windows with [keyword] in the title count as …". Starts from the window's own title (or the
+ * rule it already falls under) so a shorter keyword, like a course name, is one edit away.
+ */
+function TitleRuleEditor({
+  title,
+  rules,
+  onSave,
+  onCancel,
+}: {
+  title: string;
+  rules: TitleRules;
+  onSave: (keyword: string, category: Category | null, replaces?: string) => void;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const existing = matchTitleRule(title, rules);
+  const [keyword, setKeyword] = useState(existing?.keyword ?? title);
+  const ok = keyword.trim().length > 0;
+  return (
+    <div className="fade-in my-2 ml-[1.1rem] flex flex-wrap items-center gap-x-1 gap-y-1.5 text-[13px]">
+      <span className="hand mr-1 text-base text-faint">{t.rules.before}</span>
+      <input
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        autoFocus
+        spellCheck={false}
+        className="min-w-0 flex-[1_1_10rem] border-b-[1.5px] border-line bg-transparent px-1 py-0.5 outline-none focus:border-ink"
+      />
+      <span className="hand mr-1 ml-1 text-base text-faint">{t.rules.after}</span>
+      {CATEGORIES.map((c) => {
+        const active = existing?.category === c && existing.keyword === keyword;
+        return (
+          <button
+            key={c}
+            type="button"
+            disabled={!ok}
+            onClick={() => onSave(keyword, c, existing?.keyword)}
+            aria-pressed={active}
+            className={`dab inline-flex items-center gap-1.5 px-2.5 py-0.5 transition-colors disabled:opacity-40 ${active ? "bg-wash font-medium text-ink" : "text-graphite hover:bg-wash hover:text-ink"}`}
+          >
+            <CategoryDot category={c} className="size-2" />
+            {t.categories[c]}
+          </button>
+        );
+      })}
+      {existing && (
+        <button type="button" onClick={() => onSave(existing.keyword, null, existing.keyword)} className="hand ml-1 text-base text-faint underline decoration-line underline-offset-4 hover:text-graphite">
+          {t.rules.remove}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** "3 title rules · manage": every rule at a glance, each removable. */
+function RuleList({ rules, onRule }: { rules: TitleRules; onRule: (keyword: string, category: Category | null, replaces?: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const t = useT();
+  const entries = Object.entries(rules);
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-2 text-[13px]">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="hand inline-flex items-center gap-1.5 text-lg text-faint hover:text-graphite">
+        <span className="dab inline-block size-2 bg-faint" />
+        {t.rules.count(entries.length)} · <span className="underline decoration-line underline-offset-4">{open ? t.hide.done : t.hide.manage}</span>
+      </button>
+      {open && (
+        <ul className="fade-in mt-2 flex flex-wrap gap-2">
+          {entries.map(([k, c]) => (
+            <li key={k} className="dab inline-flex max-w-full items-center gap-2 bg-wash py-1 pr-3 pl-2.5">
+              <span className="min-w-0 truncate font-medium">“{k}”</span>
+              <span className="text-faint">→</span>
+              <CategoryDot category={c} className="size-2" />
+              <span className="shrink-0">{t.categories[c]}</span>
+              <button type="button" onClick={() => onRule(k, null, k)} className="hand ml-1 shrink-0 text-base text-graphite underline decoration-line underline-offset-4 hover:text-ink">
+                {t.rules.remove}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

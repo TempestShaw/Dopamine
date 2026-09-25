@@ -122,11 +122,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
             let lookback = Int64(yesterday.timeIntervalSince1970 - DaySummary.maxSegment)
             let rows = db.activities(from: lookback, to: Int64(now.timeIntervalSince1970) + 60)
-            // Same evidence as the dashboard: the user's choice, then rules, then the app's metadata.
+            // Same evidence as the dashboard: the user's title rules and app choices, then built-in rules, then the app's metadata.
             let known = db.apps(for: Array(Set(rows.map(\.processName))))
             let overrides = settings.categoryOverrides.compactMapValues(Category.init(rawValue:))
             var cache: [String: Category] = [:]
+            let titleRules = settings.titleRules
             let classify: (String, String) -> Category = { title, process in
+                if let ruled = Category.fromTitleRules(title, titleRules) { return ruled }
                 if let chosen = overrides[process] { return chosen }
                 let key = process + "\u{0}" + title
                 if let hit = cache[key] { return hit }

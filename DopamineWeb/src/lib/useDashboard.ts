@@ -16,7 +16,7 @@ import {
   hourOfDayProfile,
   summarize,
 } from "./analytics";
-import { Category, Overrides, makeClassifier } from "./categories";
+import { Category, Overrides, TitleRules, makeClassifier } from "./categories";
 import { Sharing, communityAvailable, fetchCommunityCategories, isShareable, newInstallId, shareChoice } from "./community";
 import { Insight, buildInsights } from "./insights";
 import { useI18n } from "./i18n";
@@ -47,7 +47,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<DashboardError | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [prefs, setPrefs] = useState<Preferences>(() => ({ overrides: {}, sharing: "ask", hidden: defaultHidden(store.source.platform) }));
+  const [prefs, setPrefs] = useState<Preferences>(() => ({ overrides: {}, sharing: "ask", hidden: defaultHidden(store.source.platform), titleRules: {} }));
   const [community, setCommunity] = useState<Overrides>({});
   /** A choice waiting for the user to decide whether to share it (asked once, on the first choice). */
   const [pendingShare, setPendingShare] = useState<{ process: string; category: Category } | null>(null);
@@ -91,6 +91,19 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     if (!canShare || !isShareable(process)) return;
     if (prefs.sharing === "on") share(prefs.installId, process, category);
     else if (prefs.sharing === "ask" && category) setPendingShare({ process, category });
+  };
+
+  /**
+   * Sets what windows whose title contains `keyword` count as (null removes the rule). `replaces`
+   * is the rule being edited, so changing its keyword doesn't leave the old one behind.
+   */
+  const setTitleRule = (keyword: string, category: Category | null, replaces?: string) => {
+    const next: TitleRules = { ...prefs.titleRules };
+    if (replaces !== undefined) delete next[replaces];
+    const k = keyword.trim();
+    if (k && category) next[k] = category;
+    else if (k) delete next[k];
+    savePrefs({ titleRules: next });
   };
 
   /** Leaves an app out of every figure, or brings it back. */
@@ -161,10 +174,10 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   }, [store, isLive]);
 
   const classify = useMemo(
-    () => makeClassifier((p) => store.app(p), overrides, community),
+    () => makeClassifier((p) => store.app(p), overrides, community, prefs.titleRules),
     // `version` bumps when new app metadata may have arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, overrides, community, version],
+    [store, overrides, community, prefs.titleRules, version],
   );
 
   const hiddenSet = useMemo(() => new Set(prefs.hidden.map(hiddenKey)), [prefs.hidden]);
@@ -216,6 +229,8 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     setOverride,
     hidden: prefs.hidden,
     setHidden,
+    titleRules: prefs.titleRules,
+    setTitleRule,
     sharing: { available: canShare, state: prefs.sharing, pending: pendingShare, set: setSharing, isDemo: platform === "demo" },
   };
 }

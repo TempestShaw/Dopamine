@@ -40,6 +40,9 @@ struct StoredSettings: Codable, Equatable {
 
     var hidden: [String] { hiddenApps ?? StoredSettings.defaultHidden }
 
+    /// The user's rules for windows: a title containing the keyword (any case) counts as the category.
+    var titleRules: [String: String] = [:]
+
     init(pairingCode: String) {
         self.pairingCode = pairingCode
     }
@@ -54,6 +57,7 @@ struct StoredSettings: Codable, Equatable {
         communitySharing = try c.decodeIfPresent(String.self, forKey: .communitySharing) ?? "ask"
         installId = try c.decodeIfPresent(String.self, forKey: .installId) ?? ""
         hiddenApps = try c.decodeIfPresent([String].self, forKey: .hiddenApps)
+        titleRules = try c.decodeIfPresent([String: String].self, forKey: .titleRules) ?? [:]
     }
 
     static func generatePairingCode(length: Int = 6) -> String {
@@ -71,6 +75,7 @@ struct ConfigurableSettings: Codable {
     var communitySharing: String?
     var installId: String?
     var hiddenApps: [String]?
+    var titleRules: [String: String]?
 
     static let schemas: [[String: Any]] = [
         [

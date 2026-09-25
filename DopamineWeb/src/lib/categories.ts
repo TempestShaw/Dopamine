@@ -106,14 +106,35 @@ export type Overrides = Record<string, Category>;
 
 export type Classifier = (title: string, process: string) => Category;
 
-/** Builds a memoised classifier; rebuild it when hints or overrides change. */
+/**
+ * The user's own rules for windows: a title containing the keyword (any case) counts as the
+ * category. They cover what no built-in rule can know, like a chat named "Celery 實務比較" or a
+ * course's name, and win over everything else. The longest matching keyword decides.
+ */
+export type TitleRules = Record<string, Category>;
+
+/** The rule a title falls under, if any. */
+export function matchTitleRule(title: string, rules: TitleRules): { keyword: string; category: Category } | null {
+  const t = title.toLowerCase();
+  let best: string | null = null;
+  for (const k of Object.keys(rules)) if (k && t.includes(k.toLowerCase()) && (best === null || k.length > best.length)) best = k;
+  return best === null ? null : { keyword: best, category: rules[best] };
+}
+
+/** Builds a memoised classifier; rebuild it when hints, overrides or title rules change. */
 export function makeClassifier(
   hint: (process: string) => AppHint | undefined = () => undefined,
   overrides: Overrides = {},
   community: Overrides = {},
+  titleRules: TitleRules = {},
 ): Classifier {
   const cache = new Map<string, Category>();
+  const hasRules = Object.keys(titleRules).length > 0;
   return (title, process) => {
+    if (hasRules) {
+      const rule = matchTitleRule(title, titleRules);
+      if (rule) return rule.category;
+    }
     const chosen = overrides[process];
     if (chosen) return chosen;
     const key = `${process}\u0000${title}`;

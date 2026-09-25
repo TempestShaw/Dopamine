@@ -28,6 +28,13 @@ export const CORPUS: CorpusCase[] = [
   c("chrome", "Netflix - Google Chrome", "entertainment"),
   c("chrome", "Twitch - Google Chrome", "entertainment"),
   c("chrome", "【4K】城市漫步 - 哔哩哔哩 bilibili - Google Chrome", "entertainment"),
+  // Learning on video sites counts as study; the topic words win over the platform.
+  c("Arc", "教你网络基础", "study"),
+  c("Arc", "Python 零基础入门教程_哔哩哔哩_bilibili", "study"),
+  c("chrome", "CS50 2024 - Lecture 3 - Algorithms - YouTube - Google Chrome", "study"),
+  c("chrome", "React Tutorial for Beginners - YouTube - Google Chrome", "study"),
+  c("Arc", "特厨探店｜最擅长做鲍鱼的餐厅？！阿一鲍鱼！_哔哩哔哩_bilibili", "entertainment"),
+  c("Arc", "冷知识:羂索和芥见下下是会中文的_哔哩哔哩_bilibili", "entertainment"),
   c("chrome", "Home / X - Google Chrome", "social"),
   c("chrome", "(3) Feed | LinkedIn - Google Chrome", "social"),
   c("chrome", "r/cmu - Reddit - Google Chrome", "social"),
