@@ -10,7 +10,8 @@ namespace DopamineWin;
 /// </summary>
 public sealed class WindowTracker : IDisposable
 {
-    private const string DopamineProcess = "<Dopamine>";
+    public const string DopamineProcess = "<Dopamine>";
+    public const string ForgottenTitle = "<Forgotten>";
     private const string StoppedTitle = "<Stopped>";
     private const string IdleTitle = "<Idle>";
 
@@ -24,6 +25,7 @@ public sealed class WindowTracker : IDisposable
     private string? _currentProcess;
     private DateTimeOffset _currentSince;
     private bool _userPaused;
+    private DateTimeOffset? _pausedUntil;
     private bool _systemSuspended;
     private bool _idle;
 
@@ -40,6 +42,15 @@ public sealed class WindowTracker : IDisposable
         get
         {
             lock (_gate) return _userPaused;
+        }
+    }
+
+    /// <summary>When the current pause ends by itself; null while recording or until the user resumes.</summary>
+    public DateTimeOffset? PausedUntil
+    {
+        get
+        {
+            lock (_gate) return _pausedUntil;
         }
     }
 
@@ -63,17 +74,28 @@ public sealed class WindowTracker : IDisposable
         _timer.Change(0, interval);
     }
 
-    /// <summary>Pause or resume from the tray menu.</summary>
-    public void SetUserPaused(bool paused)
+    /// <summary>Stops recording until <paramref name="until"/>, or until <see cref="Resume"/> when null.</summary>
+    public void Pause(DateTimeOffset? until)
     {
         lock (_gate)
         {
-            if (paused == _userPaused) return;
-            _userPaused = paused;
-            if (paused) WriteMarker(StoppedTitle);
+            _pausedUntil = until;
+            if (_userPaused) return;
+            _userPaused = true;
+            WriteMarker(StoppedTitle);
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_gate)
+        {
+            _pausedUntil = null;
+            if (!_userPaused) return;
+            _userPaused = false;
         }
 
-        if (!paused) Poll();
+        Poll();
     }
 
     /// <summary>Lock, sleep and log-off suspend tracking; unlock and wake resume it.</summary>
@@ -119,6 +141,14 @@ public sealed class WindowTracker : IDisposable
 
     private void PollLocked()
     {
+        // The timer keeps running while paused, so a timed pause ends on the next tick.
+        if (_userPaused && _pausedUntil is { } until && DateTimeOffset.Now >= until)
+        {
+            _userPaused = false;
+            _pausedUntil = null;
+            Log.Info("Timed pause ended");
+        }
+
         if (_userPaused || _systemSuspended) return;
 
         var idleTimeout = _settings.Settings.IdleTimeout;

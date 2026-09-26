@@ -103,6 +103,22 @@ jobs:
           $hid = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"hiddenApps":["Steam",""]}'
           if ((@($hid.hiddenApps) -join ",") -ne "Steam") { throw "hidden apps not saved: $(@($hid.hiddenApps) -join ',')" }
 
+          $rules = Invoke-RestMethod "$base/settings" -Method Put -Headers $auth -ContentType "application/json" -Body '{"titleRules":[{"contains":" Lectures ","category":"study","scope":"browsers"},{"contains":"","category":"work","scope":"x"},{"contains":"a","category":"nope","scope":"x"}],"checkForUpdates":false}'
+          if (@($rules.titleRules).Count -ne 1 -or $rules.titleRules[0].contains -ne "Lectures") { throw "title rules not validated: $($rules.titleRules | ConvertTo-Json -Compress)" }
+          if ($rules.checkForUpdates -ne $false) { throw "checkForUpdates not saved" }
+
+          $none = Invoke-RestMethod "$base/forget" -Method Post -Headers $auth -ContentType "application/json" -Body '{"ids":[999999999]}'
+          if ($none.forgotten -ne 0) { throw "forget touched a row that doesn't exist" }
+          $bad = Invoke-WebRequest "$base/forget" -Method Post -Headers $auth -ContentType "application/json" -Body '{"ids":"x"}' -SkipHttpErrorCheck
+          if ($bad.StatusCode -ne 400) { throw "expected 400 for a bad forget request, got $($bad.StatusCode)" }
+          $real = @($titles) | Where-Object { $_.processName -ne "<Dopamine>" } | Select-Object -First 1
+          if ($real) {
+            $gone = Invoke-RestMethod "$base/forget" -Method Post -Headers $auth -ContentType "application/json" -Body "{`"ids`":[$($real.id)]}"
+            $after = @(Invoke-RestMethod "$base/titles?from=0&to=9999999999" -Headers $auth) | Where-Object { $_.id -eq $real.id }
+            if ($gone.forgotten -ne 1 -or $after.windowTitle -ne "<Forgotten>") { throw "forget did not erase row $($real.id)" }
+            "forget: erased row $($real.id)"
+          }
+
           $page = Invoke-WebRequest "$base/"
           if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<html") { throw "dashboard not served" }
           $js = ([regex]::Match($page.Content, '/_next/static/[^"]+\.js')).Value

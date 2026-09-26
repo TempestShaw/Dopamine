@@ -8,18 +8,20 @@ final class API {
     private let database: Database
     private let settings: SettingsStore
     private let webRoot: URL?
+    private let update: () -> Release?
 
-    init(database: Database, settings: SettingsStore, webRoot: URL?) {
+    init(database: Database, settings: SettingsStore, webRoot: URL?, update: @escaping () -> Release? = { nil }) {
         self.database = database
         self.settings = settings
         self.webRoot = webRoot
+        self.update = update
     }
 
     func handle(_ req: HTTPRequest) -> HTTPResponse {
         var res = route(req)
         res.headers["Access-Control-Allow-Origin"] = "*"
         res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
-        res.headers["Access-Control-Allow-Methods"] = "GET, PUT, OPTIONS"
+        res.headers["Access-Control-Allow-Methods"] = "GET, PUT, POST, OPTIONS"
         if req.headers["access-control-request-private-network"] != nil {
             res.headers["Access-Control-Allow-Private-Network"] = "true"
         }
@@ -31,8 +33,10 @@ final class API {
 
         switch req.path {
         case "/identify":
-            return .jsonObject(["name": "dopamine-mac", "version": appVersion, "settings": ConfigurableSettings.schemas])
-        case "/pair", "/titles", "/settings", "/apps":
+            var info: [String: Any] = ["name": "dopamine-mac", "version": appVersion, "settings": ConfigurableSettings.schemas]
+            if let release = update() { info["update"] = ["version": release.version, "url": release.url.absoluteString] }
+            return .jsonObject(info)
+        case "/pair", "/titles", "/settings", "/apps", "/forget":
             guard req.headers["authorization"] == "Bearer \(settings.settings.pairingCode)" else { return .empty(401) }
             return protected(req)
         default:
@@ -61,11 +65,23 @@ final class API {
                 if let v = patch.communitySharing, ["ask", "on", "off"].contains(v) { s.communitySharing = v }
                 if let v = patch.installId, UUID(uuidString: v) != nil { s.installId = v }
                 if let v = patch.hiddenApps { s.hiddenApps = Array(v.filter { !$0.isEmpty && $0.count <= 256 }.prefix(500)) }
+                if let v = patch.titleRules { s.titleRules = TitleRule.sanitized(v) }
+                if let v = patch.checkForUpdates { s.checkForUpdates = v }
             }
             return .json(current())
+        case ("POST", "/forget"):
+            guard let body = try? JSONDecoder().decode(ForgetRequest.self, from: req.body), body.ids.count <= API.maxForget else { return .empty(400) }
+            return .jsonObject(["forgotten": database.forget(ids: body.ids)])
         default:
             return .empty(405)
         }
+    }
+
+    /// Larger requests are split by the dashboard; this keeps one request's transaction short.
+    private static let maxForget = 50_000
+
+    private struct ForgetRequest: Decodable {
+        let ids: [Int64]
     }
 
     /// `{ processName: { icon: "data:image/png;base64,…", kind, description, publisher, path } }`.
@@ -95,7 +111,7 @@ final class API {
         return ConfigurableSettings(
             trackingInterval: s.trackingInterval, idleTimeout: s.idleTimeout, categoryOverrides: s.categoryOverrides,
             communitySharing: s.communitySharing, installId: s.installId.isEmpty ? nil : s.installId,
-            hiddenApps: s.hidden
+            hiddenApps: s.hidden, titleRules: s.titleRules, checkForUpdates: s.checkForUpdates
         )
     }
 

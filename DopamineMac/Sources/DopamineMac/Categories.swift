@@ -23,8 +23,43 @@ enum Category: String, CaseIterable {
     static func of(title: String, app: String, hint: AppHint? = nil) -> Category {
         let rules = CategoryRules.shared
         let name = app.replacingOccurrences(of: #"\.(exe|app)$"#, with: "", options: [.regularExpression, .caseInsensitive]).lowercased()
-        if rules.browsers.contains(name) { return rules.match(rules.sites, title) ?? .other }
-        return rules.match(rules.apps, CategoryRules.haystack(app)) ?? rules.fromHint(hint) ?? rules.match(rules.sites, title) ?? .other
+        if rules.browsers.contains(name) { return rules.match(rules.sites, title) ?? rules.match(rules.titlePatterns, title) ?? .other }
+        return rules.match(rules.apps, CategoryRules.haystack(app)) ?? rules.fromHint(hint)
+            ?? rules.match(rules.sites, title) ?? rules.match(rules.titlePatterns, title) ?? .other
+    }
+}
+
+/// The user's own rule, set in the dashboard: "windows whose title contains X count as Y", in every
+/// browser (`scope == TitleRule.browsers`) or in one app (`scope` is its process name).
+struct TitleRule: Codable, Equatable {
+    static let browsers = "browsers"
+    static let maxCount = 500
+    static let maxText = 200
+
+    var contains: String
+    var category: String
+    var scope: String
+
+    /// The category of the longest rule whose text is in the title, if any rule applies here.
+    static func category(in rules: [TitleRule], title: String, process: String) -> Category? {
+        guard !rules.isEmpty else { return nil }
+        let key = DaySummary.hiddenKey(process)
+        let here = CategoryRules.shared.browsers.contains(key) ? browsers : key
+        let best = rules
+            .filter { ($0.scope == browsers ? browsers : DaySummary.hiddenKey($0.scope)) == here }
+            .filter { title.range(of: $0.contains, options: .caseInsensitive) != nil }
+            .max { $0.contains.count < $1.contains.count }
+        return best.flatMap { Category(rawValue: $0.category) }
+    }
+
+    /// Well-formed rules only, as the dashboard also checks.
+    static func sanitized(_ rules: [TitleRule]) -> [TitleRule] {
+        let clean = rules.compactMap { r -> TitleRule? in
+            let text = r.contains.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty, text.count <= maxText, Category(rawValue: r.category) != nil, !r.scope.isEmpty, r.scope.count <= 256 else { return nil }
+            return TitleRule(contains: text, category: r.category, scope: r.scope)
+        }
+        return Array(clean.prefix(maxCount))
     }
 }
 
@@ -44,6 +79,8 @@ struct CategoryRules {
     let browsers: Set<String>
     let sites: RuleList
     let apps: RuleList
+    /// Regular expressions for titles keywords can't describe, like course codes ("15-445", "CS 61A").
+    let titlePatterns: RuleList
     let platformKinds: [String: Category]
     let gamePaths: NSRegularExpression
     let gamePublishers: NSRegularExpression
@@ -60,18 +97,25 @@ struct CategoryRules {
         browsers = Set((obj["browsers"] as? [String]) ?? [])
         sites = list("sites")
         apps = list("apps")
+        titlePatterns = ((obj["titlePatterns"] as? [[Any]]) ?? []).flatMap { entry -> RuleList in
+            guard entry.count == 2, let name = entry[0] as? String, let category = Category(rawValue: name),
+                  let patterns = entry[1] as? [String] else { return [] }
+            // Our own rules file: a pattern ICU can't compile is a bug worth crashing on in tests.
+            return patterns.map { (category, try! NSRegularExpression(pattern: $0, options: [.caseInsensitive])) }
+        }
         platformKinds = ((obj["platformKinds"] as? [String: String]) ?? [:]).compactMapValues(Category.init(rawValue:))
         gamePaths = CategoryRules.compile((obj["gamePaths"] as? [String]) ?? [])
         gamePublishers = CategoryRules.compile((obj["gamePublishers"] as? [String]) ?? [])
     }
 
-    /// Latin keywords must match whole words ("code" is not in "barcode"); others match anywhere.
+    /// Latin keywords must match whole words ("code" is not in "barcode") and also match their plural
+    /// ("lecture" finds "Lectures"); others match anywhere.
     static func compile(_ keywords: [String]) -> NSRegularExpression {
         let parts = keywords.map { k -> String in
             let escaped = NSRegularExpression.escapedPattern(for: k)
             guard k.allSatisfy(\.isASCII) else { return escaped }
             let start = k.first.map { $0.isLetter || $0.isNumber } == true ? "(?<![a-z0-9])" : ""
-            let end = k.last.map { $0.isLetter || $0.isNumber } == true ? "(?![a-z0-9])" : ""
+            let end = k.last.map(\.isLetter) == true ? "(?:e?s)?(?![a-z0-9])" : k.last.map(\.isNumber) == true ? "(?![a-z0-9])" : ""
             return start + escaped + end
         }
         let pattern = parts.isEmpty ? "(?!)" : parts.joined(separator: "|")

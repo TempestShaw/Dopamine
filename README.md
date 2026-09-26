@@ -56,8 +56,10 @@ The dashboard opens at [localhost:26535](http://localhost:26535) and pairs itsel
 - **Zero effort.** Nothing to start, stop or label. Time stops counting when you lock the screen, sleep, or leave the keyboard alone for five minutes.
 - **Honest numbers.** Windows you glance at for under five seconds don't count, a crashed session can't inflate a day, and the current day is compared with yesterday up to the same time.
 - **See the detail.** The timeline shows exactly when each window was in front. Open any app to see its windows and tabs, with the app's real icon.
-- **Categories that fit you.** Work, study, social, entertainment and other are detected automatically, and one click changes an app's category for good.
+- **Categories that fit you.** Work, study, social, entertainment and other are detected automatically. Click a window to set its category, for that one title or for every title containing some words (a course code, a channel name), in every browser or just one app. One click changes a whole app's category too.
 - **Only what you want counted.** Hide any app from the numbers; Dopamine's own windows are hidden from the start.
+- **Forget what you'd rather not keep.** Erase a window or a session from the dashboard: its title is overwritten on disk and its time stops counting. To keep something from being recorded at all, pause from the menu bar or tray for 15 minutes, an hour, until tomorrow, or until you resume.
+- **Tells you about new versions.** Once a day the agent looks for a newer release and says so in the menu bar or tray and the dashboard, with a link to download it.
 - **Speaks your language.** English, 简体中文 and 繁體中文, in the dashboard and the menu bar or tray.
 - **Light on your machine.** A native menu bar or tray agent, a local SQLite file, and a dashboard with no charting libraries that holds 60 fps.
 
@@ -92,7 +94,9 @@ The rules live in [`category-rules.json`](DopamineWeb/src/lib/category-rules.jso
 
 Your activity never leaves your computer. Window titles, times and usage stay in a local SQLite database and are only served to `localhost`, behind the pairing code.
 
-The one exception is optional. The first time you pick a category for an app, the dashboard asks whether to share that choice so others benefit. If you agree, this is the complete request it sends, for that and later choices:
+Once a day the agent asks GitHub for the latest release (`api.github.com/repos/TempestShaw/Dopamine/releases/latest`). The request carries nothing about you or your activity, only the app version as its user agent. Turn it off from the dashboard footer.
+
+Sharing categories is optional. The first time you pick a category for an app, the dashboard asks whether to share that choice so others benefit. If you agree, this is the complete request it sends, for that and later choices:
 
 ```json
 { "p_install": "<random id for this install>", "p_app": "Discord", "p_platform": "mac", "p_category": "study" }

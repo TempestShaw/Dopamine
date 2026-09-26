@@ -154,4 +154,133 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(put.status, 200)
         XCTAssertEqual(settings.settings.hidden, ["Steam"])
     }
+
+    func testForgetOverwritesRowsAndLeavesNoTraceOnDisk() throws {
+        let url = tmp.appendingPathComponent("t.db")
+        let db = try Database(url: url)
+        db.insert(windowTitle: "Lectures", processName: "Arc", at: Date(timeIntervalSince1970: 100))
+        db.insert(windowTitle: "very-private-title", processName: "Arc", at: Date(timeIntervalSince1970: 200))
+        db.insert(windowTitle: Marker.stopped, processName: Marker.process, at: Date(timeIntervalSince1970: 300))
+        db.flush()
+        let ids = db.activities(from: 0, to: 1000).map(\.id)
+
+        // Marker rows are left alone, so only the one real row counts.
+        XCTAssertEqual(db.forget(ids: [ids[1], ids[2], 999]), 1)
+
+        let rows = db.activities(from: 0, to: 1000)
+        XCTAssertEqual(rows.map(\.windowTitle), ["Lectures", Marker.forgotten, Marker.stopped])
+        XCTAssertEqual(rows[1].processName, Marker.process)
+        XCTAssertEqual(rows[1].timestamp, 200, "the row keeps its place so the window before it doesn't absorb its time")
+
+        for file in [url, URL(fileURLWithPath: url.path + "-wal")] {
+            guard let bytes = try? Data(contentsOf: file) else { continue }
+            XCTAssertNil(bytes.range(of: Data("very-private-title".utf8)), "\(file.lastPathComponent) still holds the title")
+        }
+    }
+
+    func testForgetEndpoint() throws {
+        let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
+        let db = try Database(url: tmp.appendingPathComponent("t.db"))
+        db.insert(windowTitle: "secret", processName: "Arc", at: Date(timeIntervalSince1970: 100))
+        db.flush()
+        let api = API(database: db, settings: settings, webRoot: nil)
+        func post(_ body: String, code: String?) -> HTTPResponse {
+            var headers: [String: String] = [:]
+            if let code { headers["authorization"] = "Bearer \(code)" }
+            return api.handle(HTTPRequest(method: "POST", path: "/forget", query: [:], headers: headers, body: Data(body.utf8)))
+        }
+        let id = try XCTUnwrap(db.activities(from: 0, to: 1000).first?.id)
+
+        XCTAssertEqual(post(#"{"ids":[\#(id)]}"#, code: nil).status, 401)
+        XCTAssertEqual(post(#"{"ids":"nope"}"#, code: settings.settings.pairingCode).status, 400)
+        let ok = post(#"{"ids":[\#(id)]}"#, code: settings.settings.pairingCode)
+        XCTAssertEqual(ok.status, 200)
+        XCTAssertEqual(String(data: ok.body, encoding: .utf8), #"{"forgotten":1}"#)
+        XCTAssertEqual(db.activities(from: 0, to: 1000).first?.windowTitle, Marker.forgotten)
+        XCTAssertEqual(ok.headers["Access-Control-Allow-Methods"], "GET, PUT, POST, OPTIONS")
+    }
+
+    func testPauseLengths() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/New_York")!
+        let now = cal.date(from: DateComponents(year: 2026, month: 9, day: 26, hour: 22, minute: 10))!
+        XCTAssertEqual(PauseLength.minutes15.end(from: now, calendar: cal), now.addingTimeInterval(15 * 60))
+        XCTAssertEqual(PauseLength.hour1.end(from: now, calendar: cal), now.addingTimeInterval(3600))
+        XCTAssertEqual(PauseLength.untilTomorrow.end(from: now, calendar: cal), cal.date(from: DateComponents(year: 2026, month: 9, day: 27)))
+        XCTAssertNil(PauseLength.indefinitely.end(from: now, calendar: cal))
+    }
+
+    func testTimedPauseResumesByItself() throws {
+        let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
+        let db = try Database(url: tmp.appendingPathComponent("t.db"))
+        let tracker = Tracker(database: db, settings: settings)
+        let start = Date()
+
+        tracker.pause(until: start.addingTimeInterval(60))
+        XCTAssertTrue(tracker.userPaused)
+        tracker.resumeIfPauseEnded(now: start.addingTimeInterval(59))
+        XCTAssertTrue(tracker.userPaused)
+        tracker.resumeIfPauseEnded(now: start.addingTimeInterval(60))
+        XCTAssertFalse(tracker.userPaused)
+        XCTAssertNil(tracker.pausedUntil)
+
+        tracker.pause(until: nil)
+        tracker.resumeIfPauseEnded(now: start.addingTimeInterval(1_000_000))
+        XCTAssertTrue(tracker.userPaused, "an open-ended pause waits for the user")
+        tracker.resume()
+        XCTAssertFalse(tracker.userPaused)
+    }
+
+    func testPluralKeywordsAndCourseCodes() {
+        XCTAssertEqual(Category.of(title: "15-445/645 F'26 Lectures", app: "Arc"), .study)
+        XCTAssertEqual(Category.of(title: "Assignments", app: "Arc"), .study)
+        XCTAssertEqual(Category.of(title: "CS 61A Fall 2026 - Google Chrome", app: "Google Chrome"), .study)
+        XCTAssertEqual(Category.of(title: "Order 12-345678 shipped", app: "Safari"), .other)
+    }
+
+    func testTitleRulesBeatTheAppChoiceAndStayInScope() {
+        let rules = [
+            TitleRule(contains: "bilibili", category: "entertainment", scope: TitleRule.browsers),
+            TitleRule(contains: "15-213 lecture", category: "study", scope: TitleRule.browsers),
+            TitleRule(contains: "readme", category: "study", scope: "Code"),
+        ]
+        XCTAssertEqual(TitleRule.category(in: rules, title: "15-213 Lecture 5 - bilibili", process: "Arc"), .study)
+        XCTAssertEqual(TitleRule.category(in: rules, title: "凡人修仙传 - bilibili", process: "Google Chrome"), .entertainment)
+        XCTAssertEqual(TitleRule.category(in: rules, title: "README.md", process: "Code.app"), .study)
+        XCTAssertNil(TitleRule.category(in: rules, title: "README.md", process: "Zed"))
+        XCTAssertNil(TitleRule.category(in: rules, title: "bilibili", process: "Preview"))
+    }
+
+    func testSettingsKeepOnlyValidTitleRules() throws {
+        let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
+        let api = API(database: try Database(url: tmp.appendingPathComponent("t.db")), settings: settings, webRoot: nil)
+        let body = #"{"titleRules":[{"contains":" Lectures ","category":"study","scope":"browsers"},{"contains":"","category":"work","scope":"x"},{"contains":"a","category":"nope","scope":"x"}],"checkForUpdates":false}"#
+        let res = api.handle(HTTPRequest(method: "PUT", path: "/settings", query: [:], headers: ["authorization": "Bearer \(settings.settings.pairingCode)"], body: Data(body.utf8)))
+        XCTAssertEqual(res.status, 200)
+        XCTAssertEqual(settings.settings.titleRules, [TitleRule(contains: "Lectures", category: "study", scope: "browsers")])
+        XCTAssertFalse(settings.settings.checkForUpdates)
+    }
+
+    func testReleaseParsing() {
+        func json(_ tag: String) -> Data { Data(#"{"tag_name":"\#(tag)","html_url":"https://evil.example/"}"#.utf8) }
+        XCTAssertEqual(
+            UpdateChecker.release(from: json("v0.0.3"), current: "0.0.2"),
+            Release(version: "0.0.3", url: URL(string: "https://github.com/TempestShaw/Dopamine/releases/tag/v0.0.3")!)
+        )
+        XCTAssertNil(UpdateChecker.release(from: json("v0.0.2"), current: "0.0.2"))
+        XCTAssertNil(UpdateChecker.release(from: json("v0.0.1"), current: "0.0.2"))
+        XCTAssertNil(UpdateChecker.release(from: json("v1.0.0-beta"), current: "0.0.2"))
+        XCTAssertNil(UpdateChecker.release(from: Data("nope".utf8), current: "0.0.2"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.0.10", than: "0.0.9"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.1.0", than: "0.1.0"))
+    }
+
+    func testIdentifyMentionsANewRelease() throws {
+        let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
+        let release = Release(version: "9.9.9", url: URL(string: "https://github.com/TempestShaw/Dopamine/releases/tag/v9.9.9")!)
+        let api = API(database: try Database(url: tmp.appendingPathComponent("t.db")), settings: settings, webRoot: nil, update: { release })
+        let res = api.handle(HTTPRequest(method: "GET", path: "/identify", query: [:], headers: [:], body: Data()))
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: res.body) as? [String: Any])
+        XCTAssertEqual(obj["update"] as? [String: String], ["version": "9.9.9", "url": "https://github.com/TempestShaw/Dopamine/releases/tag/v9.9.9"])
+    }
 }

@@ -14,13 +14,14 @@ import {
   dayEdges,
   hourEdges,
   hourOfDayProfile,
+  rowsIn,
   summarize,
 } from "./analytics";
-import { Category, Overrides, makeClassifier } from "./categories";
+import { Category, MAX_TITLE_RULES, Overrides, cleanTitle, displayApp, makeClassifier } from "./categories";
 import { Sharing, communityAvailable, fetchCommunityCategories, isShareable, newInstallId, shareChoice } from "./community";
 import { Insight, buildInsights } from "./insights";
 import { useI18n } from "./i18n";
-import { AuthError, EventStore, Preferences, defaultHidden, hiddenKey } from "./source";
+import { AuthError, EventStore, Preferences, RawEventFilter, UpdateInfo, defaultHidden, hiddenKey } from "./source";
 import { Range, View, previousAnchor, rangeFor, startOfMonth, addMonths } from "./time";
 
 export interface DashboardData {
@@ -40,14 +41,21 @@ export interface DashboardData {
 const LIVE_REFRESH_MS = 30_000;
 
 /** Keys into the `errors` strings of i18n.ts. */
-export type DashboardError = "save" | "unreachable" | "lost";
+export type DashboardError = "save" | "unreachable" | "lost" | "forget";
 
 export function useDashboard(store: EventStore, view: View, anchor: Date, onAuthError: () => void) {
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<DashboardError | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [prefs, setPrefs] = useState<Preferences>(() => ({ overrides: {}, sharing: "ask", hidden: defaultHidden(store.source.platform) }));
+  const [prefs, setPrefs] = useState<Preferences>(() => ({
+    overrides: {},
+    sharing: "ask",
+    hidden: defaultHidden(store.source.platform),
+    titleRules: [],
+    checkUpdates: true,
+  }));
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [community, setCommunity] = useState<Overrides>({});
   /** A choice waiting for the user to decide whether to share it (asked once, on the first choice). */
   const [pendingShare, setPendingShare] = useState<{ process: string; category: Category } | null>(null);
@@ -72,6 +80,18 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     if (platform !== "demo") fetchCommunityCategories(platform).then(setCommunity);
   }, [store, platform]);
 
+  useEffect(() => {
+    if (!prefs.checkUpdates) {
+      setUpdate(null);
+      return;
+    }
+    let cancelled = false;
+    store.source.fetchUpdate().then((u) => !cancelled && setUpdate(u), () => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [store, prefs.checkUpdates]);
+
   const savePrefs = (change: Partial<Preferences>) => {
     setPrefs((prev) => ({ ...prev, ...change }));
     store.source.savePreferences(change).catch(() => setError("save"));
@@ -93,12 +113,42 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     else if (prefs.sharing === "ask" && category) setPendingShare({ process, category });
   };
 
+  /** "Windows whose title contains `contains` count as `category`" (null removes the rule). */
+  const setTitleRule = (contains: string, scope: string, category: Category | null) => {
+    const text = contains.trim();
+    if (!text) return;
+    const same = (r: { contains: string; scope: string }) => r.scope === scope && r.contains.toLowerCase() === text.toLowerCase();
+    const rest = prefs.titleRules.filter((r) => !same(r));
+    const next = category ? [...rest, { contains: text, category, scope }] : rest;
+    savePrefs({ titleRules: next.slice(-MAX_TITLE_RULES) });
+  };
+
   /** Leaves an app out of every figure, or brings it back. */
   const setHidden = (process: string, hide: boolean) => {
     const key = hiddenKey(process);
     const rest = prefs.hidden.filter((p) => hiddenKey(p) !== key);
     savePrefs({ hidden: hide ? [...rest, process] : rest });
   };
+
+  /** Erases the matching rows behind `span` on the agent. Resolves to whether it worked. */
+  const forget = async (match: RawEventFilter, span: Range): Promise<boolean> => {
+    try {
+      await store.forget(rowsIn(store.slice(span), span, Date.now(), match));
+      setVersion((v) => v + 1);
+      return true;
+    } catch (e) {
+      if (e instanceof AuthError) authRef.current();
+      else setError("forget");
+      return false;
+    }
+  };
+
+  /** One window title of one app, everywhere in the period on screen. */
+  const forgetTitle = (app: string, title: string) =>
+    forget((e) => displayApp(e.processName) === app && cleanTitle(e.windowTitle, e.processName) === title, range);
+
+  /** Everything one session of an app recorded. */
+  const forgetSession = (session: Session) => forget((e) => displayApp(e.processName) === session.app, { start: session.start, end: session.end });
 
   /** The user's answer to the sharing prompt (also used by the footer switch). */
   const setSharing = (sharing: Exclude<Sharing, "ask">) => {
@@ -161,10 +211,10 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   }, [store, isLive]);
 
   const classify = useMemo(
-    () => makeClassifier((p) => store.app(p), overrides, community),
+    () => makeClassifier((p) => store.app(p), overrides, community, prefs.titleRules),
     // `version` bumps when new app metadata may have arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, overrides, community, version],
+    [store, overrides, community, prefs.titleRules, version],
   );
 
   const hiddenSet = useMemo(() => new Set(prefs.hidden.map(hiddenKey)), [prefs.hidden]);
@@ -216,6 +266,13 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     setOverride,
     hidden: prefs.hidden,
     setHidden,
+    forgetTitle,
+    forgetSession,
+    titleRules: prefs.titleRules,
+    setTitleRule,
+    update,
+    checkUpdates: prefs.checkUpdates,
+    setCheckUpdates: (on: boolean) => savePrefs({ checkUpdates: on }),
     sharing: { available: canShare, state: prefs.sharing, pending: pendingShare, set: setSharing, isDemo: platform === "demo" },
   };
 }

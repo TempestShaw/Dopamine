@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { AppStat, Session } from "@/lib/analytics";
-import { CATEGORIES, CATEGORY_META, Category, Overrides, displayApp } from "@/lib/categories";
+import { BROWSER_SCOPE, CATEGORIES, CATEGORY_META, Category, MAX_RULE_TEXT, Overrides, TitleRule, displayApp, isBrowser, titleRuleFor } from "@/lib/categories";
 import { Sharing, votePayload } from "@/lib/community";
 import { useT } from "@/lib/i18n";
 import { MINUTE, View, clock, formatDuration, shortDate } from "@/lib/time";
-import { AppAvatar, CategoryDot, ChevronDown, EmptyState, EyeOff, Section, Segmented } from "./ui";
+import { AppAvatar, CategoryDot, ChevronDown, EmptyState, EyeOff, Section, Segmented, Trash } from "./ui";
 
 type Tab = "apps" | "sessions";
 
@@ -24,9 +24,21 @@ type OverrideProps = {
   sharing: SharingState;
   hidden: string[];
   onHide: (process: string, hide: boolean) => void;
+  onForgetTitle: (app: string, title: string) => Promise<boolean>;
+  titleRules: TitleRule[];
+  onTitleRule: (contains: string, scope: string, category: Category | null) => void;
 };
 
-export function ActivityLists({ apps, sessions, total, view, ...props }: { apps: AppStat[]; sessions: Session[]; total: number; view: View } & OverrideProps) {
+type ForgetSession = (session: Session) => Promise<boolean>;
+
+export function ActivityLists({
+  apps,
+  sessions,
+  total,
+  view,
+  onForgetSession,
+  ...props
+}: { apps: AppStat[]; sessions: Session[]; total: number; view: View; onForgetSession: ForgetSession } & OverrideProps) {
   const [tab, setTab] = useState<Tab>("apps");
   const t = useT();
   return (
@@ -44,14 +56,18 @@ export function ActivityLists({ apps, sessions, total, view, ...props }: { apps:
         />
       }
     >
-      {tab === "apps" ? <AppList apps={apps} total={total} {...props} /> : <SessionList sessions={sessions} showDate={view !== "day"} />}
+      {tab === "apps" ? <AppList apps={apps} total={total} {...props} /> : <SessionList sessions={sessions} showDate={view !== "day"} onForget={onForgetSession} />}
     </Section>
   );
 }
 
-function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }: { apps: AppStat[]; total: number } & OverrideProps) {
+function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide, onForgetTitle, titleRules, onTitleRule }: { apps: AppStat[]; total: number } & OverrideProps) {
   const t = useT();
   const [open, setOpen] = useState<string | null>(null);
+  /** The window whose rule editor is open, as `${app}\0${title}`. */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** Apps whose full window list is shown rather than the top few. */
+  const [allTitles, setAllTitles] = useState<ReadonlySet<string>>(() => new Set());
   // Details are rendered the first time an app is opened and kept, so closing can animate too.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const [limit, setLimit] = useState(8);
@@ -114,18 +130,51 @@ function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }
                       className={`mb-4 ml-[3.25rem] pr-8 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${expanded ? "translate-y-0" : "-translate-y-1.5"}`}
                     >
                       <ul className="space-y-1.5">
-                        {a.titles.slice(0, 8).map((t) => (
-                          <li key={t.title} className="flex items-center gap-2.5 text-[13px]">
-                            <CategoryDot category={t.category} className="size-2" />
-                            <span className="min-w-0 flex-1 truncate text-graphite" title={t.title}>
-                              {t.title}
-                            </span>
-                            <span className="num shrink-0 text-faint">{formatDuration(t.total)}</span>
+                        {(allTitles.has(a.app) ? a.titles : a.titles.slice(0, TOP_TITLES)).map((w) => {
+                          const key = `${a.app}\0${w.title}`;
+                          const editingThis = editing === key;
+                          return (
+                            <li key={w.title} className="group/row flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px]">
+                              <CategoryDot category={w.category} className="size-2" />
+                              <button
+                                type="button"
+                                tabIndex={expanded ? 0 : -1}
+                                onClick={() => setEditing(editingThis ? null : key)}
+                                aria-expanded={editingThis}
+                                aria-label={t.rules.open(w.title)}
+                                title={w.title}
+                                className="min-w-0 flex-1 truncate text-left text-graphite hover:text-ink hover:underline hover:decoration-line hover:underline-offset-4"
+                              >
+                                {w.title}
+                              </button>
+                              <span className="num shrink-0 text-faint">{formatDuration(w.total)}</span>
+                              <Forget label={t.forget.title(w.title)} onForget={() => onForgetTitle(a.app, w.title)} tabIndex={expanded ? 0 : -1} />
+                              {editingThis && <RuleEditor app={a.app} process={a.process} title={w.title} rules={titleRules} onRule={onTitleRule} />}
+                            </li>
+                          );
+                        })}
+                        {a.titles.length > TOP_TITLES && !allTitles.has(a.app) && (
+                          <li>
+                            <button
+                              type="button"
+                              tabIndex={expanded ? 0 : -1}
+                              onClick={() => setAllTitles((prev) => new Set(prev).add(a.app))}
+                              className="hand text-base text-faint underline decoration-line underline-offset-4 hover:text-graphite"
+                            >
+                              {t.lists.moreWindows(a.titles.length - TOP_TITLES)}
+                            </button>
                           </li>
-                        ))}
-                        {a.titles.length > 8 && <li className="hand text-base text-faint">{t.lists.moreWindows(a.titles.length - 8)}</li>}
+                        )}
                       </ul>
-                      <CategoryPicker app={a.app} current={overrides[a.process]} onPick={(c) => onOverride(a.process, c)} tabIndex={expanded ? 0 : -1} />
+                      {/* A browser shows every kind of site, so one category for all of it would be wrong. */}
+                      {isBrowser(a.process) && !overrides[a.process] ? (
+                        <p className="hand mt-3 text-base text-faint">{t.rules.browserHint}</p>
+                      ) : (
+                        <>
+                          <CategoryPicker app={a.app} current={overrides[a.process]} onPick={(c) => onOverride(a.process, c)} tabIndex={expanded ? 0 : -1} />
+                          <p className="hand mt-1 text-base text-faint">{t.rules.appHint}</p>
+                        </>
+                      )}
                       <button
                         type="button"
                         tabIndex={expanded ? 0 : -1}
@@ -150,6 +199,104 @@ function AppList({ apps, total, overrides, onOverride, sharing, hidden, onHide }
         </button>
       )}
       <HiddenApps hidden={hidden} onHide={onHide} />
+    </div>
+  );
+}
+
+const TOP_TITLES = 8;
+
+/**
+ * "Windows whose title contains [___] count as [category]": a rule for one window (or every window
+ * sharing some words), in every browser or just this app. Starts from the rule already deciding it.
+ */
+function RuleEditor({ app, process, title, rules, onRule }: { app: string; process: string; title: string; rules: TitleRule[]; onRule: (contains: string, scope: string, category: Category | null) => void }) {
+  const t = useT();
+  const scope = isBrowser(process) ? BROWSER_SCOPE : process;
+  const existing = titleRuleFor(rules, title, process);
+  const [text, setText] = useState(existing?.contains ?? title);
+  const trimmed = text.trim();
+  const valid = trimmed.length > 0 && trimmed.length <= MAX_RULE_TEXT;
+  const active = existing && existing.contains.toLowerCase() === trimmed.toLowerCase() ? existing.category : null;
+  return (
+    <div className="fade-in basis-full space-y-2 py-1.5 pl-4.5 text-[13px]">
+      <label className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="hand text-base text-faint">{t.rules.contains}</span>
+        <input
+          value={text}
+          autoFocus
+          maxLength={MAX_RULE_TEXT}
+          onChange={(e) => setText(e.target.value)}
+          className="min-w-0 flex-1 rounded-md bg-wash px-2 py-1 text-ink outline-none focus-visible:ring-1 focus-visible:ring-line"
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5">
+        <span className="hand mr-1.5 text-base text-faint">{t.rules.countsAs}</span>
+        {CATEGORIES.map((c) => (
+          <button
+            key={c}
+            type="button"
+            disabled={!valid}
+            onClick={() => onRule(trimmed, scope, c)}
+            aria-pressed={active === c}
+            className={`dab inline-flex items-center gap-1.5 px-2.5 py-0.5 transition-colors disabled:opacity-40 ${active === c ? "bg-wash font-medium text-ink" : "text-graphite hover:bg-wash hover:text-ink"}`}
+          >
+            <CategoryDot category={c} className="size-2" />
+            {t.categories[c]}
+          </button>
+        ))}
+      </div>
+      <div className="hand flex flex-wrap items-center gap-x-3 text-base text-faint">
+        <span>{scope === BROWSER_SCOPE ? t.rules.everyBrowser : t.rules.inApp(app)}</span>
+        {existing && (
+          <button type="button" onClick={() => onRule(existing.contains, existing.scope, null)} className="underline decoration-line underline-offset-4 hover:text-graphite">
+            {t.rules.remove}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A trash icon that asks once before erasing; the question takes its place on the row.
+ * Visible on hover or focus with a mouse, always on touch screens.
+ */
+function Forget({ label, onForget, tabIndex = 0 }: { label: string; onForget: () => Promise<boolean>; tabIndex?: number }) {
+  const t = useT();
+  const [state, setState] = useState<"idle" | "ask" | "busy">("idle");
+  if (state === "idle")
+    return (
+      <button
+        type="button"
+        tabIndex={tabIndex}
+        aria-label={label}
+        title={label}
+        onClick={() => setState("ask")}
+        className="shrink-0 text-faint opacity-0 transition-opacity group-hover/row:opacity-100 hover:text-ink focus-visible:opacity-100 pointer-coarse:opacity-100"
+      >
+        <Trash className="size-3.5" />
+      </button>
+    );
+  const confirm = async () => {
+    setState("busy");
+    await onForget();
+    setState("idle");
+  };
+  return (
+    <div role="alert" className="fade-in flex basis-full flex-wrap items-center gap-x-3 gap-y-1 pl-4.5 text-[13px]">
+      <span className="text-graphite">{t.forget.ask}</span>
+      <button
+        type="button"
+        autoFocus
+        disabled={state === "busy"}
+        onClick={confirm}
+        className="dab bg-ink px-2.5 py-0.5 font-semibold text-paper hover:opacity-90 disabled:opacity-50"
+      >
+        {t.forget.yes}
+      </button>
+      <button type="button" disabled={state === "busy"} onClick={() => setState("idle")} className="font-medium text-graphite underline decoration-line underline-offset-4 hover:text-ink">
+        {t.forget.no}
+      </button>
     </div>
   );
 }
@@ -256,7 +403,7 @@ function SharePrompt({ app, process, category, sharing }: { app: string; process
   );
 }
 
-function SessionList({ sessions, showDate }: { sessions: Session[]; showDate: boolean }) {
+function SessionList({ sessions, showDate, onForget }: { sessions: Session[]; showDate: boolean; onForget: ForgetSession }) {
   const [showShort, setShowShort] = useState(false);
   const [limit, setLimit] = useState(40);
   const visible = showShort ? sessions : sessions.filter((s) => s.active >= MINUTE);
@@ -275,19 +422,20 @@ function SessionList({ sessions, showDate }: { sessions: Session[]; showDate: bo
           return (
             <li key={`${s.start}-${s.app}`}>
               {header && <div className="serif mt-4 mb-1 text-xl italic first:mt-0">{date}</div>}
-              <div className="flex items-stretch gap-4">
+              <div className="group/row flex items-stretch gap-4">
                 <div className="num w-[4.6rem] shrink-0 pt-3 text-right text-[13px] text-faint">{clock(s.start)}</div>
                 <div className="relative flex w-3 justify-center">
                   <span className="absolute inset-y-0 w-[1.4px] bg-line" />
                   <CategoryDot category={s.category} className="relative mt-4 size-3" />
                 </div>
                 <div className="min-w-0 flex-1 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex min-w-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
                       <AppAvatar app={s.app} process={s.process} category={s.category} size="sm" />
                       <span className="truncate text-[15px] font-medium">{s.app}</span>
                     </span>
                     <span className="num shrink-0 text-[13px] text-graphite">{formatDuration(s.active)}</span>
+                    <Forget label={t.forget.session} onForget={() => onForget(s)} />
                   </div>
                   <div className="truncate pl-8 text-[13px] text-graphite" title={s.titles[0]?.title}>
                     {s.titles[0]?.title}

@@ -19,6 +19,8 @@ enum Marker {
     static let process = "<Dopamine>"
     static let stopped = "<Stopped>"
     static let idle = "<Idle>"
+    /// A row the user erased. It keeps its timestamp, so the window before it doesn't gain its time.
+    static let forgotten = "<Forgotten>"
 }
 
 /// Thin SQLite wrapper using the same schema as DopamineWin. All access goes through a serial queue.
@@ -33,6 +35,8 @@ final class Database {
             throw DatabaseError.open(String(cString: sqlite3_errmsg(db)))
         }
         try exec("PRAGMA journal_mode=WAL")
+        // Zero freed space, so erased titles don't linger in the file.
+        try exec("PRAGMA secure_delete=ON")
         try exec("""
             CREATE TABLE IF NOT EXISTS WindowActivities (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,6 +158,43 @@ final class Database {
                 out[name] = StoredApp(png: png, hint: AppHint(kind: text(1), description: text(2), publisher: text(3), path: text(4)))
             }
             return out
+        }
+    }
+
+    /// Turns these rows into markers, erasing their titles for good. Marker rows are left as they are.
+    /// Returns how many rows were erased.
+    @discardableResult
+    func forget(ids: [Int64]) -> Int {
+        queue.sync {
+            guard !ids.isEmpty else { return 0 }
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            let sql = "UPDATE WindowActivities SET WindowTitle = ?, ProcessName = ? WHERE Id = ? AND ProcessName IS NOT ?"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                Log.error("Forget failed: \(String(cString: sqlite3_errmsg(db)))")
+                return 0
+            }
+            var erased = 0
+            do {
+                try exec("BEGIN")
+                for id in Set(ids) {
+                    sqlite3_reset(stmt)
+                    sqlite3_bind_text(stmt, 1, Marker.forgotten, -1, Database.transient)
+                    sqlite3_bind_text(stmt, 2, Marker.process, -1, Database.transient)
+                    sqlite3_bind_int64(stmt, 3, id)
+                    sqlite3_bind_text(stmt, 4, Marker.process, -1, Database.transient)
+                    guard sqlite3_step(stmt) == SQLITE_DONE else { throw DatabaseError.query(String(cString: sqlite3_errmsg(db))) }
+                    erased += Int(sqlite3_changes(db))
+                }
+                try exec("COMMIT")
+                // The old text is still in the write-ahead log until it is copied back and emptied.
+                try exec("PRAGMA wal_checkpoint(TRUNCATE)")
+            } catch {
+                try? exec("ROLLBACK")
+                Log.error("Forget failed: \(error)")
+                return 0
+            }
+            return erased
         }
     }
 

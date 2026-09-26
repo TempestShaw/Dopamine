@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AGENT_PROCESS, MAX_SEGMENT, RawEvent, bucketize, buildSegments, buildSessions, hourEdges, longestFocus, summarize } from "./analytics";
+import { AGENT_PROCESS, FORGOTTEN_TITLE, MAX_SEGMENT, RawEvent, bucketize, buildSegments, buildSessions, hourEdges, longestFocus, rowsIn, summarize } from "./analytics";
 import { categorize, cleanTitle } from "./categories";
 import { MINUTE } from "./time";
 
@@ -96,6 +96,38 @@ describe("summaries", () => {
   test("sessions merge same-app runs, newest first", () => {
     const s = buildSessions(segs);
     expect(s.map((x) => x.app)).toEqual(["VS Code", "Discord", "VS Code", "Discord", "VS Code"]);
+  });
+});
+
+describe("rowsIn", () => {
+  const now = at(12) * 1000;
+  const events = [
+    ev(at(8, 50), "Arc", "secret"), // runs into the range
+    ev(at(9, 10), "Arc", "Lectures"),
+    ev(at(9, 20), "Arc", "secret"),
+    ev(at(9, 30), AGENT_PROCESS, "<Stopped>"),
+    ev(at(10), "Code", "secret"), // same title, other app
+    ev(at(11), "Arc", "secret"),
+  ];
+  const window = { start: at(9) * 1000, end: at(10, 30) * 1000 };
+  const ids = (match: (e: RawEvent) => boolean) => rowsIn(events, window, now, match).map((id) => events.find((e) => e.id === id)!.timestamp);
+
+  test("finds every row of one window title that overlaps the range, including one that began before it", () => {
+    expect(ids((e) => e.processName === "Arc" && e.windowTitle === "secret")).toEqual([at(8, 50), at(9, 20)]);
+  });
+
+  test("never returns marker rows", () => {
+    expect(ids(() => true)).toEqual([at(8, 50), at(9, 10), at(9, 20), at(10)]);
+  });
+
+  test("forgotten rows stop counting instead of extending the window before them", () => {
+    const forgotten = new Set(rowsIn(events, window, now, (e) => e.windowTitle === "secret" && e.processName === "Arc"));
+    const redacted = events.map((e) => (forgotten.has(e.id) ? { ...e, processName: AGENT_PROCESS, windowTitle: FORGOTTEN_TITLE } : e));
+    const segs = buildSegments(redacted, window, now);
+    expect(segs.map((s) => [s.title, (s.end - s.start) / MINUTE])).toEqual([
+      ["Lectures", 10],
+      ["secret", 30], // Code's window with the same title is untouched
+    ]);
   });
 });
 

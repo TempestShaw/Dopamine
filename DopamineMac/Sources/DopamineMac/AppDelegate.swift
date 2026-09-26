@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tracker: Tracker!
     private var server: HTTPServer?
     private var api: API!
+    private var updates: UpdateChecker!
 
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
@@ -31,7 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tracker = Tracker(database: database, settings: settings)
         tracker.onStateChange = { [weak self] in self?.refresh() }
 
-        let api = API(database: database, settings: settings, webRoot: API.locateWebRoot())
+        let settingsStore = settings!
+        let updates = UpdateChecker(current: appVersion, isEnabled: { settingsStore.settings.checkForUpdates })
+        updates.onChange = { [weak self] in self?.refresh() }
+        self.updates = updates
+
+        let api = API(database: database, settings: settings, webRoot: API.locateWebRoot(), update: { [weak updates] in updates?.available })
         self.api = api
         let server = HTTPServer(port: apiPort) { req in api.handle(req) }
         do {
@@ -48,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         setUpStatusItem()
         tracker.start()
+        updates.start()
 
         if !Tracker.hasAccessibilityAccess && !UserDefaults.standard.bool(forKey: "askedForAccessibility") {
             UserDefaults.standard.set(true, forKey: "askedForAccessibility")
@@ -79,9 +86,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.animates = true
         popover.contentViewController = NSHostingController(rootView: MenuView(model: model, actions: MenuActions(
             openDashboard: { [weak self] in self?.openDashboard() },
-            togglePause: { [weak self] in self?.togglePause() },
+            pause: { [weak self] length in self?.tracker.pause(until: length.end(from: Date())) },
+            resume: { [weak self] in self?.tracker.resume() },
             grantAccessibility: { [weak self] in self?.openAccessibilitySettings() },
             setLaunchAtLogin: { [weak self] on in self?.setLaunchAtLogin(on) },
+            openUpdate: { [weak self] in self?.openUpdate() },
             quit: { NSApp.terminate(nil) }
         )))
         updateStatusButton()
@@ -125,12 +134,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Same evidence as the dashboard: the user's choice, then rules, then the app's metadata.
             let known = db.apps(for: Array(Set(rows.map(\.processName))))
             let overrides = settings.categoryOverrides.compactMapValues(Category.init(rawValue:))
+            let titleRules = settings.titleRules
             var cache: [String: Category] = [:]
             let classify: (String, String) -> Category = { title, process in
-                if let chosen = overrides[process] { return chosen }
                 let key = process + "\u{0}" + title
                 if let hit = cache[key] { return hit }
-                let c = Category.of(title: title, app: process, hint: known[process]?.hint)
+                let c = TitleRule.category(in: titleRules, title: title, process: process)
+                    ?? overrides[process]
+                    ?? Category.of(title: title, app: process, hint: known[process]?.hint)
                 cache[key] = c
                 return c
             }
@@ -148,6 +159,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.model.isRecording = self.tracker.isRecording
                 self.model.isIdle = self.tracker.isIdle
                 self.model.userPaused = self.tracker.userPaused
+                self.model.pausedUntil = self.tracker.pausedUntil
+                self.model.update = self.updates.available
                 self.model.pairingCode = self.settings.settings.pairingCode
                 self.model.hasAccessibility = Tracker.hasAccessibilityAccess
                 self.refreshLoginItemState()
@@ -166,8 +179,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func togglePause() {
-        tracker.setUserPaused(!tracker.userPaused)
+    private func openUpdate() {
+        popover.performClose(nil)
+        if let url = updates.available?.url { NSWorkspace.shared.open(url) }
     }
 
     private func openAccessibilitySettings() {

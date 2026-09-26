@@ -18,6 +18,7 @@ public sealed class DatabaseService : IDisposable
         _db = new Sqlite(AppInfo.DataFile("dopamine.db"));
         _db.Execute("""
             PRAGMA journal_mode=WAL;
+            PRAGMA secure_delete=ON;
             CREATE TABLE IF NOT EXISTS WindowActivities (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 Timestamp INTEGER NOT NULL,
@@ -69,6 +70,41 @@ public sealed class DatabaseService : IDisposable
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// Turns these rows into markers, erasing their titles for good; marker rows are left as they are.
+    /// The row keeps its timestamp, so the window before it doesn't gain its time. Returns how many were erased.
+    /// </summary>
+    public int Forget(IReadOnlyCollection<long> ids)
+    {
+        if (ids.Count == 0) return 0;
+        lock (_gate)
+        {
+            var erased = 0;
+            _db.Execute("BEGIN");
+            try
+            {
+                using var update = _db.Prepare("UPDATE WindowActivities SET WindowTitle = ?1, ProcessName = ?2 WHERE Id = ?3 AND ProcessName IS NOT ?2");
+                foreach (var id in ids.Distinct())
+                {
+                    update.Reset();
+                    update.Bind(1, WindowTracker.ForgottenTitle).Bind(2, WindowTracker.DopamineProcess).Bind(3, id).Run();
+                    erased += _db.Changes;
+                }
+
+                _db.Execute("COMMIT");
+            }
+            catch
+            {
+                _db.Execute("ROLLBACK");
+                throw;
+            }
+
+            // The old text stays in the write-ahead log until it is copied back and emptied.
+            _db.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
+            return erased;
+        }
     }
 
     public void SaveApp(string processName, StoredApp app)
