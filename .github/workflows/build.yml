@@ -111,12 +111,18 @@ jobs:
           if ($none.forgotten -ne 0) { throw "forget touched a row that doesn't exist" }
           $bad = Invoke-WebRequest "$base/forget" -Method Post -Headers $auth -ContentType "application/json" -Body '{"ids":"x"}' -SkipHttpErrorCheck
           if ($bad.StatusCode -ne 400) { throw "expected 400 for a bad forget request, got $($bad.StatusCode)" }
-          $real = @($titles) | Where-Object { $_.processName -ne "<Dopamine>" } | Select-Object -First 1
+          # Invoke-RestMethod may pass a JSON array down the pipeline as one object; ForEach-Object unrolls it.
+          $real = $titles | ForEach-Object { $_ } | Where-Object { $_.processName -ne "<Dopamine>" } | Select-Object -First 1
           if ($real) {
             $gone = Invoke-RestMethod "$base/forget" -Method Post -Headers $auth -ContentType "application/json" -Body "{`"ids`":[$($real.id)]}"
-            $after = @(Invoke-RestMethod "$base/titles?from=0&to=9999999999" -Headers $auth) | Where-Object { $_.id -eq $real.id }
-            if ($gone.forgotten -ne 1 -or $after.windowTitle -ne "<Forgotten>") { throw "forget did not erase row $($real.id)" }
-            "forget: erased row $($real.id)"
+            $row = Invoke-RestMethod "$base/titles?from=0&to=9999999999" -Headers $auth | ForEach-Object { $_ } | Where-Object { $_.id -eq $real.id }
+            if ($gone.forgotten -ne 1 -or $row.windowTitle -ne "<Forgotten>") {
+              Get-Content "$env:LOCALAPPDATA\Dopamine\dopamine.log" -ErrorAction SilentlyContinue
+              throw "forget did not erase row $($real.id): reply $($gone | ConvertTo-Json -Compress), row now $($row | ConvertTo-Json -Compress)"
+            }
+            "forget: erased row $($real.id) ($($real.processName))"
+          } else {
+            "forget: no window was recorded, so only the error cases were checked"
           }
 
           $page = Invoke-WebRequest "$base/"
