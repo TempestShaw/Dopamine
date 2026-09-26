@@ -1,6 +1,6 @@
 // Deterministic sample data so the dashboard can be explored without an agent installed.
 
-import { AGENT_PROCESS, RawEvent } from "./analytics";
+import { AGENT_PROCESS, FORGOTTEN_TITLE, RawEvent } from "./analytics";
 import { AppInfo, DataSource, Preferences, preferencesFromSettings, settingsFromPreferences } from "./source";
 import { addDays, startOfDay } from "./time";
 
@@ -115,6 +115,16 @@ function demoIcon(process: string): string | null {
 export class DemoSource implements DataSource {
   platform = "demo" as const;
   version = "demo";
+  /** Sample data is regenerated on every fetch, so forgotten rows are remembered until reload. */
+  private forgotten = new Set<number>();
+
+  async fetchUpdate() {
+    return null;
+  }
+
+  async forget(ids: number[]): Promise<void> {
+    this.forgotten = new Set([...this.forgotten, ...ids]);
+  }
 
   async fetchApps(processNames: string[]): Promise<Record<string, AppInfo>> {
     const out: Record<string, AppInfo> = {};
@@ -150,7 +160,8 @@ export class DemoSource implements DataSource {
       if (d.getTime() > now) break;
       for (const e of generateDay(d)) {
         const ms = e.timestamp * 1000;
-        if (e.timestamp >= fromSec && e.timestamp <= toSec && ms <= now) out.push(e);
+        if (e.timestamp < fromSec || e.timestamp > toSec || ms > now) continue;
+        out.push(this.forgotten.has(e.id) ? { ...e, processName: AGENT_PROCESS, windowTitle: FORGOTTEN_TITLE } : e);
       }
     }
     return out;

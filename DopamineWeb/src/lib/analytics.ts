@@ -16,6 +16,9 @@ export interface RawEvent {
 
 export const AGENT_PROCESS = "<Dopamine>";
 
+/** Title the agents give a row the user asked them to forget (its process becomes AGENT_PROCESS). */
+export const FORGOTTEN_TITLE = "<Forgotten>";
+
 /** Longest a single row may count for, in case the agent died without writing a stop marker. */
 export const MAX_SEGMENT = 2 * HOUR;
 
@@ -104,6 +107,25 @@ export function buildSegments(
     });
   }
   return out;
+}
+
+/**
+ * Ids of the rows behind some of the time shown for `range`: every non-marker row `match` accepts
+ * whose span (until the next row) overlaps the range. A row that began before the range is
+ * included whole, since a row can't be partly forgotten.
+ */
+export function rowsIn(events: RawEvent[], range: Range, now: number, match: (e: RawEvent) => boolean, maxSegment = MAX_SEGMENT): number[] {
+  const ids: number[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    const start = e.timestamp * 1000;
+    if (start >= range.end) break;
+    if (e.processName === AGENT_PROCESS || !match(e)) continue;
+    const next = events[i + 1];
+    const end = Math.min(next ? next.timestamp * 1000 : now, start + maxSegment, now);
+    if (start >= range.start || end > range.start) ids.push(e.id);
+  }
+  return ids;
 }
 
 export interface TitleStat {

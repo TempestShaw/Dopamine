@@ -19,6 +19,7 @@ internal sealed unsafe class Sqlite : IDisposable
     [DllImport(Lib)] private static extern int sqlite3_exec(IntPtr db, byte* sql, IntPtr callback, IntPtr arg, byte** error);
     [DllImport(Lib)] private static extern void sqlite3_free(void* ptr);
     [DllImport(Lib)] private static extern char* sqlite3_errmsg16(IntPtr db);
+    [DllImport(Lib)] private static extern int sqlite3_changes(IntPtr db);
     [DllImport(Lib)] internal static extern int sqlite3_prepare16_v2(IntPtr db, char* sql, int bytes, IntPtr* stmt, char** tail);
     [DllImport(Lib)] internal static extern int sqlite3_step(IntPtr stmt);
     [DllImport(Lib)] internal static extern int sqlite3_reset(IntPtr stmt);
@@ -82,6 +83,9 @@ internal sealed unsafe class Sqlite : IDisposable
     }
 
     internal string LastError() => LastError(_db);
+
+    /// <summary>Rows changed by the most recent INSERT, UPDATE or DELETE.</summary>
+    public int Changes => sqlite3_changes(_db);
 
     private static string LastError(IntPtr db)
     {

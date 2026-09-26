@@ -21,7 +21,24 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
   const [view, setView] = useState<View>("day");
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
   const t = useT();
-  const { data, loading, error, now, overrides, setOverride, hidden, setHidden, sharing } = useDashboard(store, view, anchor, onDisconnect);
+  const {
+    data,
+    loading,
+    error,
+    now,
+    overrides,
+    setOverride,
+    hidden,
+    setHidden,
+    forgetTitle,
+    forgetSession,
+    titleRules,
+    setTitleRule,
+    update,
+    checkUpdates,
+    setCheckUpdates,
+    sharing,
+  } = useDashboard(store, view, anchor, onDisconnect);
 
   const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
   const isCurrent = range.start <= now && now < range.end;
@@ -58,6 +75,14 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
       />
 
       <main className="mx-auto max-w-[1180px] px-4 pt-8 sm:px-8">
+        {update && (
+          <p className="sketch fade-in mb-8 px-4 py-3 text-[14px]">
+            {t.update.available(update.version)}{" "}
+            <a href={update.url} target="_blank" rel="noreferrer" className="font-semibold underline decoration-line underline-offset-4 hover:text-ink">
+              {t.update.download}
+            </a>
+          </p>
+        )}
         {error && (
           <div className="sketch mb-8 flex items-center justify-between gap-3 px-4 py-3 text-[15px]">
             <span className="marker">{t.errors[error]}</span>
@@ -87,6 +112,10 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
                   sharing={sharing}
                   hidden={hidden}
                   onHide={setHidden}
+                  onForgetTitle={forgetTitle}
+                  onForgetSession={forgetSession}
+                  titleRules={titleRules}
+                  onTitleRule={setTitleRule}
                 />
               </div>
               <aside className="space-y-12 lg:border-l lg:border-dashed lg:border-line lg:pl-10">
@@ -103,6 +132,11 @@ export function Dashboard({ store, onDisconnect }: { store: EventStore; onDiscon
           {sharing.available && sharing.state !== "ask" && (
             <button type="button" onClick={() => sharing.set(sharing.state === "on" ? "off" : "on")} className="text-base underline decoration-line underline-offset-4 hover:text-graphite">
               {sharing.state === "on" ? t.footer.stop : t.footer.start}
+            </button>
+          )}
+          {store.source.platform !== "demo" && (
+            <button type="button" onClick={() => setCheckUpdates(!checkUpdates)} className="text-base underline decoration-line underline-offset-4 hover:text-graphite">
+              {checkUpdates ? t.footer.updatesOn : t.footer.updatesOff}
             </button>
           )}
         </footer>

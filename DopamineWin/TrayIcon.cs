@@ -12,7 +12,7 @@ namespace DopamineWin;
 public sealed unsafe class TrayIcon
 {
     private const uint CallbackMessage = WM_APP + 1;
-    private const int CmdOpen = 1, CmdToggle = 2, CmdExit = 3;
+    private const int CmdOpen = 1, CmdResume = 2, CmdExit = 3, CmdPause15 = 4, CmdPause60 = 5, CmdPauseTomorrow = 6, CmdPauseOpen = 7, CmdUpdate = 8;
     private const int ApplicationIconId = 32512; // resource id the SDK gives <ApplicationIcon>
 
     private static TrayIcon? _instance; // the window procedure is static; it reaches the tray through this
@@ -20,16 +20,18 @@ public sealed unsafe class TrayIcon
     private readonly WindowTracker _tracker;
     private readonly SettingsService _settings;
     private readonly DatabaseService _database;
+    private readonly UpdateChecker _updates;
     private readonly Action _onExit;
     private IntPtr _hwnd;
     private IntPtr _icon;
     private uint _taskbarCreated;
 
-    public TrayIcon(WindowTracker tracker, SettingsService settings, DatabaseService database, Action onExit)
+    public TrayIcon(WindowTracker tracker, SettingsService settings, DatabaseService database, UpdateChecker updates, Action onExit)
     {
         _tracker = tracker;
         _settings = settings;
         _database = database;
+        _updates = updates;
         _onExit = onExit;
     }
 
@@ -193,11 +195,18 @@ public sealed unsafe class TrayIcon
             Add(menu, $"Dopamine {AppInfo.Version}", 0, MF_GRAYED);
             Add(menu, $"{Strings.T("Pairing code", "配对码", "配對碼")}: {settings.PairingCode}", 0, MF_GRAYED);
             Separator(menu);
+            var update = _updates.Available;
+            if (update != null)
+            {
+                Add(menu, Strings.T($"Dopamine {update.Version} is out: download", $"Dopamine {update.Version} 已发布：去下载", $"Dopamine {update.Version} 已發布：前往下載"), CmdUpdate, MF_STRING);
+                Separator(menu);
+            }
+
 
             try
             {
                 var today = TodaySummary.Compute(_database, settings.Hidden);
-                var state = _tracker.IsPaused ? Strings.T(" (paused)", "（已暂停）", "（已暫停）")
+                var state = _tracker.IsPaused ? PausedLabel(_tracker.PausedUntil)
                     : _tracker.IsIdle ? Strings.T(" (idle)", "（闲置）", "（閒置）") : "";
                 Add(menu, $"{Strings.T("Today", "今天", "今天")}: {TodaySummary.Format(today.Total)}{state}", 0, MF_GRAYED);
                 foreach (var (process, duration) in today.TopApps)
@@ -211,7 +220,21 @@ public sealed unsafe class TrayIcon
             Add(menu, Strings.T("Open Dashboard", "打开仪表板", "打開儀表板"), CmdOpen, MF_STRING);
             SetMenuDefaultItem(menu, CmdOpen, 0);
             Separator(menu);
-            Add(menu, _tracker.IsPaused ? Strings.T("Resume Tracking", "继续记录", "繼續記錄") : Strings.T("Pause Tracking", "暂停记录", "暫停記錄"), CmdToggle, MF_STRING);
+            if (_tracker.IsPaused)
+            {
+                Add(menu, Strings.T("Resume Tracking", "继续记录", "繼續記錄"), CmdResume, MF_STRING);
+            }
+            else
+            {
+                // Destroyed together with the parent menu.
+                var pause = CreatePopupMenu();
+                Add(pause, Strings.T("For 15 minutes", "暂停 15 分钟", "暫停 15 分鐘"), CmdPause15, MF_STRING);
+                Add(pause, Strings.T("For 1 hour", "暂停 1 小时", "暫停 1 小時"), CmdPause60, MF_STRING);
+                Add(pause, Strings.T("Until tomorrow", "暂停到明天", "暫停到明天"), CmdPauseTomorrow, MF_STRING);
+                Add(pause, Strings.T("Until I resume", "直到我手动继续", "直到我手動繼續"), CmdPauseOpen, MF_STRING);
+                fixed (char* t = Strings.T("Pause Tracking", "暂停记录", "暫停記錄")) AppendMenuW(menu, MF_POPUP, (nuint)pause, t);
+            }
+
             Add(menu, Strings.T("Exit", "退出", "結束"), CmdExit, MF_STRING);
 
             POINT pt;
@@ -226,8 +249,23 @@ public sealed unsafe class TrayIcon
                 case CmdOpen:
                     OpenDashboard();
                     break;
-                case CmdToggle:
-                    _tracker.SetUserPaused(!_tracker.IsPaused);
+                case CmdUpdate when update != null:
+                    Win32.Open(update.Url);
+                    break;
+                case CmdResume:
+                    _tracker.Resume();
+                    break;
+                case CmdPause15:
+                    _tracker.Pause(DateTimeOffset.Now.AddMinutes(15));
+                    break;
+                case CmdPause60:
+                    _tracker.Pause(DateTimeOffset.Now.AddHours(1));
+                    break;
+                case CmdPauseTomorrow:
+                    _tracker.Pause(new DateTimeOffset(DateTime.Today.AddDays(1)));
+                    break;
+                case CmdPauseOpen:
+                    _tracker.Pause(null);
                     break;
                 case CmdExit:
                     _onExit();
@@ -239,6 +277,16 @@ public sealed unsafe class TrayIcon
         {
             DestroyMenu(menu);
         }
+    }
+
+    /// <summary>" (paused until 15:45)", or "until tomorrow" for a pause that ends at midnight.</summary>
+    private static string PausedLabel(DateTimeOffset? until)
+    {
+        if (until is not { } end) return Strings.T(" (paused)", "（已暂停）", "（已暫停）");
+        var local = end.ToLocalTime();
+        if (local.TimeOfDay == TimeSpan.Zero) return Strings.T(" (paused until tomorrow)", "（暂停到明天）", "（暫停到明天）");
+        var time = local.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        return Strings.T($" (paused until {time})", $"（暂停到 {time}）", $"（暫停到 {time}）");
     }
 
     private void OpenDashboard() => Win32.Open(ApiServer.DashboardUrl(_settings.Settings.PairingCode));

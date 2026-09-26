@@ -28,13 +28,14 @@ export interface AppHint {
 
 type RuleList = [Category, RegExp][];
 
-// Latin keywords must match whole words ("code" is not in "barcode"); others (e.g. Chinese) match anywhere.
+// Latin keywords must match whole words ("code" is not in "barcode") and also match their plural
+// ("lecture" finds "Lectures"); others (e.g. Chinese) match anywhere.
 function compile(keywords: string[]): RegExp {
   const esc = (k: string) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const parts = keywords.map((k) => {
     if (!/^[\x00-\x7f]+$/.test(k)) return esc(k);
     const start = /^[a-z0-9]/i.test(k) ? "(?<![a-z0-9])" : "";
-    const end = /[a-z0-9]$/i.test(k) ? "(?![a-z0-9])" : "";
+    const end = /[a-z]$/i.test(k) ? "(?:e?s)?(?![a-z0-9])" : /[0-9]$/.test(k) ? "(?![a-z0-9])" : "";
     return start + esc(k) + end;
   });
   return new RegExp(parts.join("|"), "i");
@@ -44,6 +45,8 @@ const BROWSERS = new Set(RULES.browsers);
 const SITES: RuleList = RULES.sites.map(([c, k]) => [c as Category, compile(k as string[])]);
 const APPS: RuleList = RULES.apps.map(([c, k]) => [c as Category, compile(k as string[])]);
 const PLATFORM_KINDS = RULES.platformKinds as Record<string, Category>;
+/** Regular expressions for titles keywords can't describe, like course codes ("15-445", "CS 61A"). */
+const TITLE_PATTERNS: RuleList = RULES.titlePatterns.flatMap(([c, ps]) => (ps as string[]).map((p): [Category, RegExp] => [c as Category, new RegExp(p, "i")]));
 const GAME_PATHS = compile(RULES.gamePaths);
 const GAME_PUBLISHERS = compile(RULES.gamePublishers);
 
@@ -97,8 +100,57 @@ export function isBrowser(process: string): boolean {
  * well-known apps.
  */
 export function categorize(title: string, process: string, hint?: AppHint, community?: Overrides): Category {
-  if (isBrowser(process)) return match(SITES, title) ?? "other";
-  return match(APPS, appHaystack(process)) ?? community?.[process] ?? fromHint(hint) ?? match(SITES, title) ?? "other";
+  if (isBrowser(process)) return match(SITES, title) ?? match(TITLE_PATTERNS, title) ?? "other";
+  return match(APPS, appHaystack(process)) ?? community?.[process] ?? fromHint(hint) ?? match(SITES, title) ?? match(TITLE_PATTERNS, title) ?? "other";
+}
+
+/** Scope of a title rule that applies in every browser (otherwise the scope is a process name). */
+export const BROWSER_SCOPE = "browsers";
+
+/**
+ * The user's own rule for windows: "titles containing X count as Y", in every browser or in one app.
+ * Never shared with the community: window titles are private.
+ */
+export interface TitleRule {
+  contains: string;
+  category: Category;
+  scope: string;
+}
+
+/** "Code.app", "code.exe" and "Code" are the same app. */
+function appKey(process: string): string {
+  return process.replace(/\.(exe|app)$/i, "").toLowerCase();
+}
+
+/** The rule that decides this window, if any: the longest one whose text is in the title. */
+export function titleRuleFor(rules: TitleRule[], title: string, process: string): TitleRule | undefined {
+  if (rules.length === 0) return undefined;
+  const lower = title.toLowerCase();
+  const scope = isBrowser(process) ? BROWSER_SCOPE : appKey(process);
+  let best: TitleRule | undefined;
+  for (const r of rules) {
+    const inScope = r.scope === BROWSER_SCOPE ? scope === BROWSER_SCOPE : appKey(r.scope) === scope;
+    if (inScope && lower.includes(r.contains.toLowerCase()) && (!best || r.contains.length > best.contains.length)) best = r;
+  }
+  return best;
+}
+
+export const MAX_TITLE_RULES = 500;
+export const MAX_RULE_TEXT = 200;
+
+/** Keeps only well-formed rules (the agents check them too). */
+export function sanitizeTitleRules(raw: unknown): TitleRule[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TitleRule[] = [];
+  for (const r of raw) {
+    if (typeof r !== "object" || r === null) continue;
+    const { contains, category, scope } = r as Record<string, unknown>;
+    if (typeof contains !== "string" || typeof scope !== "string" || !CATEGORIES.includes(category as Category)) continue;
+    const text = contains.trim();
+    if (text.length === 0 || text.length > MAX_RULE_TEXT || scope.length === 0 || scope.length > 256) continue;
+    out.push({ contains: text, category: category as Category, scope });
+  }
+  return out.slice(0, MAX_TITLE_RULES);
 }
 
 /** A user's choice of category for an app, keyed by raw process name. Always wins. */
@@ -111,9 +163,12 @@ export function makeClassifier(
   hint: (process: string) => AppHint | undefined = () => undefined,
   overrides: Overrides = {},
   community: Overrides = {},
+  titleRules: TitleRule[] = [],
 ): Classifier {
   const cache = new Map<string, Category>();
   return (title, process) => {
+    const rule = titleRuleFor(titleRules, title, process);
+    if (rule) return rule.category;
     const chosen = overrides[process];
     if (chosen) return chosen;
     const key = `${process}\u0000${title}`;

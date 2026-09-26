@@ -93,4 +93,6 @@ public static class Log
 [JsonSerializable(typeof(AgentInfo))]
 [JsonSerializable(typeof(List<WindowActivity>))]
 [JsonSerializable(typeof(Dictionary<string, AppInfoDto>))]
+[JsonSerializable(typeof(ForgetRequest))]
+[JsonSerializable(typeof(ForgetResult))]
 internal partial class Json : JsonSerializerContext;

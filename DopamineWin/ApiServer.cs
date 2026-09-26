@@ -16,13 +16,15 @@ public sealed class ApiServer
 
     private readonly DatabaseService _database;
     private readonly SettingsService _settings;
+    private readonly UpdateChecker _updates;
     private readonly HttpServer _server;
     private readonly Dictionary<string, string> _webFiles; // "/index.html" -> resource name
 
-    public ApiServer(DatabaseService database, SettingsService settings)
+    public ApiServer(DatabaseService database, SettingsService settings, UpdateChecker updates)
     {
         _database = database;
         _settings = settings;
+        _updates = updates;
         _server = new HttpServer(Port, Handle);
         // Resource names look like "web/_next\static\x.js" (MSBuild keeps the OS separator).
         _webFiles = Assembly.GetExecutingAssembly().GetManifestResourceNames()
@@ -39,7 +41,7 @@ public sealed class ApiServer
         var res = Route(req);
         res.Headers["Access-Control-Allow-Origin"] = "*";
         res.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
-        res.Headers["Access-Control-Allow-Methods"] = "GET, PUT, OPTIONS";
+        res.Headers["Access-Control-Allow-Methods"] = "GET, PUT, POST, OPTIONS";
         if (req.Header("access-control-request-private-network") != null)
             res.Headers["Access-Control-Allow-Private-Network"] = "true";
         return res;
@@ -52,8 +54,12 @@ public sealed class ApiServer
         switch (req.Path)
         {
             case "/identify":
-                return HttpResponse.Json(JsonSerializer.Serialize(new AgentInfo(), Json.Default.AgentInfo));
-            case "/pair" or "/titles" or "/apps" or "/settings":
+            {
+                var info = new AgentInfo();
+                if (_updates.Available is { } release) info.Update = new UpdateDto { Version = release.Version, Url = release.Url };
+                return HttpResponse.Json(JsonSerializer.Serialize(info, Json.Default.AgentInfo));
+            }
+            case "/pair" or "/titles" or "/apps" or "/settings" or "/forget":
                 if (req.Header("authorization") != $"Bearer {_settings.Settings.PairingCode}") return HttpResponse.Empty(401);
                 return Protected(req);
             default:
@@ -107,6 +113,24 @@ public sealed class ApiServer
 
                 if (patch == null) return HttpResponse.Empty(400);
                 return HttpResponse.Json(JsonSerializer.Serialize(_settings.Update(patch), Json.Default.PublicSettings));
+            }
+
+            case ("POST", "/forget"):
+            {
+                ForgetRequest? forget;
+                try
+                {
+                    forget = JsonSerializer.Deserialize(req.Body, Json.Default.ForgetRequest);
+                }
+                catch (JsonException)
+                {
+                    return HttpResponse.Empty(400);
+                }
+
+                // Larger requests are split by the dashboard; this keeps one transaction short.
+                if (forget == null || forget.Ids.Count > 50_000) return HttpResponse.Empty(400);
+                var result = new ForgetResult { Forgotten = _database.Forget(forget.Ids) };
+                return HttpResponse.Json(JsonSerializer.Serialize(result, Json.Default.ForgetResult));
             }
 
             default:

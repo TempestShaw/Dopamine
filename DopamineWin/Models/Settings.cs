@@ -24,6 +24,12 @@ public sealed class StoredSettings
     /// <summary>Process names left out of every figure. Null until the user changes it, meaning <see cref="DefaultHidden"/>.</summary>
     public List<string>? HiddenApps { get; set; }
 
+    /// <summary>The user's per-window category rules (read by the dashboard; they beat <see cref="CategoryOverrides"/>).</summary>
+    public List<TitleRule> TitleRules { get; set; } = [];
+
+    /// <summary>Look for a new release on GitHub once a day.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary>Dopamine's own tray menu doesn't count as screen time unless the user asks.</summary>
     public static readonly string[] DefaultHidden = ["DopamineWin"];
 
@@ -42,6 +48,14 @@ public sealed class StoredSettings
         if (patch.InstallId != null && Guid.TryParse(patch.InstallId, out _)) InstallId = patch.InstallId;
         if (patch.HiddenApps != null)
             HiddenApps = patch.HiddenApps.Where(p => !string.IsNullOrEmpty(p) && p.Length <= 256).Take(500).ToList();
+        if (patch.TitleRules != null)
+            TitleRules = patch.TitleRules
+                .Where(r => r != null)
+                .Select(r => new TitleRule { Contains = (r.Contains ?? string.Empty).Trim(), Category = r.Category ?? string.Empty, Scope = r.Scope ?? string.Empty })
+                .Where(r => r.Contains.Length is > 0 and <= TitleRule.MaxText && Categories.Contains(r.Category) && r.Scope.Length is > 0 and <= 256)
+                .Take(TitleRule.MaxCount)
+                .ToList();
+        if (patch.CheckForUpdates is { } check) CheckForUpdates = check;
     }
 
     /// <summary>The part a paired dashboard may read (everything but the pairing code).</summary>
@@ -53,6 +67,8 @@ public sealed class StoredSettings
         CommunitySharing = CommunitySharing,
         InstallId = string.IsNullOrEmpty(InstallId) ? null : InstallId,
         HiddenApps = [.. Hidden],
+        TitleRules = TitleRules,
+        CheckForUpdates = CheckForUpdates,
     };
 }
 
@@ -65,6 +81,19 @@ public sealed class SettingsPatch
     public string? CommunitySharing { get; set; }
     public string? InstallId { get; set; }
     public List<string>? HiddenApps { get; set; }
+    public List<TitleRule>? TitleRules { get; set; }
+    public bool? CheckForUpdates { get; set; }
+}
+
+/// <summary>"Windows whose title contains <see cref="Contains"/> count as <see cref="Category"/>", in every browser ("browsers") or one app.</summary>
+public sealed class TitleRule
+{
+    public const int MaxCount = 500;
+    public const int MaxText = 200;
+
+    public string Contains { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string Scope { get; set; } = string.Empty;
 }
 
 public sealed class PublicSettings
@@ -75,6 +104,20 @@ public sealed class PublicSettings
     public string CommunitySharing { get; set; } = "ask";
     public string? InstallId { get; set; }
     public List<string> HiddenApps { get; set; } = [];
+    public List<TitleRule> TitleRules { get; set; } = [];
+    public bool CheckForUpdates { get; set; } = true;
+}
+
+/// <summary>POST /forget: rows the user wants erased.</summary>
+public sealed class ForgetRequest
+{
+    public List<long> Ids { get; set; } = [];
+}
+
+/// <summary>Reply to POST /forget.</summary>
+public sealed class ForgetResult
+{
+    public int Forgotten { get; set; }
 }
 
 /// <summary>GET /identify: lets the dashboard find the agent and learn its settings.</summary>
@@ -82,6 +125,8 @@ public sealed class AgentInfo
 {
     public string Name { get; set; } = "dopamine-win";
     public string Version { get; set; } = AppInfo.Version;
+    /// <summary>A newer release found on GitHub; left out when there is none.</summary>
+    public UpdateDto? Update { get; set; }
     public List<SettingSchema> Settings { get; set; } =
     [
         new()
@@ -95,6 +140,12 @@ public sealed class AgentInfo
             Description = "Seconds without keyboard or mouse input before Dopamine stops counting time. 0 disables it.",
         },
     ];
+}
+
+public sealed class UpdateDto
+{
+    public string Version { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 }
 
 public sealed class SettingSchema

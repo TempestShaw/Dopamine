@@ -1,13 +1,32 @@
-import { MAX_SEGMENT, RawEvent } from "./analytics";
-import { AppHint, Category, Overrides } from "./categories";
+import { AGENT_PROCESS, FORGOTTEN_TITLE, MAX_SEGMENT, RawEvent } from "./analytics";
+import { AppHint, Category, Overrides, TitleRule, sanitizeTitleRules } from "./categories";
 import { Sharing } from "./community";
 import { Range, addMonths, startOfMonth } from "./time";
 
 export const DEFAULT_PORT = 26535;
 
+export type RawEventFilter = (e: RawEvent) => boolean;
+
 export interface AgentInfo {
   name: string; // "dopamine-win" | "dopamine-mac"
   version: string;
+  /** A newer release the agent found on GitHub (it checks once a day unless turned off). */
+  update?: unknown;
+}
+
+export interface UpdateInfo {
+  version: string;
+  url: string;
+}
+
+const RELEASES = "https://github.com/TempestShaw/Dopamine/releases/tag/v";
+
+/** The agent's update notice, if it names a plain version and links to that release of this project. */
+export function updateFrom(info: { update?: unknown }): UpdateInfo | null {
+  const u = info.update as { version?: unknown; url?: unknown } | undefined;
+  if (!u || typeof u.version !== "string" || !/^\d+\.\d+\.\d+$/.test(u.version)) return null;
+  const url = RELEASES + u.version;
+  return u.url === url ? { version: u.version, url } : null;
 }
 
 export type Platform = "windows" | "mac" | "demo";
@@ -30,6 +49,10 @@ export interface DataSource {
   /** The user's category choices and sharing preference, kept by the agent. */
   loadPreferences(): Promise<Preferences>;
   savePreferences(change: Partial<Preferences>): Promise<void>;
+  /** A newer release, if the agent knows of one. */
+  fetchUpdate(): Promise<UpdateInfo | null>;
+  /** Erases these rows for good: their titles are overwritten and their time no longer counts. */
+  forget(ids: number[]): Promise<void>;
 }
 
 export interface Preferences {
@@ -41,6 +64,10 @@ export interface Preferences {
   installId?: string;
   /** Process names left out of every figure (Dopamine itself by default). */
   hidden: string[];
+  /** The user's per-window category rules; they beat the per-app choice. */
+  titleRules: TitleRule[];
+  /** Whether the agent looks for a new release once a day. */
+  checkUpdates: boolean;
 }
 
 /** Hidden until the user says otherwise: Dopamine's own windows (the agents send the same default). */
@@ -55,13 +82,20 @@ export function hiddenKey(process: string): string {
 
 /** Agent settings JSON ⇄ Preferences. */
 export function preferencesFromSettings(
-  s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string; hiddenApps?: unknown },
+  s: { categoryOverrides?: Record<string, string>; communitySharing?: string; installId?: string; hiddenApps?: unknown; titleRules?: unknown; checkForUpdates?: unknown },
   platform: Platform,
 ): Preferences {
   const sharing = s.communitySharing === "on" || s.communitySharing === "off" ? s.communitySharing : "ask";
   // Agents from before hiding existed send no list at all; an empty list means "hide nothing".
   const hidden = Array.isArray(s.hiddenApps) ? s.hiddenApps.filter((p): p is string => typeof p === "string" && p.length > 0) : defaultHidden(platform);
-  return { overrides: sanitizeOverrides(s.categoryOverrides), sharing, installId: s.installId || undefined, hidden };
+  return {
+    overrides: sanitizeOverrides(s.categoryOverrides),
+    sharing,
+    installId: s.installId || undefined,
+    hidden,
+    titleRules: sanitizeTitleRules(s.titleRules),
+    checkUpdates: s.checkForUpdates !== false,
+  };
 }
 
 export function settingsFromPreferences(p: Partial<Preferences>) {
@@ -70,6 +104,8 @@ export function settingsFromPreferences(p: Partial<Preferences>) {
     ...(p.sharing && { communitySharing: p.sharing }),
     ...(p.installId && { installId: p.installId }),
     ...(p.hidden && { hiddenApps: p.hidden }),
+    ...(p.titleRules && { titleRules: p.titleRules }),
+    ...(p.checkUpdates !== undefined && { checkForUpdates: p.checkUpdates }),
   };
 }
 
@@ -164,7 +200,31 @@ export class AgentSource implements DataSource {
     });
     if (!res.ok) throw new Error(`Agent returned ${res.status}`);
   }
+
+  async fetchUpdate(): Promise<UpdateInfo | null> {
+    const info = await identify(this.baseUrl);
+    return info ? updateFrom(info) : null;
+  }
+
+  async forget(ids: number[]): Promise<void> {
+    for (let i = 0; i < ids.length; i += FORGET_BATCH) {
+      const res = await fetchWithTimeout(
+        `${this.baseUrl}/forget`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${this.code}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: ids.slice(i, i + FORGET_BATCH) }),
+        },
+        15000,
+      );
+      if (res.status === 401 || res.status === 403) throw new AuthError("Pairing code rejected");
+      if (!res.ok) throw new Error(`Agent returned ${res.status}`);
+    }
+  }
 }
+
+/** Ids per request; the agents accept up to 50,000 and cap request bodies at 1 MB. */
+const FORGET_BATCH = 10_000;
 
 const VALID: Category[] = ["work", "study", "social", "entertainment", "other"];
 
@@ -274,6 +334,14 @@ export class EventStore {
       for (const n of missing) this.apps.delete(n); // retry next time
       return false;
     }
+  }
+
+  /** Has the agent forget these rows, then shows them as forgotten here too. */
+  async forget(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.source.forget(ids);
+    const gone = new Set(ids);
+    this.events = this.events.map((e) => (gone.has(e.id) ? { ...e, processName: AGENT_PROCESS, windowTitle: FORGOTTEN_TITLE } : e));
   }
 
   app(processName: string): AppInfo | undefined {

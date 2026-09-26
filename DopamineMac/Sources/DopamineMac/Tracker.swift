@@ -1,6 +1,21 @@
 import AppKit
 import ApplicationServices
 
+/// The choices offered by the menu's Pause button.
+enum PauseLength: CaseIterable {
+    case minutes15, hour1, untilTomorrow, indefinitely
+
+    /// When a pause started at `now` ends by itself; nil means it waits for the user.
+    func end(from now: Date, calendar: Calendar = .current) -> Date? {
+        switch self {
+        case .minutes15: return now.addingTimeInterval(15 * 60)
+        case .hour1: return now.addingTimeInterval(60 * 60)
+        case .untilTomorrow: return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))
+        case .indefinitely: return nil
+        }
+    }
+}
+
 /// Records the frontmost app and window title whenever it changes.
 ///
 /// Time only counts while the user is present: tracking suspends (writing a marker row) on
@@ -19,6 +34,8 @@ final class Tracker {
 
     /// Pause requested by the user from the menu.
     private(set) var userPaused = false
+    /// When the current pause ends by itself; nil while recording or until the user resumes.
+    private(set) var pausedUntil: Date?
 
     var isRecording: Bool { !userPaused && !systemSuspended && !isIdle }
 
@@ -64,7 +81,26 @@ final class Tracker {
         database.flush()
     }
 
-    func setUserPaused(_ paused: Bool) {
+    /// Stops recording, until `end` or (nil) until `resume()`. Choosing again replaces the end time.
+    func pause(until end: Date?) {
+        pausedUntil = end
+        if userPaused { onStateChange?() } else { setUserPaused(true) }
+    }
+
+    func resume() {
+        pausedUntil = nil
+        setUserPaused(false)
+    }
+
+    /// Ends a timed pause whose time is up. Returns true if it did.
+    @discardableResult
+    func resumeIfPauseEnded(now: Date = Date()) -> Bool {
+        guard userPaused, let end = pausedUntil, now >= end else { return false }
+        resume()
+        return true
+    }
+
+    private func setUserPaused(_ paused: Bool) {
         guard paused != userPaused else { return }
         userPaused = paused
         if paused { suspend(marker: Marker.stopped) } else { poll() }
@@ -102,6 +138,8 @@ final class Tracker {
     }
 
     private func poll() {
+        // The timer keeps running while paused, so a timed pause ends on the next tick.
+        if resumeIfPauseEnded() { return }
         guard !userPaused, !systemSuspended else { return }
 
         let idleLimit = settings.settings.idleTimeout

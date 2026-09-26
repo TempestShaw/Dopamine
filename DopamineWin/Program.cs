@@ -41,7 +41,8 @@ public static class Program
 
         var settings = new SettingsService();
         using var tracker = new WindowTracker(database, settings);
-        var api = new ApiServer(database, settings);
+        using var updates = new UpdateChecker(settings);
+        var api = new ApiServer(database, settings, updates);
         try
         {
             api.Start();
@@ -57,6 +58,7 @@ public static class Program
         }
 
         tracker.Start();
+        updates.Start();
 
         var stopped = 0;
         void Stop()
@@ -67,7 +69,7 @@ public static class Program
             api.Stop();
         }
 
-        new TrayIcon(tracker, settings, database, Stop).Run();
+        new TrayIcon(tracker, settings, database, updates, Stop).Run();
         Stop();
         database.Dispose();
         return 0;
