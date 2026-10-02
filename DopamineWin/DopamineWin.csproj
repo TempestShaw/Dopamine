@@ -20,6 +20,8 @@
     <OptimizationPreference>Size</OptimizationPreference>
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- Log.Error writes an exception's type and message, never its stack, so the exe needn't carry method names for one. -->
+    <StackTraceSupport>false</StackTraceSupport>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors>IL2026;IL2104;IL3050;IL3053</WarningsAsErrors>
