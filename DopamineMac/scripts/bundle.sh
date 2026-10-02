@@ -24,7 +24,16 @@ echo "▸ Assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/Dopamine"
-ditto "$ROOT/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+# Local symbols only matter in a debugger; stripping them roughly halves the binary.
+strip -x "$APP/Contents/MacOS/Dopamine"
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+ditto "$ROOT/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" "$SPARKLE"
+# Keep only what runs: no headers or module maps, no XPC services (those are for sandboxed apps,
+# and Dopamine isn't one), and only the languages Dopamine speaks.
+rm -rf "$SPARKLE"/{Headers,PrivateHeaders,Modules,XPCServices} "$SPARKLE"/Versions/B/{Headers,PrivateHeaders,Modules,XPCServices}
+for lproj in "$SPARKLE"/Versions/B/Resources/*.lproj; do
+  case "$(basename "$lproj")" in Base.lproj | en.lproj | zh_CN.lproj | zh_TW.lproj | zh_HK.lproj) ;; *) rm -rf "$lproj" ;; esac
+done
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 if [[ -d "$WEB/out" ]]; then cp -R "$WEB/out" "$APP/Contents/Resources/web"; fi

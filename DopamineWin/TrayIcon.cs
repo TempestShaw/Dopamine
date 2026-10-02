@@ -16,6 +16,11 @@ public sealed unsafe class TrayIcon
     private const int CmdOpen = 1, CmdResume = 2, CmdExit = 3, CmdPause15 = 4, CmdPause60 = 5, CmdPauseTomorrow = 6, CmdPauseOpen = 7, CmdUpdate = 8, CmdStartup = 9;
     private const int ApplicationIconId = 32512; // resource id the SDK gives <ApplicationIcon>
 
+    /// <summary>Posted to the tray window by a second launch of Dopamine, to open the dashboard here instead.</summary>
+    public const uint ShowDashboardMessage = WM_APP + 2;
+
+    public const string WindowClass = "DopamineTray";
+
     private static TrayIcon? _instance; // the window procedure is static; it reaches the tray through this
 
     private readonly WindowTracker _tracker;
@@ -23,6 +28,7 @@ public sealed unsafe class TrayIcon
     private readonly DatabaseService _database;
     private readonly UpdateChecker _updates;
     private readonly Action _onExit;
+    private readonly DashboardWindow _dashboard;
     private IntPtr _hwnd;
     private IntPtr _icon;
     private uint _taskbarCreated;
@@ -34,6 +40,7 @@ public sealed unsafe class TrayIcon
         _database = database;
         _updates = updates;
         _onExit = onExit;
+        _dashboard = new DashboardWindow(settings);
     }
 
     /// <summary>Creates the icon and runs the message loop until Exit is chosen or Windows ends the session.</summary>
@@ -44,7 +51,7 @@ public sealed unsafe class TrayIcon
         _icon = LoadImageW(module, ApplicationIconId, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
         if (_icon == IntPtr.Zero) _icon = LoadIconW(IntPtr.Zero, ApplicationIconId); // IDI_APPLICATION
 
-        fixed (char* className = "DopamineTray")
+        fixed (char* className = WindowClass)
         {
             var wc = new WNDCLASSEXW
             {
@@ -131,11 +138,17 @@ public sealed unsafe class TrayIcon
                 case WM_RBUTTONUP or WM_CONTEXTMENU:
                     ShowMenu();
                     break;
-                case WM_LBUTTONDBLCLK:
+                case WM_LBUTTONUP: // one click opens the dashboard, or brings it to the front
                     OpenDashboard();
                     break;
             }
 
+            return IntPtr.Zero;
+        }
+
+        if (msg == ShowDashboardMessage)
+        {
+            OpenDashboard();
             return IntPtr.Zero;
         }
 
@@ -282,6 +295,7 @@ public sealed unsafe class TrayIcon
                     _tracker.Pause(null);
                     break;
                 case CmdExit:
+                    _dashboard.Close();
                     _onExit();
                     DestroyWindow(_hwnd);
                     break;
@@ -303,7 +317,7 @@ public sealed unsafe class TrayIcon
         return Strings.T($" (paused until {time})", $"（暂停到 {time}）", $"（暫停到 {time}）");
     }
 
-    private void OpenDashboard() => Win32.Open(ApiServer.DashboardUrl(_settings.Settings.PairingCode));
+    private void OpenDashboard() => _dashboard.Show();
 
     private static void Add(IntPtr menu, string text, int id, uint flags)
     {

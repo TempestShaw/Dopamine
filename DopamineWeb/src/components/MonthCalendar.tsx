@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n";
-import { addDays, formatDuration, longDay, monthName, sameDay, startOfMonth, startOfWeek, weekdayInitials } from "@/lib/time";
-import { Section } from "./ui";
+import { addDays, addMonths, formatDuration, longDay, monthName, periodLabel, sameDay, startOfMonth, startOfWeek, weekdayInitials } from "@/lib/time";
+import { ChevronLeft, ChevronRight, Section } from "./ui";
 
 
 // Paint load of a dab (share of --heat mixed into the paper). Even the busiest day stays
@@ -35,22 +36,81 @@ const SHAPES = [
   "58% 42% 50% 50% / 44% 58% 42% 56%",
 ];
 
-export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor: Date; daily: Map<number, number>; selected: (d: Date) => boolean; now: number; onPick: (d: Date) => void }) {
-  const first = startOfMonth(anchor);
+/**
+ * A month of days, each painted by how long the screen was on. Browse months with the arrows and
+ * click a day to go to it.
+ */
+export function MonthCalendar({
+  anchor,
+  heatFor,
+  onShowMonth,
+  selected,
+  now,
+  onPick,
+  bare,
+}: {
+  /** The month shown first, and again whenever the period on screen moves to another month. */
+  anchor: Date;
+  heatFor: (month: Date) => Map<number, number>;
+  /** Called with each month shown, so its data can be loaded. */
+  onShowMonth: (month: Date) => void;
+  selected: (d: Date) => boolean;
+  now: number;
+  onPick: (d: Date) => void;
+  /** With a smaller heading, for the date picker. */
+  bare?: boolean;
+}) {
+  const anchorMonth = startOfMonth(anchor).getTime();
+  const [shown, setShown] = useState(anchorMonth);
+  useEffect(() => setShown(anchorMonth), [anchorMonth]);
+  useEffect(() => onShowMonth(new Date(shown)), [shown]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const first = new Date(shown);
   const gridStart = startOfWeek(first);
   const cells: Date[] = [];
   for (let d = gridStart; cells.length < 42; d = addDays(d, 1)) cells.push(d);
   const rows = cells[35].getMonth() === first.getMonth() ? 6 : 5;
   const today = new Date(now);
+  const daily = heatFor(first);
   const values = [...daily.values()];
   const monthTotal = values.reduce((a, b) => a + b, 0);
   const activeDays = values.filter((v) => v > 0).length;
   const strength = paintScale(values);
   const t = useT();
+  const thisMonth = startOfMonth(today).getTime();
+  const title = first.getFullYear() === today.getFullYear() ? monthName(first) : periodLabel("month", first);
+
+  const nav = (
+    <div className="flex items-center gap-0.5">
+      {shown !== thisMonth && (
+        <button type="button" onClick={() => setShown(thisMonth)} className="hand mr-1 rounded-md px-1.5 text-lg text-graphite hover:text-ink">
+          {t.calendar.today}
+        </button>
+      )}
+      <button type="button" aria-label={t.calendar.prevMonth} title={t.calendar.prevMonth} onClick={() => setShown(addMonths(first, -1).getTime())} className={NAV}>
+        <ChevronLeft className="size-4" />
+      </button>
+      <button
+        type="button"
+        aria-label={t.calendar.nextMonth}
+        title={t.calendar.nextMonth}
+        onClick={() => setShown(addMonths(first, 1).getTime())}
+        disabled={shown >= thisMonth}
+        className={NAV}
+      >
+        <ChevronRight className="size-4" />
+      </button>
+    </div>
+  );
 
   return (
-    <Section title={monthName(first)} note={activeDays ? t.calendar.perDay(formatDuration(monthTotal / activeDays)) : undefined}>
-      <div className="grid grid-cols-7 gap-1.5 text-center">
+    <Section
+      compact={bare}
+      title={title}
+      note={activeDays ? t.calendar.perDay(formatDuration(monthTotal / activeDays)) : undefined}
+      action={nav}
+    >
+      <div className="grid grid-cols-7 gap-1 text-center">
         {weekdayInitials().map((w, i) => (
           <div key={i} className="pb-1 text-[11px] font-medium text-faint">
             {w}
@@ -99,3 +159,5 @@ export function MonthCalendar({ anchor, daily, selected, now, onPick }: { anchor
     </Section>
   );
 }
+
+const NAV = "dab grid size-7 place-items-center text-graphite transition-colors hover:bg-wash hover:text-ink disabled:pointer-events-none disabled:opacity-30";

@@ -12,7 +12,9 @@ public sealed class ApiServer
 {
     public const int Port = 26535;
 
-    public static string DashboardUrl(string pairingCode) => $"http://localhost:{Port}/#pair={pairingCode}";
+    /// <param name="customFrame">The page draws its own title bar and window buttons (the dashboard window has none).</param>
+    public static string DashboardUrl(string pairingCode, bool customFrame = false) =>
+        $"http://localhost:{Port}/{(customFrame ? "?frame=custom" : "")}#pair={pairingCode}";
 
     private readonly DatabaseService _database;
     private readonly SettingsService _settings;

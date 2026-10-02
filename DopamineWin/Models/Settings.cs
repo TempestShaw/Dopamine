@@ -26,6 +26,9 @@ public sealed class StoredSettings
     /// <summary>Look for a new release on GitHub once a day.</summary>
     public bool CheckForUpdates { get; set; } = true;
 
+    /// <summary>"light" or "dark", as the dashboard last showed itself; empty until it says. The dashboard window follows it.</summary>
+    public string Theme { get; set; } = string.Empty;
+
     /// <summary>Dopamine's own tray menu doesn't count as screen time unless the user asks.</summary>
     public static readonly string[] DefaultHidden = ["DopamineWin"];
 
@@ -49,6 +52,7 @@ public sealed class StoredSettings
                 .Take(TitleRule.MaxCount)
                 .ToList();
         if (patch.CheckForUpdates is { } check) CheckForUpdates = check;
+        if (patch.Theme is "light" or "dark") Theme = patch.Theme;
     }
 
     /// <summary>The part a paired dashboard may read (everything but the pairing code).</summary>
@@ -60,6 +64,7 @@ public sealed class StoredSettings
         HiddenApps = [.. Hidden],
         TitleRules = TitleRules,
         CheckForUpdates = CheckForUpdates,
+        Theme = Theme,
     };
 }
 
@@ -72,6 +77,7 @@ public sealed class SettingsPatch
     public List<string>? HiddenApps { get; set; }
     public List<TitleRule>? TitleRules { get; set; }
     public bool? CheckForUpdates { get; set; }
+    public string? Theme { get; set; }
 }
 
 /// <summary>"Windows whose title contains <see cref="Contains"/> count as <see cref="Category"/>", in every browser ("browsers") or one app.</summary>
@@ -93,6 +99,7 @@ public sealed class PublicSettings
     public List<string> HiddenApps { get; set; } = [];
     public List<TitleRule> TitleRules { get; set; } = [];
     public bool CheckForUpdates { get; set; } = true;
+    public string Theme { get; set; } = string.Empty;
 }
 
 /// <summary>POST /forget: rows the user wants erased.</summary>

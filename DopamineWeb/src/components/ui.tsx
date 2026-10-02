@@ -28,6 +28,12 @@ export const Logout = svg(<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17
 export const EyeOff = svg(<path d="M10.7 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.2 3.1M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.5 9.5 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />);
 export const Trash = svg(<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />);
 export const Refresh = svg(<path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" />);
+export const SidebarIcon = svg(
+  <>
+    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+    <path d="M9 4v16" />
+  </>,
+);
 export const Windows = svg(<path d="M3 5.5 10 4.5V11H3zM11 4.3 21 3v8H11zM3 12h7v6.5L3 17.5zM11 12h10v9l-10-1.4z" fill="currentColor" stroke="none" />);
 export const Apple = svg(
   <path
@@ -114,14 +120,29 @@ export function Stroke({ color = "var(--highlight)", className = "" }: { color?:
 }
 
 /** A titled section. No box; structure comes from whitespace and a pencil rule. */
-export function Section({ title, note, action, children, className = "" }: { title?: ReactNode; note?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Section({
+  title,
+  note,
+  action,
+  children,
+  className = "",
+  compact,
+}: {
+  title?: ReactNode;
+  note?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  /** Smaller heading, for the date picker. */
+  compact?: boolean;
+}) {
   return (
     <section className={className}>
       {(title || action) && (
-        <header className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-          <div className="flex items-baseline gap-3">
-            {title && <h2 className="serif text-[26px] leading-none">{title}</h2>}
-            {note && <span className="hand text-lg leading-none text-graphite">{note}</span>}
+        <header className={`flex flex-wrap items-end justify-between gap-x-4 gap-y-2 ${compact ? "mb-3" : "mb-5"}`}>
+          <div className={`flex items-baseline ${compact ? "gap-2" : "gap-3"}`}>
+            {title && <h2 className={`serif leading-none ${compact ? "text-[20px]" : "text-[26px]"}`}>{title}</h2>}
+            {note && <span className={`hand leading-none text-graphite ${compact ? "text-base" : "text-lg"}`}>{note}</span>}
           </div>
           {action}
         </header>
@@ -154,20 +175,6 @@ export function Segmented<T extends string>({ value, options, onChange, size = "
         );
       })}
     </div>
-  );
-}
-
-export function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="dab grid size-9 place-items-center text-graphite transition-colors hover:bg-wash hover:text-ink"
-    >
-      {children}
-    </button>
   );
 }
 

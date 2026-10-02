@@ -66,6 +66,15 @@ export interface Preferences {
   titleRules: TitleRule[];
   /** Whether the agent looks for a new release once a day. */
   checkUpdates: boolean;
+  /** The theme the dashboard last told the agent it shows, so the dashboard window can match; null until then. */
+  theme: Theme | null;
+}
+
+export type Theme = "light" | "dark";
+
+/** The theme to tell the agent about: the one on screen (`<html data-theme>`), when the agent doesn't have it yet. */
+export function themeToReport(shown: string | undefined, stored: Theme | null): Theme | null {
+  return (shown === "light" || shown === "dark") && shown !== stored ? shown : null;
 }
 
 /** Hidden until the user says otherwise: Dopamine's own windows (the agents send the same default). */
@@ -80,7 +89,7 @@ export function hiddenKey(process: string): string {
 
 /** Agent settings JSON ⇄ Preferences. */
 export function preferencesFromSettings(
-  s: { categoryOverrides?: Record<string, string>; hiddenApps?: unknown; titleRules?: unknown; checkForUpdates?: unknown },
+  s: { categoryOverrides?: Record<string, string>; hiddenApps?: unknown; titleRules?: unknown; checkForUpdates?: unknown; theme?: unknown },
   platform: Platform,
 ): Preferences {
   // Agents from before hiding existed send no list at all; an empty list means "hide nothing".
@@ -90,6 +99,7 @@ export function preferencesFromSettings(
     hidden,
     titleRules: sanitizeTitleRules(s.titleRules),
     checkUpdates: s.checkForUpdates !== false,
+    theme: s.theme === "light" || s.theme === "dark" ? s.theme : null,
   };
 }
 
@@ -99,6 +109,7 @@ export function settingsFromPreferences(p: Partial<Preferences>) {
     ...(p.hidden && { hiddenApps: p.hidden }),
     ...(p.titleRules && { titleRules: p.titleRules }),
     ...(p.checkUpdates !== undefined && { checkForUpdates: p.checkUpdates }),
+    ...(p.theme && { theme: p.theme }),
   };
 }
 

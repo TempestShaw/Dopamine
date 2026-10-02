@@ -2,8 +2,8 @@
 
   <!--
     Native AOT build: compiles to a single native exe with no .NET runtime to install.
-    The agent uses only Win32 (tray, window tracking), winsqlite3.dll (bundled with Windows 10+)
-    and a small built-in HTTP server, so it needs no WinForms or ASP.NET Core.
+    The agent uses only Win32 (tray, window tracking, the dashboard window), winsqlite3.dll
+    (bundled with Windows 10+) and a small built-in HTTP server, so it needs no WinForms or ASP.NET Core.
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -20,13 +20,24 @@
     <OptimizationPreference>Size</OptimizationPreference>
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- Log.Error writes an exception's type and message, never its stack, so the exe needn't carry method names for one. -->
+    <StackTraceSupport>false</StackTraceSupport>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors>IL2026;IL2104;IL3050;IL3053</WarningsAsErrors>
   </PropertyGroup>
 
+  <!--
+    The dashboard window uses WebView2 (the Edge runtime built into Windows 10 and 11). Only the
+    package's native loader is used: Native AOT links its static library into the exe, so there is
+    still one file to ship. A plain `dotnet build` / `dotnet run` loads the DLL copy instead.
+  -->
   <ItemGroup>
     <PackageReference Include="Velopack" Version="1.2.161" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" ExcludeAssets="all" GeneratePathProperty="true" />
+    <DirectPInvoke Include="WebView2Loader" />
+    <NativeLibrary Include="$(PkgMicrosoft_Web_WebView2)\build\native\x64\WebView2LoaderStatic.lib" />
+    <None Include="$(PkgMicrosoft_Web_WebView2)\build\native\x64\WebView2Loader.dll" Link="WebView2Loader.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" Visible="false" />
   </ItemGroup>
 
   <!-- The dashboard (run `bun run build` in ../DopamineWeb first) is embedded in the exe. -->
