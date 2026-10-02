@@ -14,14 +14,15 @@ import {
   dayEdges,
   hourEdges,
   hourOfDayProfile,
+  productiveTime,
   rowsIn,
   summarize,
 } from "./analytics";
 import { Category, MAX_TITLE_RULES, cleanTitle, displayApp, makeClassifier } from "./categories";
 import { Insight, buildInsights } from "./insights";
 import { useI18n } from "./i18n";
-import { AuthError, EventStore, Preferences, RawEventFilter, UpdateInfo, defaultHidden, hiddenKey } from "./source";
-import { Range, View, previousAnchor, rangeFor, startOfMonth, addMonths } from "./time";
+import { AuthError, EventStore, Preferences, RawEventFilter, UpdateInfo, defaultHidden, hiddenKey, themeToReport } from "./source";
+import { Range, View, previousAnchor, rangeFor, startOfDay, startOfMonth, addMonths } from "./time";
 
 export interface DashboardData {
   range: Range;
@@ -31,10 +32,18 @@ export interface DashboardData {
   buckets: Bucket[]; // hours for the day view, days otherwise
   profile: CategoryTotals[]; // hour-of-day
   sessions: Session[];
-  monthDaily: Map<number, number>;
   insights: Insight[];
   /** Icon data: URLs for the apps on screen. */
   icons: Record<string, string>;
+  /** Today, whatever period is on screen: for the sidebar. */
+  today: Today;
+}
+
+export interface Today {
+  total: number;
+  focus: number;
+  /** The app in front right now and how long this stretch in it has lasted; null when idle or paused. */
+  current: { app: string; process: string; category: Category; since: number } | null;
 }
 
 const LIVE_REFRESH_MS = 30_000;
@@ -52,7 +61,9 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     hidden: defaultHidden(store.source.platform),
     titleRules: [],
     checkUpdates: true,
+    theme: null,
   }));
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const overrides = prefs.overrides;
@@ -70,7 +81,13 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
   const platform = store.source.platform;
 
   useEffect(() => {
-    store.source.loadPreferences().then(setPrefs, () => {});
+    store.source.loadPreferences().then(
+      (p) => {
+        setPrefs(p);
+        setPrefsLoaded(true);
+      },
+      () => {},
+    );
   }, [store, platform]);
 
   useEffect(() => {
@@ -89,6 +106,23 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     setPrefs((prev) => ({ ...prev, ...change }));
     store.source.savePreferences(change).catch(() => setError("save"));
   };
+
+  // Tell the Windows agent which theme is on screen, so the dashboard window's frame matches it.
+  const storedTheme = prefs.theme;
+  useEffect(() => {
+    if (!prefsLoaded || platform !== "windows") return;
+    const root = document.documentElement;
+    const report = () => {
+      const theme = themeToReport(root.dataset.theme, storedTheme);
+      if (theme) savePrefs({ theme });
+    };
+    report();
+    const observer = new MutationObserver(report);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+    // savePrefs is recreated every render; only the theme on screen and the stored one matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefsLoaded, platform, storedTheme]);
 
   /** Pins an app to a category (or back to automatic with null). */
   const setOverride = (process: string, category: Category | null) => {
@@ -140,10 +174,10 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     let cancelled = false;
     setLoading(true);
     const all = { start: Math.min(prevRange.start, monthRange.start), end: Math.max(range.end, monthRange.end) };
-    store
-      .ensure(all)
+    const today = rangeFor("day", startOfDay(new Date()));
+    Promise.all([store.ensure(all), store.ensure(today)])
       // Metadata for unfamiliar apps feeds categorisation, so fetch it before computing.
-      .then(() => store.ensureApps(store.processNames(all)))
+      .then(() => store.ensureApps([...store.processNames(all), ...store.processNames(today)]))
       .then(() => {
         if (cancelled) return;
         setError(null);
@@ -161,10 +195,8 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     };
   }, [store, range, prevRange, monthRange]);
 
-  // Keep the ongoing period live.
-  const isLive = range.start <= now && now < range.end;
+  // Keep today live: the sidebar always shows it, and so does the period on screen when it is current.
   useEffect(() => {
-    if (!isLive) return;
     const tick = async () => {
       if (document.hidden) return;
       try {
@@ -185,7 +217,7 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
       clearInterval(id);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [store, isLive]);
+  }, [store]);
 
   const classify = useMemo(
     () => makeClassifier((p) => store.app(p), overrides, prefs.titleRules),
@@ -212,13 +244,28 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     const prevSegs = build(prev);
     const previous = prevSegs.length ? summarize(prevSegs, prev) : null;
     const profile = hourOfDayProfile(segments);
-    const monthSegs = build(monthRange);
     const icons: Record<string, string> = {};
     for (const p of [...summary.apps.map((a) => a.process), ...prefs.hidden]) {
       const icon = store.app(p)?.icon;
       if (icon) icons[p] = icon;
     }
+    const todayRange = rangeFor("day", startOfDay(new Date(now)));
+    const todaySegs = build(todayRange);
+    const todaySummary = summarize(todaySegs, todayRange);
+    const todaySessions = buildSessions(todaySegs);
+    const lastSession = todaySessions[todaySessions.length - 1];
+    // Still in front: the agent records every few seconds, so a stretch ending in the last minute is ongoing.
+    const current = lastSession && now - lastSession.end < 60_000 ? lastSession : null;
+    if (current) {
+      const icon = store.app(current.process)?.icon;
+      if (icon) icons[current.process] = icon;
+    }
     return {
+      today: {
+        total: todaySummary.total,
+        focus: productiveTime(todaySummary.byCategory),
+        current: current && { app: current.app, process: current.process, category: current.category, since: current.start },
+      },
       range,
       segments,
       summary,
@@ -226,7 +273,6 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
       buckets: bucketize(segments, view === "day" ? hourEdges(range.start) : dayEdges(range)),
       profile,
       sessions: buildSessions(segments),
-      monthDaily: dailyTotals(monthSegs, monthRange),
       insights: buildInsights(view, summary, previous, profile),
       icons,
     };
@@ -234,8 +280,29 @@ export function useDashboard(store: EventStore, view: View, anchor: Date, onAuth
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, version, view, range, prevRange, monthRange, now, classify, hiddenSet, prefs.hidden, locale]);
 
+  /** Screen time per day of any month (empty until loaded); the calendar asks with `showMonth`. */
+  const heatFor = (month: Date): Map<number, number> => {
+    const m = startOfMonth(month);
+    const r = { start: m.getTime(), end: addMonths(m, 1).getTime() };
+    const segs = buildSegments(store.slice(r), r, now, classify);
+    return dailyTotals(hiddenSet.size ? segs.filter((x) => !hiddenSet.has(hiddenKey(x.process))) : segs, r);
+  };
+
+  /** Loads a month the calendar is showing, so its days get their heat. */
+  const showMonth = (month: Date) => {
+    const m = startOfMonth(month);
+    const r = { start: m.getTime(), end: addMonths(m, 1).getTime() };
+    store
+      .ensure(r)
+      .then(() => store.ensureApps(store.processNames(r)))
+      .then(() => setVersion((v) => v + 1))
+      .catch(() => {});
+  };
+
   return {
     data,
+    heatFor,
+    showMonth,
     loading,
     error,
     now,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dashboard } from "@/components/Dashboard";
 import { PairScreen } from "@/components/PairScreen";
+import { PlainFrame } from "@/components/TitleBar";
 import { Logo } from "@/components/ui";
 import { DemoSource } from "@/lib/demo";
 import { I18nContext, Locale, detectLocale, saveLocale } from "@/lib/i18n";
@@ -79,9 +80,11 @@ export default function Home() {
   return (
     <I18nContext.Provider value={i18n}>
       {state.kind === "booting" ? (
-        <div className="grid min-h-screen place-items-center">
-          <Logo className="size-12 animate-pulse" />
-        </div>
+        <PlainFrame>
+          <div className="panel panel-card grid flex-1 place-items-center md:ml-2">
+            <Logo className="size-12 animate-pulse" />
+          </div>
+        </PlainFrame>
       ) : state.kind === "pairing" ? (
         <PairScreen onPaired={connect} onDemo={() => setState({ kind: "ready", store: new EventStore(new DemoSource()) })} />
       ) : (

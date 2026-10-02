@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AGENT_PROCESS, FORGOTTEN_TITLE, RawEvent } from "./analytics";
-import { DataSource, EventStore, Preferences, preferencesFromSettings, settingsFromPreferences, updateFrom } from "./source";
+import { DataSource, EventStore, Preferences, preferencesFromSettings, settingsFromPreferences, themeToReport, updateFrom } from "./source";
 
 class FakeSource implements DataSource {
   platform = "mac" as const;
@@ -14,7 +14,7 @@ class FakeSource implements DataSource {
     return {};
   }
   async loadPreferences(): Promise<Preferences> {
-    return { overrides: {}, hidden: [], titleRules: [], checkUpdates: true };
+    return { overrides: {}, hidden: [], titleRules: [], checkUpdates: true, theme: null };
   }
   async installUpdate() {}
   async fetchUpdate() {
@@ -69,6 +69,15 @@ describe("preferences", () => {
     expect(prefs.checkUpdates).toBe(false);
     expect(settingsFromPreferences({ titleRules: rules, checkUpdates: true })).toEqual({ titleRules: rules, checkForUpdates: true });
     expect(preferencesFromSettings({}, "mac")).toMatchObject({ titleRules: [], checkUpdates: true });
+  });
+
+  test("the theme on screen travels to the agent, so the dashboard window can match it", () => {
+    expect(preferencesFromSettings({ theme: "dark" }, "windows").theme).toBe("dark");
+    expect(preferencesFromSettings({ theme: "sepia" }, "windows").theme).toBeNull();
+    expect(settingsFromPreferences({ theme: "light" })).toEqual({ theme: "light" });
+    expect(themeToReport("dark", null)).toBe("dark");
+    expect(themeToReport("dark", "dark")).toBeNull();
+    expect(themeToReport(undefined, "light")).toBeNull();
   });
 });
 

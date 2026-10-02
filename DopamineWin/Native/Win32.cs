@@ -11,13 +11,20 @@ internal static unsafe class Win32
     // Window messages
     public const uint WM_NULL = 0x0000;
     public const uint WM_DESTROY = 0x0002;
+    public const uint WM_MOVE = 0x0003;
+    public const uint WM_SIZE = 0x0005;
+    public const uint WM_SETFOCUS = 0x0007;
+    public const uint WM_GETMINMAXINFO = 0x0024;
+    public const uint WM_DPICHANGED = 0x02E0;
     public const uint WM_CLOSE = 0x0010;
     public const uint WM_QUERYENDSESSION = 0x0011;
     public const uint WM_ENDSESSION = 0x0016;
     public const uint WM_CONTEXTMENU = 0x007B;
+    public const uint WM_NCCALCSIZE = 0x0083;
+    public const uint WM_NCHITTEST = 0x0084;
     public const uint WM_POWERBROADCAST = 0x0218;
     public const uint WM_WTSSESSION_CHANGE = 0x02B1;
-    public const uint WM_LBUTTONDBLCLK = 0x0203;
+    public const uint WM_LBUTTONUP = 0x0202;
     public const uint WM_RBUTTONUP = 0x0205;
     public const uint WM_APP = 0x8000;
 
@@ -38,6 +45,25 @@ internal static unsafe class Win32
     // Menus
     public const uint MF_STRING = 0x0, MF_GRAYED = 0x1, MF_CHECKED = 0x8, MF_POPUP = 0x10, MF_SEPARATOR = 0x800;
     public const uint TPM_RIGHTBUTTON = 0x2, TPM_RETURNCMD = 0x100, TPM_NONOTIFY = 0x80;
+
+    // Windows
+    public const uint WS_OVERLAPPEDWINDOW = 0x00CF0000;
+    public const int CW_USEDEFAULT = unchecked((int)0x80000000);
+    public const int SW_SHOWMAXIMIZED = 3, SW_MAXIMIZE = 3, SW_MINIMIZE = 6, SW_RESTORE = 9;
+    public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_FRAMECHANGED = 0x20;
+    public const int HTTOP = 12, HTTOPLEFT = 13, HTTOPRIGHT = 14;
+    public const int SM_CYFRAME = 33, SM_CXPADDEDBORDER = 92;
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+    public const uint DWMWA_USE_IMMERSIVE_DARK_MODE = 20, DWMWA_CAPTION_COLOR = 35, DWMWA_TEXT_COLOR = 36;
+    public const int IDC_ARROW = 32512;
+    public const int GCLP_HBRBACKGROUND = -10;
+    public const int SM_CXICON = 11, SM_CYICON = 12;
+    public static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4;
+    public const uint ASFW_ANY = unchecked((uint)-1);
+
+    // Registry
+    public static readonly IntPtr HKEY_CURRENT_USER = unchecked((int)0x80000001);
+    public const uint RRF_RT_REG_DWORD = 0x10;
 
     // Misc
     public const uint IMAGE_ICON = 1;
@@ -81,6 +107,49 @@ internal static unsafe class Win32
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct NCCALCSIZE_PARAMS
+    {
+        public RECT rgrc0, rgrc1, rgrc2;
+        public IntPtr lppos;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPLACEMENT
+    {
+        public uint length;
+        public uint flags;
+        public int showCmd;
+        public POINT ptMinPosition;
+        public POINT ptMaxPosition;
+        public RECT rcNormalPosition;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -186,12 +255,34 @@ internal static unsafe class Win32
     [DllImport("user32.dll")] public static extern int DestroyIcon(IntPtr icon);
     [DllImport("user32.dll")] public static extern int GetIconInfo(IntPtr icon, ICONINFO* info);
     [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern int ShowWindow(IntPtr hwnd, int show);
+    [DllImport("user32.dll")] public static extern int IsIconic(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern int IsZoomed(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern int ScreenToClient(IntPtr hwnd, POINT* point);
+    [DllImport("user32.dll")] public static extern int GetSystemMetricsForDpi(int index, uint dpi);
+    [DllImport("user32.dll")] public static extern int SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int w, int h, uint flags);
+    [DllImport("user32.dll")] public static extern int GetClientRect(IntPtr hwnd, RECT* rect);
+    [DllImport("user32.dll")] public static extern int GetWindowPlacement(IntPtr hwnd, WINDOWPLACEMENT* placement);
+    [DllImport("user32.dll")] public static extern int SetWindowPlacement(IntPtr hwnd, WINDOWPLACEMENT* placement);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll")] public static extern int GetMonitorInfoW(IntPtr monitor, MONITORINFO* info);
+    [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern int SetProcessDpiAwarenessContext(IntPtr context);
+    [DllImport("user32.dll")] public static extern IntPtr LoadCursorW(IntPtr instance, IntPtr name);
+    [DllImport("user32.dll")] public static extern IntPtr SetClassLongPtrW(IntPtr hwnd, int index, IntPtr value);
+    [DllImport("user32.dll")] public static extern IntPtr FindWindowW(char* className, char* windowName);
+    [DllImport("user32.dll")] public static extern int AllowSetForegroundWindow(uint processId);
     [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
 
     // gdi32 ----------------------------------------------------------------------------------
     [DllImport("gdi32.dll")] public static extern int GetObjectW(IntPtr obj, int size, void* buffer);
     [DllImport("gdi32.dll")] public static extern int GetDIBits(IntPtr dc, IntPtr bitmap, uint start, uint lines, void* bits, BITMAPINFO* info, uint usage);
     [DllImport("gdi32.dll")] public static extern int DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateSolidBrush(uint color);
+
+    // dwmapi / advapi32 ----------------------------------------------------------------------
+    [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, uint attribute, void* value, uint size);
+    [DllImport("advapi32.dll")] public static extern int RegGetValueW(IntPtr key, char* subKey, char* value, uint flags, IntPtr type, void* data, uint* size);
 
     // kernel32 -------------------------------------------------------------------------------
     [DllImport("kernel32.dll")] public static extern IntPtr GetModuleHandleW(char* name);

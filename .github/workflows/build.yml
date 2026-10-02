@@ -183,6 +183,21 @@ jobs:
 
           $p = Get-Process -Id $proc.Id
           "Memory: working set {0:N1} MB, private {1:N1} MB" -f ($p.WorkingSet64 / 1MB), ($p.PrivateMemorySize64 / 1MB)
+
+          # Launching it again asks the running agent to open the dashboard in its own window (WebView2).
+          Start-Process -FilePath $exe
+          $log = "$env:LOCALAPPDATA\Dopamine\dopamine.log"
+          $loaded = $false
+          for ($i = 0; $i -lt 60 -and -not $loaded; $i++) {
+            Start-Sleep -Milliseconds 500
+            $loaded = Select-String -Path $log -Pattern "Dashboard window loaded" -Quiet
+          }
+          $title = (Get-Process -Id $proc.Id).MainWindowTitle
+          if (-not $loaded -or $title -ne "Dopamine") {
+            Get-Content $log -ErrorAction SilentlyContinue
+            throw "the dashboard window did not open (window title '$title')"
+          }
+          "dashboard window: open and loaded"
           Stop-Process -Id $proc.Id
           Get-Content "$env:LOCALAPPDATA\Dopamine\dopamine.log" -ErrorAction SilentlyContinue
       - name: Package with Velopack

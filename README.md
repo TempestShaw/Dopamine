@@ -50,9 +50,11 @@ Download the latest build for your computer from [Releases](https://github.com/T
 **Windows 10 or later**
 
 1. Unzip `Dopamine-win.zip` anywhere you like and run the included `DopamineWin.exe`, or use `Dopamine-win-Setup.exe` from the release to install it. No .NET installation is needed.
-2. Right-click the tray icon (or double-click it) and choose **Open Dashboard**. Choose **Start with Windows** in the same menu to have it start when you sign in.
+2. Click the tray icon to open the dashboard, or right-click it for the menu. Running `DopamineWin.exe` again also opens the dashboard. Choose **Start with Windows** in the same menu to have it start when you sign in.
 
-The dashboard opens at [localhost:26535](http://localhost:26535) and pairs itself. The menu shows a six-character pairing code if you ever need to connect by hand.
+On Windows the dashboard opens in its own Dopamine window, with its own title bar: the view switch, language, theme and the minimise, maximise and close buttons sit in one row, the way Discord or VS Code do it. Closing the window leaves tracking running in the tray; choose **Exit** from the tray menu to stop. The window uses the Microsoft Edge WebView2 runtime that comes with Windows 10 and 11; on the rare PC without it, the dashboard opens in your browser instead.
+
+On macOS the dashboard opens in your browser at [localhost:26535](http://localhost:26535) and pairs itself. The menu shows a six-character pairing code if you ever need to connect by hand.
 
 ## Why use Dopamine?
 
@@ -63,6 +65,8 @@ The dashboard opens at [localhost:26535](http://localhost:26535) and pairs itsel
 - **Only what you want counted.** Hide any app from the numbers; Dopamine's own windows are hidden from the start.
 - **Forget what you'd rather not keep.** Erase a window or a session from the dashboard: its title is overwritten on disk and its time stops counting. To keep something from being recorded at all, pause from the menu bar or tray for 15 minutes, an hour, until tomorrow, or until you resume.
 - **Updates install themselves.** The app checks daily, downloads updates in the background and installs them when it quits. Choose **Update and restart** to apply a ready update immediately.
+- **A sidebar for today.** What's in front right now and for how long, today's goals (a screen-time limit and a focus target, with progress), and a 25 or 50 minute focus timer that chimes when it's done. It shows today even while you look at another date.
+- **Jump to any day.** Click the date at the top, or any day in the calendar, to go there. Browse back through earlier months; each day is painted by how long the screen was on.
 - **Speaks your language.** English, 简体中文 and 繁體中文, in the dashboard and the menu bar or tray.
 - **Light on your machine.** A native menu bar or tray agent, a local SQLite file, and a dashboard with no charting libraries that holds 60 fps.
 
@@ -110,6 +114,7 @@ Automatic updates use Sparkle on macOS and Velopack on Windows, with update file
        /identify · /pair · /titles · /apps · /settings
                                  ↓
           Dashboard (Next.js static export, served by the agent)
+            Windows: in the agent's own WebView2 window
 ```
 
 Each agent writes a row whenever the front window changes, plus marker rows when tracking stops or you go idle. The dashboard turns those rows into durations. Every protected request sends `Authorization: Bearer <pairing code>`.

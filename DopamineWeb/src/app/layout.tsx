@@ -18,11 +18,14 @@ const FONTS =
 // Applies the saved (or system) theme before first paint to avoid a flash.
 const themeScript = `try{var t=localStorage.getItem("dopamine.theme");if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){}`;
 
+// The Windows dashboard window draws no title bar of its own and says so with ?frame=custom (see lib/desktop.ts).
+const frameScript = `try{if(/[?&]frame=custom(&|$)/.test(location.search)&&window.chrome&&chrome.webview)document.documentElement.dataset.frame="custom"}catch(e){}`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript + langScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript + langScript + frameScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="stylesheet" href={FONTS} />
