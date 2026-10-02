@@ -8,8 +8,10 @@ import WebKit
 /// The window has no visible title bar: the page draws its own (`?frame=mac`) under the native
 /// traffic lights, which sit centred in it. WebKit ignores CSS `app-region`, so the page asks
 /// through the `dopamine` message handler to move the window or zoom it, and reports its theme so
-/// the window's background matches while it loads. While the window is open, Dopamine shows in the
-/// Dock and the app switcher like any other app; closing it leaves just the menu bar icon.
+/// the frosted glass behind the title bar and sidebar (an NSVisualEffectView the page lets through)
+/// matches it. The window fades in once the page has loaded and fades out when closed. While it's
+/// open, Dopamine shows in the Dock and the app switcher like any other app; closing it leaves just
+/// the menu bar icon.
 final class DashboardWindow: NSObject {
     /// The height of the page's title bar (`h-10` in DopamineWeb/src/components/TitleBar.tsx).
     static let titleBarHeight: CGFloat = 40
@@ -25,7 +27,10 @@ final class DashboardWindow: NSObject {
     private let defaults: UserDefaults
     private var window: NSWindow?
     private var webView: WKWebView?
+    private var glass: NSVisualEffectView?
     private var fullScreen = false
+    private var revealed = false
+    private var closing = false
 
     /// - Parameter url: the dashboard address, asked each time the window opens (the pairing code can change).
     init(url: @escaping () -> URL, defaults: UserDefaults = .standard) {
@@ -46,10 +51,20 @@ final class DashboardWindow: NSObject {
         let config = WKWebViewConfiguration()
         config.userContentController.add(WeakMessageHandler(self), name: Self.messageHandler)
         let webView = WKWebView(frame: .zero, configuration: config)
-        // Let the window's background show until the page paints, so it never flashes white.
+        // The page is transparent where the glass shows through, and never flashes white.
         webView.setValue(false, forKey: "drawsBackground")
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        webView.autoresizingMask = [.width, .height]
+
+        let theme = storedTheme
+        let glass = NSVisualEffectView()
+        glass.material = .sidebar
+        glass.blendingMode = .behindWindow
+        glass.state = .followsWindowActiveState
+        glass.appearance = theme.appearance
+        webView.frame = glass.bounds
+        glass.addSubview(webView)
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: Self.defaultSize),
@@ -63,18 +78,31 @@ final class DashboardWindow: NSObject {
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         window.minSize = Self.minimumSize
-        window.backgroundColor = storedTheme.chrome
-        window.contentView = webView
+        window.backgroundColor = theme.chrome
+        window.animationBehavior = .none // it fades in and out on its own
+        window.alphaValue = 0
+        window.contentView = glass
         window.delegate = self
         if !window.setFrameUsingName(Self.autosaveName) { placeFirstTime(window) }
         window.setFrameAutosaveName(Self.autosaveName)
 
         self.window = window
         self.webView = webView
+        self.glass = glass
         fullScreen = false
+        revealed = false
+        closing = false
         placeTrafficLights()
         webView.load(URLRequest(url: url()))
         bringToFront(window)
+        // Shown when the page has loaded, or after a moment if it's slow, so it never sits invisible.
+        DispatchQueue.main.asyncAfter(deadline: .now() + WindowMotion.revealTimeout) { [weak self] in self?.reveal() }
+    }
+
+    private func reveal() {
+        guard let window, !revealed else { return }
+        revealed = true
+        WindowMotion.fadeIn(window)
     }
 
     func close() {
@@ -82,6 +110,7 @@ final class DashboardWindow: NSObject {
     }
 
     private func bringToFront(_ window: NSWindow) {
+        DevIcon.applyIfUnbundled()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -119,6 +148,7 @@ final class DashboardWindow: NSObject {
     private func apply(_ theme: DashboardTheme) {
         defaults.set(theme.rawValue, forKey: Self.themeKey)
         window?.backgroundColor = theme.chrome
+        glass?.appearance = theme.appearance
     }
 
     // MARK: Messages
@@ -156,6 +186,14 @@ final class DashboardWindow: NSObject {
 // MARK: - Window
 
 extension DashboardWindow: NSWindowDelegate {
+    /// Fades out first, then closes for real.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if closing { return true }
+        closing = true
+        WindowMotion.fadeOut(sender) { sender.close() }
+        return false
+    }
+
     func windowDidResize(_ notification: Notification) { placeTrafficLights() }
     func windowDidBecomeKey(_ notification: Notification) { placeTrafficLights() }
 
@@ -176,6 +214,7 @@ extension DashboardWindow: NSWindowDelegate {
         window?.delegate = nil
         window = nil
         webView = nil
+        glass = nil
         // Back to a menu bar app: no Dock icon or menu.
         NSApp.setActivationPolicy(.accessory)
     }
@@ -199,6 +238,7 @@ extension DashboardWindow: WKNavigationDelegate, WKUIDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Log.info("Dashboard window loaded")
+        reveal()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -239,6 +279,9 @@ enum DashboardTheme: String {
         case .dark: return NSColor(srgbRed: 0x0f / 255, green: 0x0e / 255, blue: 0x0c / 255, alpha: 1)
         }
     }
+
+    /// The glass behind the title bar and sidebar takes the dashboard's theme, not the system's.
+    var appearance: NSAppearance? { NSAppearance(named: self == .dark ? .darkAqua : .aqua) }
 }
 
 /// What double-clicking a title bar does, as chosen in System Settings › Desktop & Dock.
