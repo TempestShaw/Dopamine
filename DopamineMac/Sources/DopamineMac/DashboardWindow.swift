@@ -9,7 +9,8 @@ import WebKit
 /// traffic lights, which sit centred in it. WebKit ignores CSS `app-region`, so the page asks
 /// through the `dopamine` message handler to move the window or zoom it, and reports its theme so
 /// the frosted glass behind the title bar and sidebar (an NSVisualEffectView the page lets through)
-/// matches it. The window fades in once the page has loaded and fades out when closed. While it's
+/// matches it. The window appears as soon as the page has painted, with the system's own document-window
+/// animation (drawn by the window server at the display's full refresh rate). While it's
 /// open, Dopamine shows in the Dock and the app switcher like any other app; closing it leaves just
 /// the menu bar icon.
 final class DashboardWindow: NSObject {
@@ -22,6 +23,8 @@ final class DashboardWindow: NSObject {
     private static let autosaveName = "DopamineDashboard"
     private static let themeKey = "dashboardTheme"
     private static let messageHandler = "dopamine"
+    /// The longest the window waits for the page to paint before appearing anyway.
+    private static let revealTimeout: TimeInterval = 0.5
 
     private let url: () -> URL
     private let defaults: UserDefaults
@@ -30,7 +33,6 @@ final class DashboardWindow: NSObject {
     private var glass: NSVisualEffectView?
     private var fullScreen = false
     private var revealed = false
-    private var closing = false
 
     /// - Parameter url: the dashboard address, asked each time the window opens (the pairing code can change).
     init(url: @escaping () -> URL, defaults: UserDefaults = .standard) {
@@ -79,8 +81,7 @@ final class DashboardWindow: NSObject {
         window.tabbingMode = .disallowed
         window.minSize = Self.minimumSize
         window.backgroundColor = theme.chrome
-        window.animationBehavior = .none // it fades in and out on its own
-        window.alphaValue = 0
+        window.animationBehavior = .documentWindow
         window.contentView = glass
         window.delegate = self
         if !window.setFrameUsingName(Self.autosaveName) { placeFirstTime(window) }
@@ -91,18 +92,17 @@ final class DashboardWindow: NSObject {
         self.glass = glass
         fullScreen = false
         revealed = false
-        closing = false
         placeTrafficLights()
         webView.load(URLRequest(url: url()))
-        bringToFront(window)
-        // Shown when the page has loaded, or after a moment if it's slow, so it never sits invisible.
-        DispatchQueue.main.asyncAfter(deadline: .now() + WindowMotion.revealTimeout) { [weak self] in self?.reveal() }
+        // Shown when the page says it has painted ("ready"), so it animates in complete, or after a
+        // moment if it's slow. Waiting for `didFinish` would also wait for web fonts.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.revealTimeout) { [weak self] in self?.reveal() }
     }
 
     private func reveal() {
         guard let window, !revealed else { return }
         revealed = true
-        WindowMotion.fadeIn(window)
+        bringToFront(window)
     }
 
     func close() {
@@ -170,6 +170,8 @@ final class DashboardWindow: NSObject {
             }
         case "theme":
             if let raw = message["theme"] as? String, let theme = DashboardTheme(rawValue: raw) { apply(theme) }
+        case "ready":
+            reveal()
         case "state":
             sendState()
         default:
@@ -186,14 +188,6 @@ final class DashboardWindow: NSObject {
 // MARK: - Window
 
 extension DashboardWindow: NSWindowDelegate {
-    /// Fades out first, then closes for real.
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if closing { return true }
-        closing = true
-        WindowMotion.fadeOut(sender) { sender.close() }
-        return false
-    }
-
     func windowDidResize(_ notification: Notification) { placeTrafficLights() }
     func windowDidBecomeKey(_ notification: Notification) { placeTrafficLights() }
 
@@ -238,11 +232,27 @@ extension DashboardWindow: WKNavigationDelegate, WKUIDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Log.info("Dashboard window loaded")
-        reveal()
+        reveal() // a page that never says "ready", such as the unreachable page
     }
 
+    /// The dashboard couldn't be reached: say so instead of leaving an empty window, with a way to retry.
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         Log.error("Dashboard window failed to load: \(error)")
+        webView.loadHTMLString(DashboardWindow.unreachablePage(retry: url()), baseURL: nil)
+    }
+
+    static func unreachablePage(retry: URL) -> String {
+        let title = L("Can't reach the dashboard", "无法连接仪表板", "無法連線儀表板")
+        let detail = L("Dopamine's local server didn't answer.", "Dopamine 的本地服务没有响应。", "Dopamine 的本機服務沒有回應。")
+        let again = L("Try again", "重试", "重試")
+        let link = retry.absoluteString.replacingOccurrences(of: "\"", with: "%22")
+        return """
+            <!doctype html><meta charset="utf-8"><style>
+            html{height:100%;display:grid;place-items:center;font:14px -apple-system,sans-serif;color:#221f1b;color-scheme:light dark}
+            @media (prefers-color-scheme:dark){html{color:#f1ece2}}
+            p{margin:.4em 0;text-align:center} a{color:inherit;font-weight:600}
+            </style><body><p><b>\(title)</b></p><p>\(detail)</p><p><a href="\(link)">\(again)</a></p></body>
+            """
     }
 
     /// WebKit's page process can be killed under memory pressure; bring the dashboard back.

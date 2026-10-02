@@ -122,6 +122,8 @@ export function useAppBehaviour() {
       if (e.buttons & 1) host.postMessage({ type: "drag" });
     };
     const disarm = () => (armed = false);
+    // The window stays hidden until the page has painted, then animates in complete.
+    requestAnimationFrame(() => requestAnimationFrame(() => host.postMessage({ type: "ready" })));
     const root = document.documentElement;
     const reportTheme = () => host.postMessage({ type: "theme", theme: root.dataset.theme === "dark" ? "dark" : "light" });
     reportTheme();
