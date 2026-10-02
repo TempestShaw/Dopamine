@@ -56,8 +56,6 @@ On Windows the dashboard opens in its own Dopamine window, with its own title ba
 
 On macOS the dashboard opens in its own Dopamine window too, with the same title bar under the usual red, yellow and green buttons. While it's open, Dopamine shows in the Dock and the app switcher; closing it leaves tracking running in the menu bar.
 
-The dashboard is also served at [localhost:26535](http://localhost:26535) for any browser, and pairs itself when opened from the app. The menu shows a six-character pairing code if you ever need to connect by hand.
-
 ## Why use Dopamine?
 
 - **Zero effort.** Nothing to start, stop or label. Time stops counting when you lock the screen, sleep, or leave the keyboard alone for five minutes.
