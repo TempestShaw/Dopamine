@@ -52,10 +52,6 @@ Dopamine 是一个适用于 macOS 和 Windows 的轻量屏幕时间记录工具�
 1. 把 `Dopamine-win.zip` 解压到任意位置，运行里面的 `DopamineWin.exe`；也可以运行 release 中的 `Dopamine-win-Setup.exe` 安装。不需要安装 .NET。
 2. 单击托盘图标打开仪表盘，右键可以打开菜单。再次运行 `DopamineWin.exe` 也会打开仪表盘。在同一个菜单里选 **开机时启动**，登录 Windows 后就会自动运行。
 
-在 Windows 上，仪表盘会在独立的 Dopamine 窗口中打开，并带有自己的标题栏：视图切换、语言、主题以及最小化、最大化和关闭按钮都在同一行，就像 Discord 或 VS Code 那样。关闭窗口后记录仍会在托盘中继续；要停止，请在托盘菜单中选择 **退出**。这个窗口使用 Windows 10 和 11 自带的 Microsoft Edge WebView2 运行时；少数没有它的电脑会改为在浏览器中打开仪表盘。
-
-在 macOS 上，仪表盘同样会在独立的 Dopamine 窗口中打开，标题栏和 Windows 一样，左侧是系统自带的红黄绿按钮。窗口打开时，Dopamine 会出现在程序坞和应用切换器里；关闭窗口后记录仍会在菜单栏中继续。
-
 ## 为什么用 Dopamine？
 
 - **零操作。** 不用开始、停止或打标签。锁屏、睡眠或五分钟没有键鼠输入时，时间自动停止计算。
