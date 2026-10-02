@@ -54,7 +54,9 @@ Dopamine 是一个适用于 macOS 和 Windows 的轻量屏幕时间记录工具�
 
 在 Windows 上，仪表盘会在独立的 Dopamine 窗口中打开，并带有自己的标题栏：视图切换、语言、主题以及最小化、最大化和关闭按钮都在同一行，就像 Discord 或 VS Code 那样。关闭窗口后记录仍会在托盘中继续；要停止，请在托盘菜单中选择 **退出**。这个窗口使用 Windows 10 和 11 自带的 Microsoft Edge WebView2 运行时；少数没有它的电脑会改为在浏览器中打开仪表盘。
 
-在 macOS 上，仪表盘会在浏览器的 [localhost:26535](http://localhost:26535) 打开，并自动完成配对。如果需要手动连接，菜单里显示的六位配对码可以用上。
+在 macOS 上，仪表盘同样会在独立的 Dopamine 窗口中打开，标题栏和 Windows 一样，左侧是系统自带的红黄绿按钮。窗口打开时，Dopamine 会出现在程序坞和应用切换器里；关闭窗口后记录仍会在菜单栏中继续。
+
+仪表盘也可以在任意浏览器里打开 [localhost:26535](http://localhost:26535)；从 App 打开时会自动完成配对。如果需要手动连接，菜单里显示的六位配对码可以用上。
 
 ## 为什么用 Dopamine？
 
@@ -114,6 +116,7 @@ macOS 使用 Sparkle，Windows 使用 Velopack，从 GitHub Releases 获取更�
        /identify · /pair · /titles · /apps · /settings
                                  ↓
           仪表盘（Next.js 静态导出，由程序自己提供）
+            在程序自己的窗口中：Windows 用 WebView2，macOS 用 WKWebView
 ```
 
 每个程序在前台窗口变化时写一行记录，停止记录或进入空闲时再写一行标记。仪表盘把这些记录换算成时长。所有受保护的请求都带 `Authorization: Bearer <配对码>`。
@@ -139,6 +142,7 @@ bun run build
 ```bash
 cd DopamineMac
 swift run                 # 直接从源码运行
+DOPAMINE_DASHBOARD_URL=http://localhost:3000/ DOPAMINE_OPEN_DASHBOARD=1 swift run   # 仪表盘窗口指向 `bun dev`
 ./scripts/bundle.sh       # 在 dist/ 里生成通用版 Dopamine.app
 ```
 

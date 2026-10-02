@@ -54,7 +54,9 @@ Download the latest build for your computer from [Releases](https://github.com/T
 
 On Windows the dashboard opens in its own Dopamine window, with its own title bar: the view switch, language, theme and the minimise, maximise and close buttons sit in one row, the way Discord or VS Code do it. Closing the window leaves tracking running in the tray; choose **Exit** from the tray menu to stop. The window uses the Microsoft Edge WebView2 runtime that comes with Windows 10 and 11; on the rare PC without it, the dashboard opens in your browser instead.
 
-On macOS the dashboard opens in your browser at [localhost:26535](http://localhost:26535) and pairs itself. The menu shows a six-character pairing code if you ever need to connect by hand.
+On macOS the dashboard opens in its own Dopamine window too, with the same title bar under the usual red, yellow and green buttons. While it's open, Dopamine shows in the Dock and the app switcher; closing it leaves tracking running in the menu bar.
+
+The dashboard is also served at [localhost:26535](http://localhost:26535) for any browser, and pairs itself when opened from the app. The menu shows a six-character pairing code if you ever need to connect by hand.
 
 ## Why use Dopamine?
 
@@ -114,7 +116,7 @@ Automatic updates use Sparkle on macOS and Velopack on Windows, with update file
        /identify · /pair · /titles · /apps · /settings
                                  ↓
           Dashboard (Next.js static export, served by the agent)
-            Windows: in the agent's own WebView2 window
+            in the agent's own window: WebView2 on Windows, WKWebView on macOS
 ```
 
 Each agent writes a row whenever the front window changes, plus marker rows when tracking stops or you go idle. The dashboard turns those rows into durations. Every protected request sends `Authorization: Bearer <pairing code>`.
@@ -140,6 +142,7 @@ bun run build
 ```bash
 cd DopamineMac
 swift run                 # run from source
+DOPAMINE_DASHBOARD_URL=http://localhost:3000/ DOPAMINE_OPEN_DASHBOARD=1 swift run   # dashboard window on `bun dev`
 ./scripts/bundle.sh       # universal Dopamine.app in dist/
 ```
 

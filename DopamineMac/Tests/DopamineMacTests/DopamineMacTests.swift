@@ -301,4 +301,27 @@ final class DopamineMacTests: XCTestCase {
         AccessibilityAccess.askIfNewBuild(defaults: defaults)
         XCTAssertEqual(defaults.string(forKey: "accessibilityAskedForBuild"), build)
     }
+
+    func testDashboardWindowURLAsksForTheMacFrameAndPairs() throws {
+        let agent = try XCTUnwrap(URL(string: "http://localhost:26535/"))
+        XCTAssertEqual(DashboardWindow.url(base: agent, pairingCode: "ABC123")?.absoluteString, "http://localhost:26535/?frame=mac#pair=ABC123")
+        let dev = try XCTUnwrap(URL(string: "http://localhost:3000?frame=custom"))
+        XCTAssertEqual(DashboardWindow.url(base: dev, pairingCode: "X")?.absoluteString, "http://localhost:3000/?frame=mac#pair=X")
+    }
+
+    func testDashboardWindowStaysOnTheDashboard() throws {
+        let base = try XCTUnwrap(URL(string: "http://localhost:26535/?frame=mac"))
+        XCTAssertTrue(DashboardWindow.isDashboard(try XCTUnwrap(URL(string: "http://localhost:26535/settings#x")), base: base))
+        XCTAssertTrue(DashboardWindow.isDashboard(try XCTUnwrap(URL(string: "about:blank")), base: base))
+        XCTAssertFalse(DashboardWindow.isDashboard(try XCTUnwrap(URL(string: "https://github.com/TempestShaw/Dopamine")), base: base))
+        XCTAssertFalse(DashboardWindow.isDashboard(try XCTUnwrap(URL(string: "http://localhost:3000/")), base: base))
+    }
+
+    func testTitleBarDoubleClickFollowsSystemSettings() {
+        XCTAssertEqual(TitleBarDoubleClick.from(action: nil, minimizeOnDoubleClick: nil), .zoom)
+        XCTAssertEqual(TitleBarDoubleClick.from(action: "Maximize", minimizeOnDoubleClick: true), .zoom)
+        XCTAssertEqual(TitleBarDoubleClick.from(action: "Minimize", minimizeOnDoubleClick: nil), .minimize)
+        XCTAssertEqual(TitleBarDoubleClick.from(action: "None", minimizeOnDoubleClick: nil), TitleBarDoubleClick.none)
+        XCTAssertEqual(TitleBarDoubleClick.from(action: nil, minimizeOnDoubleClick: true), .minimize)
+    }
 }

@@ -18,8 +18,9 @@ const FONTS =
 // Applies the saved (or system) theme before first paint to avoid a flash.
 const themeScript = `try{var t=localStorage.getItem("dopamine.theme");if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){}`;
 
-// The Windows dashboard window draws no title bar of its own and says so with ?frame=custom (see lib/desktop.ts).
-const frameScript = `try{if(/[?&]frame=custom(&|$)/.test(location.search)&&window.chrome&&chrome.webview)document.documentElement.dataset.frame="custom"}catch(e){}`;
+// The desktop agents' dashboard windows draw no title bar of their own and say so with
+// ?frame=custom (Windows) or ?frame=mac (see lib/desktop.ts).
+const frameScript = `try{var f=new URLSearchParams(location.search).get("frame");if(f==="custom"&&window.chrome&&chrome.webview||f==="mac"&&window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.dopamine)document.documentElement.dataset.frame=f}catch(e){}`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
