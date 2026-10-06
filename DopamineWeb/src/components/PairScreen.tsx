@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
 import { AgentInfo, defaultAgentUrl, identify, platformOf, verifyCode } from "@/lib/source";
-import { LanguagePicker, ThemeToggle } from "./Header";
+import { PlainFrame } from "./TitleBar";
 import { Apple, Logo, Rule, Stroke, Windows } from "./ui";
 
 const RELEASES = "https://github.com/TempestShaw/Dopamine/releases/latest";
@@ -72,12 +72,8 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
   const platform = info ? platformOf(info) : null;
 
   return (
-    <div className="relative flex min-h-screen flex-col px-4">
-      <div className="absolute top-5 right-5 flex items-center gap-1">
-        <LanguagePicker />
-        <ThemeToggle />
-      </div>
-
+    <PlainFrame>
+      <div className="panel panel-card scroll-thin relative flex min-w-0 flex-1 flex-col overflow-y-auto px-4 md:ml-2">
       <main className="relative m-auto w-full max-w-[440px] py-16">
         <div className="relative mb-10">
           <Palette />
@@ -202,6 +198,7 @@ export function PairScreen({ onPaired, onDemo }: { onPaired: (url: string, code:
           </button>
         </div>
       </main>
-    </div>
+      </div>
+    </PlainFrame>
   );
 }

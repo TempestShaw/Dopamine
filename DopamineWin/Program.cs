@@ -4,6 +4,7 @@ namespace DopamineWin;
 
 public static class Program
 {
+    [STAThread] // WebView2, which draws the dashboard window, needs a single-threaded apartment
     public static int Main()
     {
         Velopack.VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
@@ -14,7 +15,7 @@ public static class Program
         {
             try
             {
-                Win32.Open(ApiServer.DashboardUrl(new SettingsService().Settings.PairingCode));
+                OpenDashboardInRunningInstance();
             }
             catch (Exception ex)
             {
@@ -22,6 +23,15 @@ public static class Program
             }
 
             return 0;
+        }
+
+        // Crisp text in the dashboard window and tray menu on scaled displays (Windows 10 1703+).
+        try
+        {
+            Win32.SetProcessDpiAwarenessContext(Win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        catch (EntryPointNotFoundException)
+        {
         }
 
         Log.Info($"Dopamine {AppInfo.Version} starting");
@@ -84,5 +94,22 @@ public static class Program
         database.Dispose();
         updates.ApplyOnExit();
         return 0;
+    }
+
+    /// <summary>Asks the tracker that's already running to show its dashboard window.</summary>
+    private static unsafe void OpenDashboardInRunningInstance()
+    {
+        IntPtr tray;
+        fixed (char* className = TrayIcon.WindowClass) tray = Win32.FindWindowW(className, null);
+        if (tray == IntPtr.Zero)
+        {
+            // The tracker is still starting up: fall back to the browser.
+            Win32.Open(ApiServer.DashboardUrl(new SettingsService().Settings.PairingCode));
+            return;
+        }
+
+        // This process was just launched by the user, so it may hand the foreground to the window.
+        Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+        Win32.PostMessageW(tray, TrayIcon.ShowDashboardMessage, IntPtr.Zero, IntPtr.Zero);
     }
 }
