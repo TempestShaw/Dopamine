@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: HTTPServer?
     private var api: API!
     private var updates: UpdateChecker!
+    private var dashboard: DashboardWindow!
 
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
@@ -54,17 +55,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Log.error("Could not start API: \(error)")
         }
 
+        dashboard = DashboardWindow(url: { [settingsStore] in Self.dashboardURL(pairingCode: settingsStore.settings.pairingCode) })
+        NSApp.mainMenu = MainMenu.make()
         setUpStatusItem()
         tracker.start()
         updates.start()
 
         AccessibilityAccess.askIfNewBuild()
+        // While working on the dashboard: open its window straight away.
+        if ProcessInfo.processInfo.environment["DOPAMINE_OPEN_DASHBOARD"] == "1" { dashboard.show() }
 
         refresh()
         let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in self?.refresh() }
         timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
         refreshTimer = timer
+    }
+
+    /// The Dock icon (shown while the dashboard window is open) brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        dashboard.show()
+        return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -172,10 +183,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openDashboard() {
         popover.performClose(nil)
-        let code = settings.settings.pairingCode
-        if let url = URL(string: "http://localhost:\(apiPort)/#pair=\(code)") {
-            NSWorkspace.shared.open(url)
-        }
+        dashboard.show()
+    }
+
+    /// The dashboard served by this agent. `DOPAMINE_DASHBOARD_URL` points the window elsewhere,
+    /// such as `bun dev` at http://localhost:3000, while working on the dashboard.
+    private static func dashboardURL(pairingCode: String) -> URL {
+        let override = ProcessInfo.processInfo.environment["DOPAMINE_DASHBOARD_URL"].flatMap(URL.init(string:))
+        let base = override ?? URL(string: "http://localhost:\(apiPort)/")!
+        return DashboardWindow.url(base: base, pairingCode: pairingCode) ?? base
     }
 
     private func openUpdate() {

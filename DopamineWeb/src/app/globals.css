@@ -142,6 +142,16 @@ a {
   background: var(--paper) var(--grain);
 }
 
+/* The Mac dashboard window is frosted glass (DopamineMac/DashboardWindow.swift): the window blurs
+   what's behind it, and the title bar and sidebar let that through, tinted with --chrome. The
+   content panel stays paper. */
+html[data-frame="mac"] {
+  background: transparent;
+}
+html[data-frame="mac"] body {
+  background: color-mix(in srgb, var(--chrome) 55%, transparent);
+}
+
 /* On wider screens the panel is a card inset in the window chrome, rounded on every corner;
    on a phone it runs edge to edge under the title bar. */
 .panel-card {
