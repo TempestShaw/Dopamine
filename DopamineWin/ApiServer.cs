@@ -40,12 +40,17 @@ public sealed class ApiServer
 
     private HttpResponse Handle(HttpRequest req)
     {
+        var origin = req.Header("origin");
+        if (!LocalOnly.AllowsHost(req.Header("host")) || !LocalOnly.AllowsOrigin(origin)) return HttpResponse.Empty(403);
         var res = Route(req);
-        res.Headers["Access-Control-Allow-Origin"] = "*";
-        res.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
-        res.Headers["Access-Control-Allow-Methods"] = "GET, PUT, POST, OPTIONS";
-        if (req.Header("access-control-request-private-network") != null)
-            res.Headers["Access-Control-Allow-Private-Network"] = "true";
+        // The dashboard is served from here, so only `bun dev` and the like ever call from another origin.
+        if (origin != null)
+        {
+            res.Headers["Access-Control-Allow-Origin"] = origin;
+            res.Headers["Vary"] = "Origin";
+            res.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
+            res.Headers["Access-Control-Allow-Methods"] = "GET, PUT, POST, OPTIONS";
+        }
         return res;
     }
 

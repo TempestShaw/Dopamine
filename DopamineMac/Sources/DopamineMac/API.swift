@@ -20,12 +20,15 @@ final class API {
     }
 
     func handle(_ req: HTTPRequest) -> HTTPResponse {
+        let origin = req.headers["origin"]
+        guard LocalOnly.allows(host: req.headers["host"]), LocalOnly.allows(origin: origin) else { return .empty(403) }
         var res = route(req)
-        res.headers["Access-Control-Allow-Origin"] = "*"
-        res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
-        res.headers["Access-Control-Allow-Methods"] = "GET, PUT, POST, OPTIONS"
-        if req.headers["access-control-request-private-network"] != nil {
-            res.headers["Access-Control-Allow-Private-Network"] = "true"
+        // The dashboard is served from here, so only `bun dev` and the like ever call from another origin.
+        if let origin {
+            res.headers["Access-Control-Allow-Origin"] = origin
+            res.headers["Vary"] = "Origin"
+            res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+            res.headers["Access-Control-Allow-Methods"] = "GET, PUT, POST, OPTIONS"
         }
         return res
     }

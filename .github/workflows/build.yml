@@ -80,11 +80,10 @@ jobs:
             exit 0
           fi
           curl -fL https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz -o "$RUNNER_TEMP/Sparkle.tar.xz"
-          mkdir -p "$RUNNER_TEMP/sparkle-tools" dist/feed
+          mkdir -p "$RUNNER_TEMP/sparkle-tools"
           tar -xf "$RUNNER_TEMP/Sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle-tools"
-          cp dist/Dopamine-mac.zip dist/feed/
-          printf '%s' "$SPARKLE_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle-tools/bin/generate_appcast" --ed-key-file - --download-url-prefix https://github.com/TempestShaw/Dopamine/releases/latest/download/ dist/feed
-          cp dist/feed/appcast.xml dist/
+          # Also writes a small .delta from the latest release, so most updates download only what changed.
+          ./scripts/feed.sh "$RUNNER_TEMP/sparkle-tools/bin"
       - uses: actions/upload-artifact@v7
         with:
           name: Dopamine-mac
@@ -92,6 +91,7 @@ jobs:
             DopamineMac/dist/Dopamine-mac.zip
             DopamineMac/dist/Dopamine-mac.dmg
             DopamineMac/dist/appcast.xml
+            DopamineMac/dist/*.delta
 
   windows:
     needs: web
@@ -176,6 +176,19 @@ jobs:
             "forget: no window was recorded, so only the error cases were checked"
           }
 
+          # Only pages on this computer may call the API: not other websites, and not DNS rebinding.
+          function Status($headers) { curl.exe -s -o NUL -w "%{http_code}" @($headers | ForEach-Object { "-H"; $_ }) "$base/identify" }
+          foreach ($h in @("Origin: https://evil.example", "Origin: null", "Host: evil.example:26535", "Host: 127.0.0.1.nip.io")) {
+            $code = Status @($h)
+            if ($code -ne "403") { throw "expected 403 for '$h', got $code" }
+          }
+          $code = Status @("Origin: http://localhost:3000")
+          if ($code -ne "200") { throw "expected 200 for the bun dev origin, got $code" }
+          $cors = Invoke-WebRequest "$base/identify" -Headers @{ Origin = "http://localhost:3000" }
+          if ($cors.Headers["Access-Control-Allow-Origin"] -ne "http://localhost:3000") { throw "bun dev origin not allowed: $($cors.Headers["Access-Control-Allow-Origin"])" }
+          if ((Invoke-WebRequest "$base/identify").Headers["Access-Control-Allow-Origin"]) { throw "CORS headers sent without an Origin" }
+          "local only: other websites and rebound hosts get 403"
+
           $page = Invoke-WebRequest "$base/"
           if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<html") { throw "dashboard not served" }
           $js = ([regex]::Match($page.Content, '/_next/static/[^"]+\.js')).Value
@@ -202,11 +215,31 @@ jobs:
           Get-Content "$env:LOCALAPPDATA\Dopamine\dopamine.log" -ErrorAction SilentlyContinue
       - name: Package with Velopack
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           dotnet tool install vpk --version 1.2.161 --tool-path .tools
           $version = ([xml](Get-Content DopamineWin.csproj)).Project.PropertyGroup.Version
-          .tools/vpk.exe pack --packId Dopamine --packVersion $version --packDir publish --mainExe DopamineWin.exe --packTitle Dopamine --icon assets/dopamine.ico --outputDir releases --delta None
+          # With the latest release beside it, vpk also writes a delta package, so most updates download only
+          # what changed. No release yet, or one with this same version, just means a full package only.
+          New-Item -ItemType Directory -Force releases, previous | Out-Null
+          .tools/vpk.exe download github --repoUrl https://github.com/TempestShaw/Dopamine --outputDir previous --token $env:GITHUB_TOKEN
+          if ($LASTEXITCODE -ne 0) { "No previous release to diff against" }
+          $base = Get-ChildItem previous/*-full.nupkg -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($base -and $base.Name -ne "Dopamine-$version-full.nupkg") {
+            "Diffing $version against $($base.Name)"
+            Copy-Item previous/* releases/
+          } else {
+            "No delta: previous package is '$($base.Name)'"
+          }
+          .tools/vpk.exe pack --packId Dopamine --packVersion $version --packDir publish --mainExe DopamineWin.exe --packTitle Dopamine --icon assets/dopamine.ico --outputDir releases
           if ($LASTEXITCODE -ne 0) { throw "Velopack packaging failed" }
+          # Each GitHub release carries only its own packages; Velopack reads the older ones from older releases.
+          Get-ChildItem releases/*-full.nupkg | Where-Object Name -ne "Dopamine-$version-full.nupkg" | Remove-Item
+          $feed = Get-Content releases/releases.win.json -Raw | ConvertFrom-Json
+          $feed.Assets = @($feed.Assets | Where-Object Version -eq $version)
+          $feed | ConvertTo-Json -Depth 5 | Set-Content releases/releases.win.json -Encoding utf8NoBOM
+          Get-ChildItem releases | Format-Table Name, Length
           $portable = Get-ChildItem releases/*-Portable.zip | Select-Object -First 1
           if (-not $portable) { throw "Missing Velopack portable archive" }
           Copy-Item $portable.FullName releases/Dopamine-win.zip
@@ -255,4 +288,6 @@ jobs:
             appcast.xml
             releases.win.json
             *-full.nupkg
+            *-delta.nupkg
+            *.delta
             *-Setup.exe
