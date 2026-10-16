@@ -18,6 +18,13 @@ final class OnboardingFlow {
         }
 
         func canContinue(granted: Bool) -> Bool { self != .permission || granted }
+
+        /// The step to show after reading access again: switching it on while the permission step
+        /// waits moves on by itself; switching it off goes back to the permission.
+        func after(accessWas: Bool, accessIs: Bool) -> Step {
+            if self == .permission && !accessWas && accessIs { return .finish }
+            return reachable(granted: accessIs)
+        }
     }
 
     private static let completedKey = "onboardingCompleted"

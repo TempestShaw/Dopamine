@@ -308,6 +308,15 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(OnboardingFlow.Step.permission.previous, .welcome)
     }
 
+    func testOnboardingMovesOnByItselfOnceAccessIsSwitchedOn() {
+        typealias Step = OnboardingFlow.Step
+        XCTAssertEqual(Step.permission.after(accessWas: false, accessIs: true), .finish, "switched on while waiting")
+        XCTAssertEqual(Step.permission.after(accessWas: true, accessIs: true), .permission, "already allowed: the user moves on")
+        XCTAssertEqual(Step.permission.after(accessWas: false, accessIs: false), .permission)
+        XCTAssertEqual(Step.welcome.after(accessWas: false, accessIs: true), .welcome, "only the permission step moves on")
+        XCTAssertEqual(Step.finish.after(accessWas: true, accessIs: false), .permission, "switched off: back to the permission")
+    }
+
     func testOnlyPagesOnThisComputerMayCallTheAPI() throws {
         let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
         let api = API(database: try Database(url: tmp.appendingPathComponent("t.db")), settings: settings, webRoot: nil)

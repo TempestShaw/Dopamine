@@ -15,6 +15,7 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     private let actions: OnboardingActions
     private var window: NSWindow?
     private var poll: Timer?
+    private var hasReadAccess = false
 
     init(flow: OnboardingFlow = OnboardingFlow(), actions: OnboardingActions) {
         self.flow = flow
@@ -93,13 +94,16 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
 
     /// Reads access and the login item again, and keeps the guide on a step it can be on.
     private func refresh() {
-        let wasGranted = model.granted
-        model.granted = AccessibilityAccess.isGranted
+        let granted = AccessibilityAccess.isGranted
+        // The first read has nothing to compare with: access that was already on doesn't skip a step.
+        let wasGranted = hasReadAccess ? model.granted : granted
+        hasReadAccess = true
+        model.granted = granted
         model.launchAtLogin = actions.launchAtLogin()
-        if !model.granted && isOpen { flow.permissionLost() }
-        let reachable = model.step.reachable(granted: model.granted)
-        if reachable != model.step { model.step = reachable }
-        if model.granted != wasGranted { actions.accessChanged() }
+        if !granted && isOpen { flow.permissionLost() }
+        let step = model.step.after(accessWas: wasGranted, accessIs: granted)
+        if step != model.step { model.step = step }
+        if granted != wasGranted { actions.accessChanged() }
         updatePoll()
     }
 
