@@ -9,8 +9,9 @@ foreach ($version in @("1.0.0", "2.0.0")) {
     $publish = Join-Path $work $version
     dotnet publish "$PSScriptRoot/UpdaterSmoke.csproj" -c Release -p:Version=$version -o $publish
     if ($LASTEXITCODE -ne 0) { throw "Smoke app build failed" }
-    & "$root/DopamineWin/.tools/vpk.exe" pack --packId DopamineUpdaterSmoke --packVersion $version --packDir $publish --mainExe UpdaterSmoke.exe --outputDir $feed --delta None
+    & "$root/DopamineWin/.tools/vpk.exe" pack --packId DopamineUpdaterSmoke --packVersion $version --packDir $publish --mainExe UpdaterSmoke.exe --outputDir $feed
     if ($LASTEXITCODE -ne 0) { throw "Smoke package failed" }
+    if ($version -eq "2.0.0" -and -not (Get-ChildItem "$feed/*-delta.nupkg")) { throw "No delta package for 2.0.0" }
     if ($version -eq "1.0.0") {
         Copy-Item "$feed/*-Setup.exe" "$work/old-Setup.exe"
         Copy-Item "$feed/*-Portable.zip" "$work/old-Portable.zip"
