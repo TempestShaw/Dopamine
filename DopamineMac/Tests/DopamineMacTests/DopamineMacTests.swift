@@ -275,6 +275,48 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(unready.handle(paired).status, 409)
     }
 
+    func testOnboardingOpensUntilSetUpAndResumesAtThePermission() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: UUID().uuidString))
+        let flow = OnboardingFlow(defaults: defaults)
+
+        XCTAssertEqual(flow.start(granted: true), .welcome, "first launch starts at the beginning")
+        XCTAssertEqual(flow.start(granted: false), .permission, "an unfinished setup resumes at the permission")
+        XCTAssertEqual(flow.start(granted: true), .permission)
+        XCTAssertEqual(flow.start(granted: true, force: true), .welcome, "Getting started always starts over")
+
+        XCTAssertFalse(flow.complete(granted: false), "can't finish without access")
+        XCTAssertTrue(flow.complete(granted: true))
+        XCTAssertNil(flow.start(granted: true), "set up: nothing to show")
+        XCTAssertEqual(flow.start(granted: true, force: true), .welcome)
+
+        // A new build that macOS no longer trusts brings the guide back at the permission.
+        XCTAssertEqual(flow.start(granted: false), .permission)
+        flow.permissionLost()
+        XCTAssertEqual(OnboardingFlow(defaults: defaults).start(granted: true), .permission)
+    }
+
+    func testOnboardingWaitsForAccessBeforeTheLastStep() {
+        XCTAssertEqual(OnboardingFlow.Step.welcome.reachable(granted: false), .welcome)
+        XCTAssertEqual(OnboardingFlow.Step.permission.reachable(granted: false), .permission)
+        XCTAssertEqual(OnboardingFlow.Step.finish.reachable(granted: false), .permission)
+        XCTAssertEqual(OnboardingFlow.Step.finish.reachable(granted: true), .finish)
+        XCTAssertTrue(OnboardingFlow.Step.welcome.canContinue(granted: false))
+        XCTAssertFalse(OnboardingFlow.Step.permission.canContinue(granted: false))
+        XCTAssertTrue(OnboardingFlow.Step.permission.canContinue(granted: true))
+        XCTAssertEqual(OnboardingFlow.Step.welcome.next, .permission)
+        XCTAssertEqual(OnboardingFlow.Step.finish.next, nil)
+        XCTAssertEqual(OnboardingFlow.Step.permission.previous, .welcome)
+    }
+
+    func testOnboardingMovesOnByItselfOnceAccessIsSwitchedOn() {
+        typealias Step = OnboardingFlow.Step
+        XCTAssertEqual(Step.permission.after(accessWas: false, accessIs: true), .finish, "switched on while waiting")
+        XCTAssertEqual(Step.permission.after(accessWas: true, accessIs: true), .permission, "already allowed: the user moves on")
+        XCTAssertEqual(Step.permission.after(accessWas: false, accessIs: false), .permission)
+        XCTAssertEqual(Step.welcome.after(accessWas: false, accessIs: true), .welcome, "only the permission step moves on")
+        XCTAssertEqual(Step.finish.after(accessWas: true, accessIs: false), .permission, "switched off: back to the permission")
+    }
+
     func testOnlyPagesOnThisComputerMayCallTheAPI() throws {
         let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
         let api = API(database: try Database(url: tmp.appendingPathComponent("t.db")), settings: settings, webRoot: nil)

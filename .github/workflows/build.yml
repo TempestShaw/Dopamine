@@ -234,8 +234,11 @@ jobs:
           }
           .tools/vpk.exe pack --packId Dopamine --packVersion $version --packDir publish --mainExe DopamineWin.exe --packTitle Dopamine --icon assets/dopamine.ico --outputDir releases
           if ($LASTEXITCODE -ne 0) { throw "Velopack packaging failed" }
-          # Each GitHub release carries only its own packages; Velopack reads the older ones from older releases.
-          Get-ChildItem releases/*-full.nupkg | Where-Object Name -ne "Dopamine-$version-full.nupkg" | Remove-Item
+          # Each GitHub release carries only its own full and delta packages; Velopack reads older ones from
+          # older releases. The download can bring the previous release's delta too, so drop every other version.
+          Get-ChildItem releases/*.nupkg | Where-Object { -not $_.Name.StartsWith("Dopamine-$version-") } | Remove-Item
+          $own = @(Get-ChildItem releases/*.nupkg).Name
+          if ($own.Count -gt 2 -or $own -notcontains "Dopamine-$version-full.nupkg") { throw "Expected this version's full package and at most one delta, got: $own" }
           $feed = Get-Content releases/releases.win.json -Raw | ConvertFrom-Json
           $feed.Assets = @($feed.Assets | Where-Object Version -eq $version)
           $feed | ConvertTo-Json -Depth 5 | Set-Content releases/releases.win.json -Encoding utf8NoBOM

@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var api: API!
     private var updates: UpdateChecker!
     private var dashboard: DashboardWindow!
+    private var onboarding: OnboardingWindow!
 
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
@@ -61,7 +62,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tracker.start()
         updates.start()
 
-        AccessibilityAccess.askIfNewBuild()
+        onboarding = OnboardingWindow(actions: OnboardingActions(
+            openDashboard: { [weak self] in self?.dashboard.show() },
+            launchAtLogin: { [weak self] in self?.loginItemState() },
+            setLaunchAtLogin: { [weak self] on in self?.setLaunchAtLogin(on) },
+            accessChanged: { [weak self] in self?.refresh() },
+            closed: { [weak self] in
+                // The dashboard keeps Dopamine in the Dock while it's open.
+                if self?.dashboard.isOpen == false { NSApp.setActivationPolicy(.accessory) }
+            }
+        ))
+        // The guide asks for Accessibility in the installed app. `swift run` borrows the terminal's
+        // access, so there it only asks the system once per build, unless DOPAMINE_ONBOARDING=1.
+        if Bundle.main.bundleURL.pathExtension == "app" || ProcessInfo.processInfo.environment["DOPAMINE_ONBOARDING"] == "1" {
+            onboarding.start()
+        } else {
+            AccessibilityAccess.askIfNewBuild()
+        }
         // While working on the dashboard: open its window straight away.
         if ProcessInfo.processInfo.environment["DOPAMINE_OPEN_DASHBOARD"] == "1" { dashboard.show() }
 
@@ -99,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pause: { [weak self] length in self?.tracker.pause(until: length.end(from: Date())) },
             resume: { [weak self] in self?.tracker.resume() },
             grantAccessibility: { [weak self] in self?.openAccessibilitySettings() },
+            gettingStarted: { [weak self] in self?.openGettingStarted() },
             setLaunchAtLogin: { [weak self] on in self?.setLaunchAtLogin(on) },
             openUpdate: { [weak self] in self?.openUpdate() },
             quit: { NSApp.terminate(nil) }
@@ -194,6 +212,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return DashboardWindow.url(base: base, pairingCode: pairingCode) ?? base
     }
 
+    private func openGettingStarted() {
+        popover.performClose(nil)
+        onboarding.start(force: true)
+    }
+
     private func openUpdate() {
         popover.performClose(nil)
         updates.install()
@@ -223,12 +246,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshLoginItemState() {
-        guard #available(macOS 13.0, *), Bundle.main.bundleURL.pathExtension == "app" else {
-            model.canLaunchAtLogin = false
-            return
-        }
-        model.canLaunchAtLogin = true
-        model.launchAtLogin = SMAppService.mainApp.status == .enabled
+        let state = loginItemState()
+        model.canLaunchAtLogin = state != nil
+        model.launchAtLogin = state ?? false
+    }
+
+    /// Whether Dopamine opens at login, or nil where it can't (macOS 12, or outside the .app).
+    private func loginItemState() -> Bool? {
+        guard #available(macOS 13.0, *), Bundle.main.bundleURL.pathExtension == "app" else { return nil }
+        return SMAppService.mainApp.status == .enabled
     }
 
     private func setLaunchAtLogin(_ on: Bool) {

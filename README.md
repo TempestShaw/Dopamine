@@ -44,8 +44,8 @@ Download the latest build for your computer from [Releases](https://github.com/T
 
 1. Open `Dopamine-mac.dmg` and drag `Dopamine` onto Applications.
 2. Open it. This early build is not notarised, so macOS asks first: choose **Open Anyway** in System Settings → Privacy & Security.
-3. Allow **Accessibility** access when asked, so Dopamine can read window titles. Without it, only app names are recorded.
-4. Click the hourglass in the menu bar, then **Open Dashboard**. Tick **Open at login** there to have it start with your Mac.
+3. Follow the short welcome guide. It opens the **Accessibility** settings, so Dopamine can read window titles, and moves on by itself once Dopamine is switched on there; until then only app names are recorded. If macOS asks you to reopen Dopamine, the guide picks up where you left off. Turn on **Open at login** on its last page to have it start with your Mac.
+4. Click the dabs in the menu bar for today at a glance, or **Open Dashboard**. The **?** there opens the guide again.
 
 **Windows 10 or later**
 
