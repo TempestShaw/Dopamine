@@ -176,6 +176,19 @@ jobs:
             "forget: no window was recorded, so only the error cases were checked"
           }
 
+          # Only pages on this computer may call the API: not other websites, and not DNS rebinding.
+          function Status($headers) { curl.exe -s -o NUL -w "%{http_code}" @($headers | ForEach-Object { "-H"; $_ }) "$base/identify" }
+          foreach ($h in @("Origin: https://evil.example", "Origin: null", "Host: evil.example:26535", "Host: 127.0.0.1.nip.io")) {
+            $code = Status @($h)
+            if ($code -ne "403") { throw "expected 403 for '$h', got $code" }
+          }
+          $code = Status @("Origin: http://localhost:3000")
+          if ($code -ne "200") { throw "expected 200 for the bun dev origin, got $code" }
+          $cors = Invoke-WebRequest "$base/identify" -Headers @{ Origin = "http://localhost:3000" }
+          if ($cors.Headers["Access-Control-Allow-Origin"] -ne "http://localhost:3000") { throw "bun dev origin not allowed: $($cors.Headers["Access-Control-Allow-Origin"])" }
+          if ((Invoke-WebRequest "$base/identify").Headers["Access-Control-Allow-Origin"]) { throw "CORS headers sent without an Origin" }
+          "local only: other websites and rebound hosts get 403"
+
           $page = Invoke-WebRequest "$base/"
           if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<html") { throw "dashboard not served" }
           $js = ([regex]::Match($page.Content, '/_next/static/[^"]+\.js')).Value
