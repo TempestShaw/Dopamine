@@ -44,6 +44,7 @@ struct MenuActions {
     var pause: (PauseLength) -> Void
     var resume: () -> Void
     var grantAccessibility: () -> Void
+    var gettingStarted: () -> Void
     var setLaunchAtLogin: (Bool) -> Void
     var openUpdate: () -> Void
     var quit: () -> Void
@@ -277,6 +278,13 @@ struct MenuView: View {
                         .font(.caption)
                 }
                 Spacer()
+                Button(action: actions.gettingStarted) {
+                    Image(systemName: "questionmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help(L("Getting started", "入门指南", "入門指南"))
+                .accessibilityLabel(L("Getting started", "入门指南", "入門指南"))
                 Text("v\(appVersion)").font(.caption2).foregroundColor(.secondary)
                 Button(L("Quit", "退出", "結束"), action: actions.quit)
                     .buttonStyle(.link)
