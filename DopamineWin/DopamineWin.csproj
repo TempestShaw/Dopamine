@@ -12,7 +12,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.0.6</Version>
+    <Version>0.0.7</Version>
     <ApplicationIcon>assets\dopamine.ico</ApplicationIcon>
 
     <PublishAot>true</PublishAot>
