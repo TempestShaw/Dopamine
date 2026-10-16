@@ -197,7 +197,6 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(ok.status, 200)
         XCTAssertEqual(String(data: ok.body, encoding: .utf8), #"{"forgotten":1}"#)
         XCTAssertEqual(db.activities(from: 0, to: 1000).first?.windowTitle, Marker.forgotten)
-        XCTAssertEqual(ok.headers["Access-Control-Allow-Methods"], "GET, PUT, POST, OPTIONS")
     }
 
     func testPauseLengths() {
@@ -274,6 +273,45 @@ final class DopamineMacTests: XCTestCase {
         XCTAssertEqual(installs, 1)
         let unready = API(database: db, settings: settings, webRoot: nil)
         XCTAssertEqual(unready.handle(paired).status, 409)
+    }
+
+    func testOnlyPagesOnThisComputerMayCallTheAPI() throws {
+        let settings = SettingsStore(url: tmp.appendingPathComponent("config.json"))
+        let api = API(database: try Database(url: tmp.appendingPathComponent("t.db")), settings: settings, webRoot: nil)
+        let auth = "Bearer \(settings.settings.pairingCode)"
+
+        func call(_ method: String = "GET", _ path: String = "/identify", host: String? = "localhost:26535", origin: String? = nil) -> HTTPResponse {
+            var headers = ["authorization": auth]
+            if let host { headers["host"] = host }
+            if let origin { headers["origin"] = origin }
+            return api.handle(HTTPRequest(method: method, path: path, query: [:], headers: headers, body: Data()))
+        }
+
+        // The dashboard window, `bun dev`, and tools like curl.
+        for origin in [nil, "http://localhost:26535", "http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"] {
+            let res = call(origin: origin)
+            XCTAssertEqual(res.status, 200, "origin \(origin ?? "none")")
+            XCTAssertEqual(res.headers["Access-Control-Allow-Origin"], origin)
+        }
+        for host in ["127.0.0.1:26535", "[::1]:26535", "localhost", nil] {
+            XCTAssertEqual(call(host: host).status, 200, "host \(host ?? "none")")
+        }
+        let preflight = call("OPTIONS", "/forget", origin: "http://localhost:3000")
+        XCTAssertEqual(preflight.headers["Access-Control-Allow-Headers"], "Authorization, Content-Type")
+        XCTAssertEqual(preflight.headers["Access-Control-Allow-Methods"], "GET, PUT, POST, OPTIONS")
+
+        // Any website open in a browser, and DNS rebinding (a website's name pointed at 127.0.0.1).
+        for origin in ["https://evil.example", "http://localhost.evil.example", "null", "http://127.0.0.1.evil.example:3000"] {
+            let res = call("OPTIONS", "/titles", origin: origin)
+            XCTAssertEqual(res.status, 403, "origin \(origin)")
+            XCTAssertNil(res.headers["Access-Control-Allow-Origin"])
+            XCTAssertEqual(call(origin: origin).status, 403, "origin \(origin)")
+        }
+        for host in ["evil.example:26535", "localhost.evil.example", "127.0.0.1.nip.io:26535", ""] {
+            XCTAssertEqual(call(host: host).status, 403, "host \(host)")
+            XCTAssertEqual(call(host: host).body.count, 0)
+        }
+        XCTAssertNil(call(origin: "http://localhost:3000").headers["Access-Control-Allow-Private-Network"])
     }
 
     func testIdentifyMentionsANewRelease() throws {
