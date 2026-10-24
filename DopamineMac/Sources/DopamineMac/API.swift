@@ -1,7 +1,7 @@
 import Foundation
 
 let apiPort: UInt16 = 26535
-let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.7"
+let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.8"
 
 /// Routes compatible with DopamineWin's ApiServer, plus static hosting of the web dashboard.
 final class API {

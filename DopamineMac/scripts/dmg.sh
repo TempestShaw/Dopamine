@@ -12,7 +12,13 @@ DMG="$ROOT/dist/Dopamine-mac.dmg"
 command -v dmgbuild >/dev/null || { echo "dmgbuild not found — pip install dmgbuild" >&2; exit 1; }
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+MOUNT="$WORK/mounted"
+mounted=false
+cleanup() {
+  if "$mounted"; then hdiutil detach "$MOUNT" >/dev/null || return; fi
+  rm -rf "$WORK"
+}
+trap cleanup EXIT
 
 # The background is soft gradients over paper grain, which PNG can't compress: as a JPEG it's a
 # tenth of the size and looks the same. One 2x image marked 144 dpi stays sharp on Retina screens.
@@ -32,4 +38,10 @@ dmgbuild -s scripts/dmg-settings.py \
   -D icon="$WORK/volume.icns" \
   Dopamine "$DMG"
 hdiutil verify "$DMG" >/dev/null
+# Verify the delivered bundle, since Finder customizations can alter it after signing.
+hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT" "$DMG" >/dev/null
+mounted=true
+codesign --verify --deep --strict "$MOUNT/$(basename "$APP")"
+hdiutil detach "$MOUNT" >/dev/null
+mounted=false
 echo "✓ $DMG"
