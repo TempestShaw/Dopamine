@@ -1,0 +1,50 @@
+name: First-use feedback
+description: Tell us whether you reached your first recording.
+title: "[First use] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Do not include window titles, pairing codes, databases, activity screenshots or other private content.
+        The macOS build is not notarised. This form does not grant access to your device or activity.
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and Dopamine version
+      placeholder: e.g. macOS 15, Dopamine 0.0.8
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation
+      options:
+        - First installation on this computer
+        - Upgrade from an earlier version
+        - Not installed yet
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: How far did you get?
+      options:
+        - Could not download or open the app
+        - Stuck on permissions or pairing
+        - Dashboard opened, but no expected record
+        - Found my first record
+        - Found records, but pause or forget did not work as expected
+    validations:
+      required: true
+  - type: textarea
+    id: observation
+    attributes:
+      label: What happened?
+      description: Describe the step, expected result and actual result without private content. If someone helped, say which step needed help.
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: Approximate time to your first record (optional)
+      placeholder: e.g. 5 minutes, or not reached
