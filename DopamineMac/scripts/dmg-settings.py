@@ -28,4 +28,5 @@ icon_locations = {
     app_name: (170, 210),
     "Applications": (490, 210),
 }
-hide_extensions = [app_name]
+# Hiding the extension adds FinderInfo after signing and invalidates the app signature.
+hide_extensions = []
