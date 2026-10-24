@@ -73,6 +73,7 @@
                 <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 2v10M4.5 8 9 12.5 13.5 8M3 15.5h12" /></svg>
                 <span data-i18n="dlWin">Download for Windows</span>
               </a>
+              <a class="nav-link" href="#first-session" data-i18n="firstLink">Check your first recording</a>
               <span class="meta" data-i18n="meta">macOS 12+ · Windows 10+ · free and open source</span>
             </div>
           </div>
@@ -136,7 +137,7 @@
             <li class="reveal"><h3><i class="dab paint" style="background: var(--cat-work)"></i><span data-i18n="r1">Zero effort</span></h3><p data-i18n="r1d">Nothing to start, stop or label. Time stops counting when you lock the screen, sleep, or leave the keyboard alone for five minutes.</p></li>
             <li class="reveal"><h3><i class="dab paint" style="background: var(--cat-study)"></i><span data-i18n="r2">Glances don't count</span></h3><p data-i18n="r2d">Windows in front for under five seconds are left out, a crashed session can't inflate a day, and today is compared with yesterday only up to the same time.</p></li>
             <li class="reveal"><h3><i class="dab paint" style="background: var(--cat-social)"></i><span data-i18n="r3">Categories that fit you</span></h3><p data-i18n="r3d">Work, study, social, entertainment and other are detected for you. Click a window to change it, for that one title or for every title containing some words, like a course code or a channel name.</p></li>
-            <li class="reveal"><h3><i class="dab paint" style="background: var(--cat-entertainment)"></i><span data-i18n="r4">Forget, or pause</span></h3><p data-i18n="r4d">Erase a window or a session and its title is overwritten on disk. Pause for 15 minutes, an hour, until tomorrow, or until you resume, to keep something from being recorded at all.</p></li>
+            <li class="reveal"><h3><i class="dab paint" style="background: var(--cat-entertainment)"></i><span data-i18n="r4">Forget, or pause</span></h3><p data-i18n="r4d">Forget a window or a session to remove its title from Dopamine and exclude its time. Pause for 15 minutes, an hour, until tomorrow, or until you resume, to keep something from being recorded at all.</p></li>
             <li class="reveal"><h3><i class="dab paint" style="background: var(--cat-other)"></i><span data-i18n="r5">Hide any app</span></h3><p data-i18n="r5d">Leave an app out of the numbers entirely. Dopamine's own windows are hidden from the start.</p></li>
             <li class="reveal"><h3><i class="dab paint" style="background: var(--highlight)"></i><span data-i18n="r6">Light on your machine</span></h3><p data-i18n="r6d">A native menu bar or tray agent, one SQLite file, and a dashboard with no charting libraries that holds 60 fps. In English, 简体中文 and 繁體中文.</p></li>
           </ul>
@@ -195,7 +196,35 @@
               <a class="btn primary" href="https://github.com/TempestShaw/Dopamine/releases/latest/download/Dopamine-win.zip"><span data-i18n="dlWin">Download for Windows</span></a>
             </div>
           </div>
-          <p class="aside reveal" data-i18n="early">This is an early release. If anything looks odd, <a href="https://github.com/TempestShaw/Dopamine/issues/new">open an issue</a> with your operating system and what you saw.</p>
+          <p class="aside reveal" data-i18n="early">This is an early release. If anything looks odd, <a href="https://github.com/TempestShaw/Dopamine/issues/new">open an issue</a> with your operating system and what you saw. You can also <a href="#first-session">check your first recording</a>.</p>
+        </section>
+
+        <section class="wrap section" id="first-session" aria-labelledby="first-title">
+          <div class="section-head reveal">
+            <h2 id="first-title" data-i18n="firstTitle">See your first two windows</h2>
+            <p data-i18n="firstLede">This is an early release; the macOS build is not notarised. Read the <a href="#download">installation notes</a> first. Then try two public pages you do not mind recording, with private messages and documents closed.</p>
+          </div>
+          <div class="platforms">
+            <div class="platform sketch reveal">
+              <h3 data-i18n="firstSteps">Make a small, real timeline</h3>
+              <ol>
+                <li data-i18n="first1">Open Dopamine and finish the setup. On macOS, window titles need Accessibility permission; without it, expect app names only.</li>
+                <li data-i18n="first2">Keep the first public page in front for at least 15 seconds, then the second for at least 15 seconds. Switch to another window to finish the second interval.</li>
+                <li data-i18n="first3">Choose <strong>Open Dashboard</strong> from the menu bar or tray. Select today, then <strong>Apps &amp; windows</strong> and expand your browser. Look for both titles and their durations. Short intervals may be hidden in the Sessions list.</li>
+                <li data-i18n="first4">No titles? Check Accessibility on macOS, whether tracking is paused, the selected date, and whether the browser is hidden. Staying in front for under five seconds is ignored.</li>
+              </ol>
+            </div>
+            <div class="platform sketch reveal">
+              <h3 data-i18n="firstControls">Choose what stays</h3>
+              <ol>
+                <li data-i18n="firstPause"><strong>Pause</strong> in the menu bar or tray stops new tracking. Try another public page while paused, then choose <strong>Resume</strong>. The dashboard's focus timer is a separate control.</li>
+                <li data-i18n="firstHide"><strong>Hide this app</strong> excludes an app from statistics. It does not delete its history or stop recording it; you can show it again.</li>
+                <li data-i18n="firstForget"><strong>Forget</strong> removes the selected title from Dopamine and stops its time counting. To try it, select only your test title in today's Apps &amp; windows list and confirm. This cannot be undone and does not erase copies in exports or backups.</li>
+              </ol>
+              <a class="btn" href="https://github.com/TempestShaw/Dopamine/issues/new?template=first-use.yml" data-i18n="firstFeedback">Tell us where you got stuck</a>
+              <p class="aside" data-i18n="firstPublic">Feedback opens a public GitHub issue and requires a GitHub account. Share your OS, app version and the failed step, not window titles, pairing codes, databases or activity screenshots.</p>
+            </div>
+          </div>
         </section>
       </main>
 
