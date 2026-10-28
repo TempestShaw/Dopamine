@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@v5
       # The recorder only produces files in site/media; it isn't part of the page.
       - run: rm -rf site/tools
+      - run: node --test tests/site-analytics.test.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
